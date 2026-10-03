@@ -5,7 +5,7 @@ the 30M, 1H and 4H charts. One shared rules core runs as three instances (one pe
 timeframe); the timeframe that performs best on untouched test data is the one
 taken forward.
 
-**Status: Phase 3 (Python answer key). No MT5 trading code exists yet.**
+**Status: Phase 4 (MQL5 rules core). No order-placing code exists yet.**
 Nothing in this repo is proven. Every rule and every result must pass the checks
 in `docs/SPEC.md` (Verification plan) before it is trusted.
 

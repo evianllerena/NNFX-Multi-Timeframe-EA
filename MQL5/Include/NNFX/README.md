@@ -1,6 +1,9 @@
 # Modules
 
-One file per module, as set out in `docs/SPEC.md` (Architecture). Nothing here yet.
+One file per module, as set out in `docs/SPEC.md` (Architecture).
+
+Built so far (Phase 4, **not yet compiled**): `Settings.mqh` (rule settings and defaults) and
+`RulesCore.mqh` (the rules core, a function-for-function port of `tests/python/nnfx_ref/core.py`).
 
 | Module | Owns | Never does | Phase |
 | --- | --- | --- | --- |

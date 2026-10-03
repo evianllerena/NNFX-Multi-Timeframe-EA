@@ -237,10 +237,49 @@ fx("E6_off", "E6", "Continuation off: the E6a case does not re-enter.",
    CONT_PRE, settings={"continuation": "off"})
 
 
+MQL5_DIR = os.path.join(HERE, "mql5")
+
+
+def _num(x):
+    return repr(float(x))
+
+
+def _val(v):
+    if v is None:
+        return "none"
+    if isinstance(v, bool):
+        return "1" if v else "0"
+    if isinstance(v, (int, float)):
+        return _num(v)
+    return str(v)
+
+
+def to_mql5_text(item):
+    """Line format for the MQL5 test script (MQL5 has no built-in JSON reader).
+    Same data as the JSON file; tests/python/test_fixture_formats.py proves it."""
+    lines = ["NAME|" + item["name"], "RULE|" + item["rule"]]
+    for k in sorted(item["settings"]):
+        lines.append("SET|%s|%s" % (k, _val(item["settings"][k])))
+    lines.append("CHECK|" + ",".join(item["check"]))
+    for bar in item["bars"]:
+        lines.append("BAR|" + "|".join([
+            str(bar["t"]), _num(bar["o"]), _num(bar["h"]), _num(bar["l"]), _num(bar["c"]),
+            _num(bar["atr"]), _num(bar["base"]), str(bar["c1"]), str(bar["c2"]), str(bar["ex"]),
+            "1" if bar["vol"] else "0", ";".join(bar["block"]), "1" if bar["news"] else "0"]))
+    for i, ev, rule, d in item["expect"]:
+        lines.append("EXP|%d|%s|%s|%d" % (i, ev, rule, d))
+    for r in item.get("expect_r", []):
+        lines.append("EXPR|" + _num(r))
+    lines.append("END")
+    return "\n".join(lines) + "\n"
+
+
 def main():
-    for old in os.listdir(HERE):
-        if old.endswith(".json"):
-            os.remove(os.path.join(HERE, old))
+    os.makedirs(MQL5_DIR, exist_ok=True)
+    for folder, ext in ((HERE, ".json"), (MQL5_DIR, ".txt")):
+        for old in os.listdir(folder):
+            if old.endswith(ext):
+                os.remove(os.path.join(folder, old))
     names = set()
     for item in FIXTURES:
         if item["name"] in names:
@@ -249,7 +288,9 @@ def main():
         with open(os.path.join(HERE, item["name"] + ".json"), "w", encoding="utf-8", newline="\n") as f:
             json.dump(item, f, indent=1)
             f.write("\n")
-    print("wrote %d fixtures" % len(FIXTURES))
+        with open(os.path.join(MQL5_DIR, item["name"] + ".txt"), "w", encoding="ascii", newline="\n") as f:
+            f.write(to_mql5_text(item))
+    print("wrote %d fixtures (JSON + MQL5 text)" % len(FIXTURES))
 
 
 if __name__ == "__main__":
