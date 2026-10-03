@@ -1,0 +1,17 @@
+# Compiled MQL5 (built on the owner's PC from source)
+*.ex5
+*.ex4
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Raw tester output (large); summaries and the run register stay in results/
+results/raw/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
