@@ -53,3 +53,26 @@ Labels: **A** = VP's own words · **B** = secondary source · **C** = no source 
 | S-9 | Demo for at least 3 months before real money | C | Approved |
 | S-10 | On a netting account, each pair is traded by one timeframe only | C | Approved |
 | S-11 | Every backtest passes validity checks V1–V14 before it counts | C (owner requirement) | Approved 2026-10-03 |
+
+## Phase 3 interpretations (pending owner approval, 2026-10-03)
+
+Exact logic the Python answer key uses where the rulebook leaves room. Full wording in
+`tests/python/README.md`. Each is a C-level interpretation until the owner approves it.
+
+| ID | Interpretation (short) | Rule | Status |
+| --- | --- | --- | --- |
+| I-1 | Decide at close, act at next open; first candle is warm-up | E0 | Pending |
+| I-2 | "Fresh" = direction differs from previous candle; cross = close on one side after a close on the other side or on the line | E1, E2 | Pending |
+| I-3 | Cross and C1 signal on one candle = E2 with C1 age 0 | E1, E2 | Pending |
+| I-4 | Bridge-too-far counts C1 candles before the cross candle; E2 only | E5 | Pending |
+| I-5 | Pullback: next candle must be within 1 ATR with everything agreeing | E3 | Pending |
+| I-6 | One-candle: exactly one lagging item and within 1 ATR; next candle all agree and within 1 ATR | E4 | Pending |
+| I-7 | An expired wait doesn't stop a new signal on the same candle | E3, E4 | Pending |
+| I-8 | Exit indicator exits while it reads against the trade, not only on its flip | X2 | Pending |
+| I-9 | Several exits on one close: one exit at next open; reason order X5, X2, X3, X4 | X2-X5 | Pending |
+| I-10 | News exit at first close in the 24 h window; 1 x current ATR threshold | X5 | Pending |
+| I-11 | Trail only after TP1; switch-on uses entry ATR, distance uses current ATR | T4 | Pending |
+| I-12 | Continuation armed by E1-E4 only; disarmed by a close beyond the baseline; (a) also by C1 reading against; can repeat | E6 | Pending |
+| I-13 | (a) fresh C2 in trend direction; (b) fresh exit-indicator signal with C1 and C2 agreeing | E6 | Pending |
+| I-14 | Standard signal beats continuation on the same candle | E6 | Pending |
+| I-15 | Answer-key fill assumptions: stop before target in one candle; breakeven checked from next candle; gapped stop fills at open | M3, T1, T2 | Pending |

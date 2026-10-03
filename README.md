@@ -5,7 +5,7 @@ the 30M, 1H and 4H charts. One shared rules core runs as three instances (one pe
 timeframe); the timeframe that performs best on untouched test data is the one
 taken forward.
 
-**Status: Phase 2 (repo setup). No trading code exists yet.**
+**Status: Phase 3 (Python answer key). No MT5 trading code exists yet.**
 Nothing in this repo is proven. Every rule and every result must pass the checks
 in `docs/SPEC.md` (Verification plan) before it is trusted.
 
@@ -30,8 +30,8 @@ in `docs/SPEC.md` (Verification plan) before it is trusted.
 | --- | --- | --- |
 | 0 Rulebook | `docs/RULEBOOK.md` | Approved 2026-10-01 |
 | 1 Intraday spec | `docs/SPEC.md` | Approved 2026-10-03 |
-| 2 Repo setup | This structure | Your review of the pull request |
-| 3 Python answer key | `tests/python` + rule cases | 100% of rule cases pass |
+| 2 Repo setup | This structure | Merged 2026-10-03 (PR #1) |
+| 3 Python answer key | `tests/python` + rule cases | 100% of rule cases pass; interpretations I-1 to I-15 approved |
 | 4 MQL5 rules core | `MQL5/Include/NNFX` | Same rule cases pass in MT5 |
 | 5 Indicator slots + profiles | `profiles/`, slot modules | Values match MT5's Data Window |
 | 6 Orders, risk, recovery | Execution modules | Trade checks and restart tests pass |

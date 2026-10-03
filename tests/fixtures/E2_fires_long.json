@@ -1,0 +1,74 @@
+{
+ "name": "E2_fires_long",
+ "rule": "E2",
+ "description": "Close crosses above the baseline; C1 already long for 1 candle; C2 long.",
+ "settings": {},
+ "check": [
+  "ENTER",
+  "EXIT",
+  "SKIP",
+  "PENDING",
+  "OPEN"
+ ],
+ "bars": [
+  {
+   "o": 99.7,
+   "h": 99.75,
+   "l": 99.65,
+   "c": 99.7,
+   "atr": 1.0,
+   "base": 100.0,
+   "c1": 1,
+   "c2": 1,
+   "ex": 0,
+   "vol": true,
+   "block": [],
+   "news": false,
+   "t": 0
+  },
+  {
+   "o": 100.3,
+   "h": 100.35,
+   "l": 100.25,
+   "c": 100.3,
+   "atr": 1.0,
+   "base": 100.0,
+   "c1": 1,
+   "c2": 1,
+   "ex": 0,
+   "vol": true,
+   "block": [],
+   "news": false,
+   "t": 1
+  },
+  {
+   "o": 100.4,
+   "h": 100.45,
+   "l": 100.35000000000001,
+   "c": 100.4,
+   "atr": 1.0,
+   "base": 100.0,
+   "c1": 1,
+   "c2": 1,
+   "ex": 0,
+   "vol": true,
+   "block": [],
+   "news": false,
+   "t": 2
+  }
+ ],
+ "expect": [
+  [
+   1,
+   "ENTER",
+   "E2",
+   1
+  ],
+  [
+   2,
+   "OPEN",
+   "E2",
+   1
+  ]
+ ]
+}

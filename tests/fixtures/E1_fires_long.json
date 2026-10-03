@@ -1,0 +1,74 @@
+{
+ "name": "E1_fires_long",
+ "rule": "E1",
+ "description": "C1 turns long, price above baseline within 1 ATR, C2 long, volume passes.",
+ "settings": {},
+ "check": [
+  "ENTER",
+  "EXIT",
+  "SKIP",
+  "PENDING",
+  "OPEN"
+ ],
+ "bars": [
+  {
+   "o": 100.3,
+   "h": 100.35,
+   "l": 100.25,
+   "c": 100.3,
+   "atr": 1.0,
+   "base": 100.0,
+   "c1": -1,
+   "c2": 1,
+   "ex": 0,
+   "vol": true,
+   "block": [],
+   "news": false,
+   "t": 0
+  },
+  {
+   "o": 100.4,
+   "h": 100.45,
+   "l": 100.35000000000001,
+   "c": 100.4,
+   "atr": 1.0,
+   "base": 100.0,
+   "c1": 1,
+   "c2": 1,
+   "ex": 0,
+   "vol": true,
+   "block": [],
+   "news": false,
+   "t": 1
+  },
+  {
+   "o": 100.5,
+   "h": 100.55,
+   "l": 100.45,
+   "c": 100.5,
+   "atr": 1.0,
+   "base": 100.0,
+   "c1": 1,
+   "c2": 1,
+   "ex": 0,
+   "vol": true,
+   "block": [],
+   "news": false,
+   "t": 2
+  }
+ ],
+ "expect": [
+  [
+   1,
+   "ENTER",
+   "E1",
+   1
+  ],
+  [
+   2,
+   "OPEN",
+   "E1",
+   1
+  ]
+ ]
+}

@@ -1,0 +1,54 @@
+{
+ "name": "E3_off",
+ "rule": "E3",
+ "description": "Pullback rule off: a cross beyond 1 ATR is skipped.",
+ "settings": {
+  "pullback_on": false
+ },
+ "check": [
+  "ENTER",
+  "EXIT",
+  "SKIP",
+  "PENDING"
+ ],
+ "bars": [
+  {
+   "o": 99.7,
+   "h": 99.75,
+   "l": 99.65,
+   "c": 99.7,
+   "atr": 1.0,
+   "base": 100.0,
+   "c1": 1,
+   "c2": 1,
+   "ex": 0,
+   "vol": true,
+   "block": [],
+   "news": false,
+   "t": 0
+  },
+  {
+   "o": 101.4,
+   "h": 101.45,
+   "l": 101.35000000000001,
+   "c": 101.4,
+   "atr": 1.0,
+   "base": 100.0,
+   "c1": 1,
+   "c2": 1,
+   "ex": 0,
+   "vol": true,
+   "block": [],
+   "news": false,
+   "t": 1
+  }
+ ],
+ "expect": [
+  [
+   1,
+   "SKIP",
+   "E2",
+   1
+  ]
+ ]
+}

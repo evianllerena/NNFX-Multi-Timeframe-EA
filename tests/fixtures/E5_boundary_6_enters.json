@@ -1,0 +1,127 @@
+{
+ "name": "E5_boundary_6_enters",
+ "rule": "E5",
+ "description": "C1 long on only 6 candles before the cross: entered.",
+ "settings": {},
+ "check": [
+  "ENTER",
+  "EXIT",
+  "SKIP",
+  "PENDING"
+ ],
+ "bars": [
+  {
+   "o": 99.7,
+   "h": 99.75,
+   "l": 99.65,
+   "c": 99.7,
+   "atr": 1.0,
+   "base": 100.0,
+   "c1": 1,
+   "c2": 1,
+   "ex": 0,
+   "vol": true,
+   "block": [],
+   "news": false,
+   "t": 0
+  },
+  {
+   "o": 99.7,
+   "h": 99.75,
+   "l": 99.65,
+   "c": 99.7,
+   "atr": 1.0,
+   "base": 100.0,
+   "c1": 1,
+   "c2": 1,
+   "ex": 0,
+   "vol": true,
+   "block": [],
+   "news": false,
+   "t": 1
+  },
+  {
+   "o": 99.7,
+   "h": 99.75,
+   "l": 99.65,
+   "c": 99.7,
+   "atr": 1.0,
+   "base": 100.0,
+   "c1": 1,
+   "c2": 1,
+   "ex": 0,
+   "vol": true,
+   "block": [],
+   "news": false,
+   "t": 2
+  },
+  {
+   "o": 99.7,
+   "h": 99.75,
+   "l": 99.65,
+   "c": 99.7,
+   "atr": 1.0,
+   "base": 100.0,
+   "c1": 1,
+   "c2": 1,
+   "ex": 0,
+   "vol": true,
+   "block": [],
+   "news": false,
+   "t": 3
+  },
+  {
+   "o": 99.7,
+   "h": 99.75,
+   "l": 99.65,
+   "c": 99.7,
+   "atr": 1.0,
+   "base": 100.0,
+   "c1": 1,
+   "c2": 1,
+   "ex": 0,
+   "vol": true,
+   "block": [],
+   "news": false,
+   "t": 4
+  },
+  {
+   "o": 99.7,
+   "h": 99.75,
+   "l": 99.65,
+   "c": 99.7,
+   "atr": 1.0,
+   "base": 100.0,
+   "c1": 1,
+   "c2": 1,
+   "ex": 0,
+   "vol": true,
+   "block": [],
+   "news": false,
+   "t": 5
+  },
+  {
+   "o": 100.3,
+   "h": 100.35,
+   "l": 100.25,
+   "c": 100.3,
+   "atr": 1.0,
+   "base": 100.0,
+   "c1": 1,
+   "c2": 1,
+   "ex": 0,
+   "vol": true,
+   "block": [],
+   "news": false,
+   "t": 6
+  }
+ ],
+ "expect": [
+  [
+   6,
+   "ENTER",
+   "E2",
+   1
+  ]
+ ]
+}

@@ -1,0 +1,90 @@
+{
+ "name": "X4_needs_a_close_below",
+ "rule": "X4",
+ "description": "Price dips below the baseline inside the candle but closes above it: no exit.",
+ "settings": {},
+ "check": [
+  "ENTER",
+  "EXIT",
+  "SKIP",
+  "PENDING",
+  "OPEN",
+  "CLOSE"
+ ],
+ "bars": [
+  {
+   "o": 100.3,
+   "h": 100.35,
+   "l": 100.25,
+   "c": 100.3,
+   "atr": 1.0,
+   "base": 100.0,
+   "c1": -1,
+   "c2": 1,
+   "ex": 0,
+   "vol": true,
+   "block": [],
+   "news": false,
+   "t": 0
+  },
+  {
+   "o": 100.4,
+   "h": 100.45,
+   "l": 100.35000000000001,
+   "c": 100.4,
+   "atr": 1.0,
+   "base": 100.0,
+   "c1": 1,
+   "c2": 1,
+   "ex": 0,
+   "vol": true,
+   "block": [],
+   "news": false,
+   "t": 1
+  },
+  {
+   "o": 100.5,
+   "h": 100.55,
+   "l": 100.45,
+   "c": 100.5,
+   "atr": 1.0,
+   "base": 100.0,
+   "c1": 1,
+   "c2": 1,
+   "ex": 0,
+   "vol": true,
+   "block": [],
+   "news": false,
+   "t": 2
+  },
+  {
+   "o": 100.5,
+   "h": 100.6,
+   "l": 99.6,
+   "c": 100.2,
+   "atr": 1.0,
+   "base": 100.0,
+   "c1": 1,
+   "c2": 1,
+   "ex": 0,
+   "vol": true,
+   "block": [],
+   "news": false,
+   "t": 3
+  }
+ ],
+ "expect": [
+  [
+   1,
+   "ENTER",
+   "E1",
+   1
+  ],
+  [
+   2,
+   "OPEN",
+   "E1",
+   1
+  ]
+ ]
+}

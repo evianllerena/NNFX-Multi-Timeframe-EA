@@ -1,0 +1,124 @@
+{
+ "name": "E6a_blocked_after_c1_flip",
+ "rule": "E6",
+ "description": "Exit was a C1 flip (X3), so version (a) can't fire later. C1's return is itself an E1 signal but C2 and volume fail.",
+ "settings": {},
+ "check": [
+  "ENTER",
+  "EXIT",
+  "SKIP",
+  "PENDING"
+ ],
+ "bars": [
+  {
+   "o": 100.3,
+   "h": 100.35,
+   "l": 100.25,
+   "c": 100.3,
+   "atr": 1.0,
+   "base": 100.0,
+   "c1": -1,
+   "c2": 1,
+   "ex": 0,
+   "vol": true,
+   "block": [],
+   "news": false,
+   "t": 0
+  },
+  {
+   "o": 100.4,
+   "h": 100.45,
+   "l": 100.35000000000001,
+   "c": 100.4,
+   "atr": 1.0,
+   "base": 100.0,
+   "c1": 1,
+   "c2": 1,
+   "ex": 0,
+   "vol": true,
+   "block": [],
+   "news": false,
+   "t": 1
+  },
+  {
+   "o": 100.5,
+   "h": 100.55,
+   "l": 100.45,
+   "c": 100.5,
+   "atr": 1.0,
+   "base": 100.0,
+   "c1": 1,
+   "c2": 1,
+   "ex": 0,
+   "vol": true,
+   "block": [],
+   "news": false,
+   "t": 2
+  },
+  {
+   "o": 100.5,
+   "h": 100.55,
+   "l": 100.45,
+   "c": 100.5,
+   "atr": 1.0,
+   "base": 100.0,
+   "c1": -1,
+   "c2": 1,
+   "ex": 0,
+   "vol": true,
+   "block": [],
+   "news": false,
+   "t": 3
+  },
+  {
+   "o": 100.5,
+   "h": 100.55,
+   "l": 100.45,
+   "c": 100.5,
+   "atr": 1.0,
+   "base": 100.0,
+   "c1": 1,
+   "c2": -1,
+   "ex": 0,
+   "vol": false,
+   "block": [],
+   "news": false,
+   "t": 4
+  },
+  {
+   "o": 100.6,
+   "h": 100.64999999999999,
+   "l": 100.55,
+   "c": 100.6,
+   "atr": 1.0,
+   "base": 100.0,
+   "c1": 1,
+   "c2": 1,
+   "ex": 0,
+   "vol": true,
+   "block": [],
+   "news": false,
+   "t": 5
+  }
+ ],
+ "expect": [
+  [
+   1,
+   "ENTER",
+   "E1",
+   1
+  ],
+  [
+   3,
+   "EXIT",
+   "X3",
+   1
+  ],
+  [
+   4,
+   "SKIP",
+   "E1",
+   1
+  ]
+ ]
+}
