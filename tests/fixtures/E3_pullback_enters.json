@@ -1,0 +1,73 @@
+{
+ "name": "E3_pullback_enters",
+ "rule": "E3",
+ "description": "Cross closes 1.4 ATR from baseline: wait; next close back within 1 ATR: enter.",
+ "settings": {},
+ "check": [
+  "ENTER",
+  "EXIT",
+  "SKIP",
+  "PENDING"
+ ],
+ "bars": [
+  {
+   "o": 99.7,
+   "h": 99.75,
+   "l": 99.65,
+   "c": 99.7,
+   "atr": 1.0,
+   "base": 100.0,
+   "c1": 1,
+   "c2": 1,
+   "ex": 0,
+   "vol": true,
+   "block": [],
+   "news": false,
+   "t": 0
+  },
+  {
+   "o": 101.4,
+   "h": 101.45,
+   "l": 101.35000000000001,
+   "c": 101.4,
+   "atr": 1.0,
+   "base": 100.0,
+   "c1": 1,
+   "c2": 1,
+   "ex": 0,
+   "vol": true,
+   "block": [],
+   "news": false,
+   "t": 1
+  },
+  {
+   "o": 100.8,
+   "h": 100.85,
+   "l": 100.75,
+   "c": 100.8,
+   "atr": 1.0,
+   "base": 100.0,
+   "c1": 1,
+   "c2": 1,
+   "ex": 0,
+   "vol": true,
+   "block": [],
+   "news": false,
+   "t": 2
+  }
+ ],
+ "expect": [
+  [
+   1,
+   "PENDING",
+   "E3",
+   1
+  ],
+  [
+   2,
+   "ENTER",
+   "E3",
+   1
+  ]
+ ]
+}

@@ -2,6 +2,16 @@
 
 Newest first.
 
+## 2026-10-03 — Phase 3: Python answer key
+
+- `tests/python/nnfx_ref/`: rules engine (E0-E6, X1-X5, T1-T7), signals, sizing, exposure, settings.
+- `tests/fixtures/`: 45 hand-built rule cases (JSON) plus the generator that writes them;
+  the same JSON files will drive the MQL5 tests in Phase 4.
+- `tests/python/test_fixtures.py`, `test_units.py`: 27 tests, all passing. A planted-bug check
+  (10 deliberate bugs) caught all 10 after one missing case was added.
+- `docs/DECISIONS.md`: interpretations I-1 to I-15, pending owner approval.
+- No MT5 or trading code.
+
 ## 2026-10-03 — Phase 2: repo setup
 
 - Folder structure for the EA, profiles, tests, tools and results.

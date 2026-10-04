@@ -1,0 +1,171 @@
+{
+ "name": "T4_off",
+ "rule": "T4",
+ "description": "Trailing off: the stop stays at breakeven, so the same candles leave the runner open.",
+ "settings": {
+  "trail_on": false
+ },
+ "check": [
+  "ENTER",
+  "EXIT",
+  "SKIP",
+  "PENDING",
+  "OPEN",
+  "CLOSE",
+  "SL",
+  "TP1",
+  "MOVE_BE",
+  "BE_SL",
+  "TRAIL",
+  "TRAIL_SL",
+  "TP2"
+ ],
+ "bars": [
+  {
+   "o": 100.3,
+   "h": 100.35,
+   "l": 100.25,
+   "c": 100.3,
+   "atr": 1.0,
+   "base": 100.0,
+   "c1": -1,
+   "c2": 1,
+   "ex": 0,
+   "vol": true,
+   "block": [],
+   "news": false,
+   "t": 0
+  },
+  {
+   "o": 100.4,
+   "h": 100.45,
+   "l": 100.35000000000001,
+   "c": 100.4,
+   "atr": 1.0,
+   "base": 100.0,
+   "c1": 1,
+   "c2": 1,
+   "ex": 0,
+   "vol": true,
+   "block": [],
+   "news": false,
+   "t": 1
+  },
+  {
+   "o": 100.5,
+   "h": 100.55,
+   "l": 100.45,
+   "c": 100.5,
+   "atr": 1.0,
+   "base": 100.0,
+   "c1": 1,
+   "c2": 1,
+   "ex": 0,
+   "vol": true,
+   "block": [],
+   "news": false,
+   "t": 2
+  },
+  {
+   "o": 100.5,
+   "h": 101.6,
+   "l": 100.45,
+   "c": 101.4,
+   "atr": 1.0,
+   "base": 100.0,
+   "c1": 1,
+   "c2": 1,
+   "ex": 0,
+   "vol": true,
+   "block": [],
+   "news": false,
+   "t": 3
+  },
+  {
+   "o": 101.4,
+   "h": 102.65,
+   "l": 101.35,
+   "c": 102.6,
+   "atr": 1.0,
+   "base": 100.0,
+   "c1": 1,
+   "c2": 1,
+   "ex": 0,
+   "vol": true,
+   "block": [],
+   "news": false,
+   "t": 4
+  },
+  {
+   "o": 102.6,
+   "h": 103.05,
+   "l": 102.5,
+   "c": 103.0,
+   "atr": 1.0,
+   "base": 100.0,
+   "c1": 1,
+   "c2": 1,
+   "ex": 0,
+   "vol": true,
+   "block": [],
+   "news": false,
+   "t": 5
+  },
+  {
+   "o": 103.0,
+   "h": 103.05,
+   "l": 102.6,
+   "c": 102.7,
+   "atr": 1.0,
+   "base": 100.0,
+   "c1": 1,
+   "c2": 1,
+   "ex": 0,
+   "vol": true,
+   "block": [],
+   "news": false,
+   "t": 6
+  },
+  {
+   "o": 102.7,
+   "h": 102.75,
+   "l": 101.4,
+   "c": 101.6,
+   "atr": 1.0,
+   "base": 100.0,
+   "c1": 1,
+   "c2": 1,
+   "ex": 0,
+   "vol": true,
+   "block": [],
+   "news": false,
+   "t": 7
+  }
+ ],
+ "expect": [
+  [
+   1,
+   "ENTER",
+   "E1",
+   1
+  ],
+  [
+   2,
+   "OPEN",
+   "E1",
+   1
+  ],
+  [
+   3,
+   "TP1",
+   "T1",
+   1
+  ],
+  [
+   3,
+   "MOVE_BE",
+   "T2",
+   1
+  ]
+ ]
+}
