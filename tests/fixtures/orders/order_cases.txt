@@ -1,0 +1,62 @@
+# Shared order-price and safety cases (Phase 6b; docs/PLAN_PHASE6.md sections 1 and 3).
+# Run by tests/python/test_orders.py and MQL5/Scripts/NNFX/NNFX_OrderMathTest.mq5.
+# Every expected answer is worked out by hand below each line; the code must agree.
+#
+# OP|name|dir|fill|atr|tick|sl_atr|tp1_atr|cap_atr|exp_sl|exp_tp1|exp_tp2|exp_be
+#     cap_atr "-" = runner cap off, exp_tp2 "-" = none. SL is rounded TOWARDS the fill (never a wider stop
+#     than sized for); TP1/TP2 to the nearest tick; BE = the fill (OD-15).
+# OE|name|dir|fill|atr|tick|sl_atr|tp1_atr|cap_atr          (inputs must be rejected)
+# TR|name|dir|entry|atr_entry|current_sl|active|close|atr|tick|start_atr|dist_atr|exp_sl|exp_active
+#     one candle close of the T4 trail on half 2, after TP1 (I-11)
+# SD|name|price|sl|stops_level_points|point|expected ok (1/0)
+# SF|name|trade_mode|in_tester|expected allowed (1/0)      (section 1 SAFETY; also NNFX_SafetyTest)
+#
+# long: SL 1.10000 - 1.5 x 0.00200 = 1.09700; TP1 1.10000 + 0.00200 = 1.10200
+OP|long_basic|1|1.10000|0.00200|0.00001|1.5|1.0|-|1.09700|1.10200|-|1.10000
+# short: SL 1.10000 + 0.00300 = 1.10300; TP1 1.09800
+OP|short_basic|-1|1.10000|0.00200|0.00001|1.5|1.0|-|1.10300|1.09800|-|1.10000
+# long, 1.5 x 0.00181 = 0.002715: SL raw 1.097315 -> up (towards fill) 1.09732; TP1 1.10184 exactly
+OP|long_stop_rounds_towards_fill|1|1.10003|0.00181|0.00001|1.5|1.0|-|1.09732|1.10184|-|1.10003
+# short, SL raw 1.102745 -> down (towards fill) 1.10274; TP1 1.09822 exactly
+OP|short_stop_rounds_towards_fill|-1|1.10003|0.00181|0.00001|1.5|1.0|-|1.10274|1.09822|-|1.10003
+# long, ATR 0.001237: SL raw 1.0981445 -> up 1.09815; TP1 raw 1.101237 -> nearest 1.10124
+OP|long_tp1_nearest|1|1.10000|0.001237|0.00001|1.5|1.0|-|1.09815|1.10124|-|1.10000
+# runner cap 2 x ATR: TP2 1.10000 + 0.00400 = 1.10400
+OP|long_runner_cap_2|1|1.10000|0.00200|0.00001|1.5|1.0|2|1.09700|1.10200|1.10400|1.10000
+# CHFJPY-like, short: SL 150.123 + 0.573 = 150.696; TP1 150.123 - 0.382 = 149.741
+OP|jpy_short|-1|150.123|0.382|0.001|1.5|1.0|-|150.696|149.741|-|150.123
+# runner cap 3 x ATR short: TP2 150.123 - 1.146 = 148.977
+OP|jpy_short_cap_3|-1|150.123|0.382|0.001|1.5|1.0|3|150.696|149.741|148.977|150.123
+#
+OE|direction_zero|0|1.10000|0.00200|0.00001|1.5|1.0|-
+OE|atr_zero|1|1.10000|0|0.00001|1.5|1.0|-
+OE|cap_zero|1|1.10000|0.00200|0.00001|1.5|1.0|0
+#
+# long, entry 1.10000, entry ATR 0.002; close 1.10390 is 1.95 ATR: not on yet, SL stays at breakeven
+TR|long_not_yet_on|1|1.10000|0.002|1.10000|0|1.10390|0.002|0.00001|2|1.5|1.10000|0
+# close 1.10400 = exactly 2 entry ATRs: on; 1.10400 - 1.5 x 0.0021 = 1.10085 > 1.10000: moves
+TR|long_switches_on|1|1.10000|0.002|1.10000|0|1.10400|0.0021|0.00001|2|1.5|1.10085|1
+# active: 1.10500 - 0.00300 = 1.10200 > 1.10085: moves
+TR|long_moves_up|1|1.10000|0.002|1.10085|1|1.10500|0.002|0.00001|2|1.5|1.10200|1
+# active: 1.10450 - 0.00300 = 1.10150 < 1.10200: never backwards
+TR|long_never_backwards|1|1.10000|0.002|1.10200|1|1.10450|0.002|0.00001|2|1.5|1.10200|1
+# short: close 1.09600 = 2 ATRs below entry: on; 1.09600 + 0.00300 = 1.09900 < 1.10000: moves down
+TR|short_switches_on|-1|1.10000|0.002|1.10000|0|1.09600|0.002|0.00001|2|1.5|1.09900|1
+# short active: 1.09700 + 1.5 x 0.0021 = 1.10015 > 1.09900: never backwards
+TR|short_never_backwards|-1|1.10000|0.002|1.09900|1|1.09700|0.0021|0.00001|2|1.5|1.09900|1
+# switch-on uses the ENTRY ATR (I-11): 2 x 0.002 reached; but 1.10400 - 1.5 x 0.003 = 1.09900 < 1.10000: on, no move
+TR|on_uses_entry_atr|1|1.10000|0.002|1.10000|0|1.10400|0.003|0.00001|2|1.5|1.10000|1
+# active: 1.105003 - 0.003 = 1.102003 -> nearest tick 1.10200
+TR|trail_nearest_tick|1|1.10000|0.002|1.10000|1|1.105003|0.002|0.00001|2|1.5|1.10200|1
+#
+# 1.10000 vs 1.09990 = 10 points
+SD|exactly_min_distance|1.10000|1.09990|10|0.00001|1
+SD|one_point_too_close|1.10000|1.09990|11|0.00001|0
+SD|no_minimum|1.10000|1.09999|0|0.00001|1
+#
+SF|demo_live|DEMO|0|1
+SF|demo_tester|DEMO|1|1
+SF|contest_live|CONTEST|0|0
+SF|contest_tester|CONTEST|1|1
+SF|real_live|REAL|0|0
+SF|real_tester|REAL|1|1

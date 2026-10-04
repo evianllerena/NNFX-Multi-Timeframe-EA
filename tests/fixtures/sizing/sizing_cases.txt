@@ -29,6 +29,15 @@ SZ|non_usd_quote|100000|2|0.0040|0.00001|0.56121|0.01|0.01|500|0|4.45|8.9|1997.9
 SZ|one_percent|10000|1|0.0030|0.00001|1.0|0.01|0.01|500|0|0.16|0.32|96
 # Lot step 0.1, min 0.1: target 200; 0.6667 lots; half 0.3333 -> 0.3; total 0.6; risk 180
 SZ|step_point_one|10000|2|0.0030|0.00001|1.0|0.1|0.1|500|0|0.3|0.6|180
+# G1_phase6a_1 verdict note 2: a second case for the minimum lot and the volume cap.
+# Lot step and minimum 0.1: target 60; 0.0030 stop = 300 per lot; 0.2 lots; half exactly 0.1 = the minimum: allowed,
+# risk 0.2 x 300 = 60
+SZ|exact_min_lot_step_point_one|3000|2|0.0030|0.00001|1.0|0.1|0.1|500|0|0.1|0.2|60
+# target 59.98; 0.19993 lots; half 0.099967 -> 0 steps of 0.1: skip
+SZ|just_below_min_lot_step_point_one|2999|2|0.0030|0.00001|1.0|0.1|0.1|500|1|0|0|0
+# step 0.1, maximum 50.05 (not on the step grid): half 333.3 > max -> max floored to the step: 50.0; total 100;
+# risk 100 x 300 = 30000
+SZ|vol_max_cap_step_point_one|10000000|2|0.0030|0.00001|1.0|0.1|0.1|50.05|0|50.0|100.0|30000
 #
 SE|stop_zero|10000|2|0|0.00001|1.0|0.01|0.01|500
 SE|tick_value_zero|10000|2|0.0030|0.00001|0|0.01|0.01|500
