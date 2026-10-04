@@ -15,6 +15,8 @@ Newest first.
 - All scripts: no input dialog (so nothing waits for a click in an unattended run).
 - `docs/VERIFICATION.md`: Phase 5 results; `docs/ENVIRONMENT.md`: first NNFX_EnvCheck facts.
 - 46 Python tests pass.
+- Working method: `docs/REVIEW_PROTOCOL.md` (local Claude Code builds and runs; a second Claude
+  session reviews at each gate), `docs/STATUS.md`, and a pointer to both in `CLAUDE.md`.
 
 ## 2026-10-04 — Phase 5: indicator slots and profiles
 
