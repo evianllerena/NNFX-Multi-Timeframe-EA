@@ -317,7 +317,12 @@ private:
          // fall through: this candle may carry its own new signal (I-7)
         }
 
-      // b) new standard signal: baseline cross (E2) before C1 signal (E1)
+      // b) new standard signal: baseline cross (E2) before C1 signal (E1).
+      //    Work out what it would do; only an immediate entry is acted on here
+      //    (I-14: a regular entry beats a continuation).
+      bool   has_outcome = false;          // a refused or waiting regular signal
+      string o_event = "", o_rule = "", o_note = "", o_wait = "";
+      int    o_dir = 0;
       int trig = 0;
       string rule = "";
       if(cross != 0)         { trig = cross;    rule = "E2"; }
@@ -325,60 +330,70 @@ private:
       if(trig != 0)
         {
          int d = trig;
-         if(rule == "E2" && m_s.btf_on)
+         int age = (m_c1_run_dir == d) ? m_c1_run_len : 0;
+         if(rule == "E2" && m_s.btf_on && age >= m_s.btf_bars)
            {
-            int age = (m_c1_run_dir == d) ? m_c1_run_len : 0;
-            if(age >= m_s.btf_bars)
+            has_outcome = true;
+            o_event = "SKIP"; o_rule = "E5"; o_dir = d; o_wait = "";
+            o_note = StringFormat("C1 signal %d candles old", age);
+           }
+         else
+           {
+            string fails = "";
+            int nfails = 0;
+            if(rule == "E2" && c1 != d)   { fails += (nfails > 0 ? "," : "") + "c1";       nfails++; }
+            if(rule == "E1" && side != d) { fails += (nfails > 0 ? "," : "") + "baseline"; nfails++; }
+            if(c2 != d)                   { fails += (nfails > 0 ? "," : "") + "c2";       nfails++; }
+            if(!vol)                      { fails += (nfails > 0 ? "," : "") + "volume";   nfails++; }
+            if(nfails == 0 && within)
               {
-               Emit(bar, "SKIP", "E5", d, 0.0, false, StringFormat("C1 signal %d candles old", age));
+               Enter(bar, d, rule);
                return;
               }
+            has_outcome = true;
+            o_dir = d;
+            if(nfails == 0 && !within && m_s.pullback_on)
+              { o_event = "PENDING"; o_rule = "E3"; o_note = "beyond 1xATR"; o_wait = "E3"; }
+            else if(nfails == 1 && within && m_s.one_candle)
+              { o_event = "PENDING"; o_rule = "E4"; o_note = "waiting: " + fails; o_wait = "E4"; }
+            else
+              {
+               string why = fails;
+               if(!within)
+                  why += (nfails > 0 ? "," : "") + "distance";
+               o_event = "SKIP"; o_rule = rule; o_note = why; o_wait = "";
+              }
            }
-         string fails = "";
-         int nfails = 0;
-         if(rule == "E2" && c1 != d)   { fails += (nfails > 0 ? "," : "") + "c1";       nfails++; }
-         if(rule == "E1" && side != d) { fails += (nfails > 0 ? "," : "") + "baseline"; nfails++; }
-         if(c2 != d)                   { fails += (nfails > 0 ? "," : "") + "c2";       nfails++; }
-         if(!vol)                      { fails += (nfails > 0 ? "," : "") + "volume";   nfails++; }
-         if(nfails == 0 && within)
-           {
-            Enter(bar, d, rule);
-            return;
-           }
-         if(nfails == 0 && !within && m_s.pullback_on)
-           {
-            m_pe_active = true;
-            m_pe_dir = d;
-            m_pe_rule = "E3";
-            Emit(bar, "PENDING", "E3", d, 0.0, false, "beyond 1xATR");
-            return;
-           }
-         if(nfails == 1 && within && m_s.one_candle)
-           {
-            m_pe_active = true;
-            m_pe_dir = d;
-            m_pe_rule = "E4";
-            Emit(bar, "PENDING", "E4", d, 0.0, false, "waiting: " + fails);
-            return;
-           }
-         string why = fails;
-         if(!within)
-            why += (nfails > 0 ? "," : "") + "distance";
-         Emit(bar, "SKIP", rule, d, 0.0, false, why);
-         return;
         }
 
-      // c) continuation (E6)
+      // c) continuation (E6): checked whenever no regular entry opened (I-14)
       if(m_s.continuation != "off" && m_armed && m_trend_dir != 0 && m_last_exit_dir == m_trend_dir)
         {
          int d = m_trend_dir;
-         bool fire;
+         bool fire = false;
          if(m_s.continuation == "a")
             fire = (c2_fresh == d && !m_c1_flipped);
          else
             fire = (ex_fresh == d && c1 == d && c2 == d);
          if(fire)
+           {
+            if(has_outcome)
+               Emit(bar, "SKIP", o_rule, o_dir, 0.0, false, "continuation taken instead");
             Enter(bar, d, "E6");
+            return;
+           }
+        }
+
+      // d) log the regular signal's outcome (refused, or waiting one candle)
+      if(has_outcome)
+        {
+         if(o_wait != "")
+           {
+            m_pe_active = true;
+            m_pe_dir = o_dir;
+            m_pe_rule = o_wait;
+           }
+         Emit(bar, o_event, o_rule, o_dir, 0.0, false, o_note);
         }
      }
 

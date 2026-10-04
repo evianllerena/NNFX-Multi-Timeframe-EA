@@ -232,6 +232,15 @@ fx("E6_disarmed_by_baseline_cross", "E6",
 fx("E6b_continuation_fires", "E6", "Version (b): the exit indicator turns long again with C1 and C2 long: re-enter.",
    cont_bars(b(100.5, c1=1, c2=1, ex=-1), b(100.6, c1=1, c2=1, ex=1)),
    CONT_PRE + [[5, "ENTER", "E6", 1]], settings={"continuation": "b"})
+fx("E6_after_regular_refused", "E6",
+   "I-14: C1 returns to long from neutral (an E1 signal) on the same candle C2 turns long again. Volume "
+   "fails, so the regular entry would only wait a candle; the continuation (which ignores volume) opens instead.",
+   cont_bars(b(100.5, c1=0, c2=-1, ex=-1), b(100.6, c1=1, c2=1, ex=-1, vol=False)),
+   CONT_PRE + [[5, "SKIP", "E4", 1], [5, "ENTER", "E6", 1]])
+fx("E6_regular_entry_wins", "E6",
+   "I-14: same candle, but volume passes, so the regular entry (E1) opens and the continuation is not used.",
+   cont_bars(b(100.5, c1=0, c2=-1, ex=-1), b(100.6, c1=1, c2=1, ex=-1)),
+   CONT_PRE + [[5, "ENTER", "E1", 1]])
 fx("E6_off", "E6", "Continuation off: the E6a case does not re-enter.",
    cont_bars(b(100.5, c1=1, c2=-1, ex=-1), b(100.6, c1=1, c2=1, ex=-1)),
    CONT_PRE, settings={"continuation": "off"})

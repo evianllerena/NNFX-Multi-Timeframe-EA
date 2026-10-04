@@ -5,7 +5,7 @@
 The cases are `tests/fixtures/mql5/*.txt`: the same cases the Python answer key passes,
 in a line format MQL5 can read (a Python test proves the two formats hold identical data).
 
-**Pass line (SPEC Check 1a):** `RESULT: 45 passed, 0 failed, 45 total`, the same as Python.
+**Pass line (SPEC Check 1a):** `RESULT: 47 passed, 0 failed, 47 total`, the same as Python.
 
 ## Run it (PowerShell)
 

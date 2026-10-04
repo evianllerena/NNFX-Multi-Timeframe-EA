@@ -10,7 +10,12 @@ Newest first.
   **Not yet compiled.**
 - `tests/fixtures/mql5/`: the same 45 rule cases in a line format MQL5 can read;
   `tests/python/test_fixture_formats.py` proves they match the JSON exactly.
-- Pass line: 45 of 45 in MT5, the same as Python.
+- Pass line: 47 of 47 in MT5, the same as Python.
+- I-14 fix (owner-approved): if a regular entry is refused or only waiting, the continuation is
+  still checked. Changed in both `core.py` and `RulesCore.mqh`; two new fixtures (47 total).
+- Interpretations reviewed: I-4, 5, 6, 8, 10, 11, 12, 13, 14 approved; I-1, 2, 3, 7, 9 reworded
+  for intraday and awaiting a tick; the old I-15 is now a checker note.
+- `docs/RULEBOOK.md` snapshot is behind the living doc; it will be refreshed once I-1, 2, 3, 7, 9 are ticked.
 
 ## 2026-10-03 — Phase 3: Python answer key
 
