@@ -12,3 +12,11 @@ The living copies of the rulebook and spec are Claude Docs owned by the repo own
 the files in `docs/` are snapshots. If they disagree, ask which is current.
 
 Label every rule-related statement A (VP's own words), B (secondary source) or C (no source).
+
+## Review gates (owner's standing instruction)
+
+5. `docs/STATUS.md`: where the project stands. Read it at the start of every session; update it in every PR.
+6. `docs/REVIEW_PROTOCOL.md`: a second Claude session reviews independently. At every gate
+   (phase end, the Phase 6 and shootout plans, every backtest result) write a review packet to
+   `C:\Users\Evision\NNFX-Review\`, tell the owner, and **stop until the verdict is PASS**.
+   Never merge; only the owner merges.

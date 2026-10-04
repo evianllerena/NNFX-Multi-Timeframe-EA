@@ -1,0 +1,9 @@
+name=BAD
+source=builtin
+indicator=VOLUMES
+warmup=50
+slot=VOLUME
+signal=volume
+buf_main=0
+vol_rule=average
+vol_mult=1.0

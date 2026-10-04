@@ -2,8 +2,16 @@
 
 One file per module, as set out in `docs/SPEC.md` (Architecture).
 
-Built so far (Phase 4, **not yet compiled**): `Settings.mqh` (rule settings and defaults) and
-`RulesCore.mqh` (the rules core, a function-for-function port of `tests/python/nnfx_ref/core.py`).
+Built so far:
+
+| File | Phase | Status |
+| --- | --- | --- |
+| `Settings.mqh` | 4 | Compiled; rule settings and defaults |
+| `RulesCore.mqh` | 4 | Compiled; 47/47 in MT5. Function-for-function port of `tests/python/nnfx_ref/core.py` |
+| `Signals.mqh` | 5 | **Not yet compiled.** Mirrors `signals.py` |
+| `Profile.mqh` | 5 | **Not yet compiled.** Reads and validates profiles (same rules as `profiles.py`) |
+| `Slot.mqh` | 5 | **Not yet compiled.** One indicator per profile via `IndicatorCreate`; closed candles only |
+| `BarBuilder.mqh` | 5 | **Not yet compiled.** Five slots + ATR(14) -> the rules core's input for one candle |
 
 | Module | Owns | Never does | Phase |
 | --- | --- | --- | --- |

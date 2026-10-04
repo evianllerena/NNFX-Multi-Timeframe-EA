@@ -78,3 +78,13 @@ candle of the chart's timeframe (30 min, 1 h or 4 h).
 | I-13 | (a) C2 switches back; (b) exit indicator switches back with C1 and C2 agreeing | E6 | Approved |
 | I-14 | One trade per candle per pair; a regular entry beats a continuation, but if the regular entry is refused or only waiting, the continuation can open | E6 | Approved; code changed 2026-10-03 (fixtures E6_after_regular_refused, E6_regular_entry_wins) |
 | (note) | Answer-key fill assumptions (stop before target in one candle; breakeven from next candle; gapped stop fills at open). Checker-only, not a trading rule | M3, T1, T2 | No decision needed |
+
+## Phase 5 design choices (2026-10-04, for owner review)
+
+| ID | Choice | Label | Status |
+| --- | --- | --- | --- |
+| D5-1 | Profiles live in MT5's shared `Common\Files\NNFX\profiles` so the terminal and the Strategy Tester read the same files | C | Pending review |
+| D5-2 | Reference set from MT5 standard indicators (20 SMA, RVI 10, MACD, tick volume) to prove the pipeline; not chosen for performance | C | Pending review |
+| D5-3 | C1, C2 and exit may each be two-line or centre-line (the old project limited C2 to centre-line; VP doesn't) | C | Pending review |
+| D5-4 | A candle with any missing or warm-up value is never fed to the rules core (logged with the reason instead) | C | Pending review |
+| D5-5 | Volume average reads the previous N readings of the profile's own buffer (fixes the old harness reading buffer 0) | C | Pending review |

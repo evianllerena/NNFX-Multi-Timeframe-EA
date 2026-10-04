@@ -19,7 +19,8 @@
 //| can be checked against the Python answer key on identical cases. |
 //| Interpretations I-1..I-15: tests/python/README.md.               |
 //|                                                                  |
-//| Status: NOT YET COMPILED.                                        |
+//| Status: compiled 2026-10-03, MT5 build 6235, 0 errors 0 warnings;|
+//| NNFX_RulesTest 47/47 (docs/VERIFICATION.md).                     |
 //+------------------------------------------------------------------+
 #ifndef NNFX_RULESCORE_MQH
 #define NNFX_RULESCORE_MQH

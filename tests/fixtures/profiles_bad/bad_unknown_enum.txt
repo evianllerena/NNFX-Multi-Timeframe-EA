@@ -1,0 +1,10 @@
+name=BAD
+source=builtin
+indicator=MACD
+input=int:12
+warmup=50
+input=enum:MODE_FAST
+slot=C1
+signal=two_line
+buf_fast=0
+buf_slow=1

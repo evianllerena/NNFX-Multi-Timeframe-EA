@@ -1,0 +1,16 @@
+# Reference volume filter: tick volume at or above its own 20-candle average.
+# Pipeline reference only. The average rule is the old project's placeholder.
+name=REF_VOLUME_TICKS20
+slot=VOLUME
+source=builtin
+indicator=VOLUMES
+# IND_VOLUMES inputs: applied volume
+input=enum:VOLUME_TICK
+signal=volume
+# MQL5 docs, iVolumes: buffer 0 = value, buffer 1 = colour
+buf_main=0
+vol_rule=average
+vol_period=20
+vol_mult=1.0
+warmup=50
+notes=MT5 standard Volumes.

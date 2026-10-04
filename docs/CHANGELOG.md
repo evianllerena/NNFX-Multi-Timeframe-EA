@@ -2,6 +2,36 @@
 
 Newest first.
 
+## 2026-10-04 — Phase 5b: automated verification
+
+- `tools/run_phase5_checks.ps1`: one command runs every Phase 5 check with MT5 closed: copy, compile
+  (must be 0 errors, 0 warnings), each script through MT5's `/config` start-up file, the repaint
+  check in the Strategy Tester, and the Python checks. Writes `SUMMARY.txt` and keeps every report
+  and log in `MQL5\Files\NNFX\checks\<date-time>\`. **Not yet run.**
+- `tools/check_indicators.py` + 6 tests: recalculates ATR, SMA, RVI, MACD and tick volume from the
+  export using MT5's own source formulas. Replaces the by-eye Data Window check.
+- `NNFX_ExportBars`: makes MT5 download enough history first, waits until every indicator has
+  calculated, adds a `tickvol` column and writes `_summary.txt`. `BarBuilder.AllCalculated()` added.
+- All scripts: no input dialog (so nothing waits for a click in an unattended run).
+- `docs/VERIFICATION.md`: Phase 5 results; `docs/ENVIRONMENT.md`: first NNFX_EnvCheck facts.
+- 46 Python tests pass.
+- Working method: `docs/REVIEW_PROTOCOL.md` (local Claude Code builds and runs; a second Claude
+  session reviews at each gate), `docs/STATUS.md`, and a pointer to both in `CLAUDE.md`.
+
+## 2026-10-04 — Phase 5: indicator slots and profiles
+
+- `profiles/`: profile format (README) and five reference profiles built from MT5 standard
+  indicators (20 SMA, RVI 10, MACD main vs 0, MACD cross, tick volume vs 20-candle average).
+  Pipeline references only, not chosen for performance.
+- `MQL5/Include/NNFX/`: `Signals.mqh`, `Profile.mqh`, `Slot.mqh`, `BarBuilder.mqh`. **Not yet compiled.**
+- `MQL5/Scripts/NNFX/NNFX_SignalTest.mq5`, `NNFX_ExportBars.mq5`; `MQL5/Experts/NNFX/NNFX_RepaintCheck.mq5`
+  (Strategy Tester only, no trading). **Not yet compiled.**
+- `tests/python/nnfx_ref/profiles.py` + `test_profiles.py`, `tests/fixtures/signals/signal_cases.txt` (37 cases),
+  `tests/fixtures/profiles_bad/` (14 profiles that must be rejected), `tools/check_export.py` + tests.
+  40 Python tests pass; planted-bug check 9 of 9 caught.
+- `docs/VERIFICATION.md`: verification log, starting with the Phase 3 and 4 results.
+- Phase 4 file headers now record the compile and 47/47 result.
+
 ## 2026-10-03 — Phase 4: MQL5 rules core
 
 - `MQL5/Include/NNFX/Settings.mqh`, `RulesCore.mqh`: the rules core in MQL5, a function-for-function

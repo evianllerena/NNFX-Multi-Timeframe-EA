@@ -1,0 +1,49 @@
+# Shared signal cases: raw indicator values -> expected result.
+# Run by tests/python/test_profiles.py and MQL5/Scripts/NNFX/NNFX_SignalTest.mq5.
+# Every expected answer is written by hand from profiles/README.md and signals.py's rules.
+#
+# Special tokens: nan (not a number), inf (infinity), empty (MQL5 EMPTY_VALUE).
+#
+# PL|name|close|line|expected direction          (price_line: baseline)
+# TL|name|fast|slow|expected direction           (two_line)
+# CL|name|value|centre|expected direction        (centre_line)
+# VL|name|value|level|expected pass (1/0)        (volume, level rule)
+# VA|name|value|mult|h1;h2;...|expected pass     (volume, average rule; history = previous readings)
+# VC|name|value|other|expected pass              (volume, cross rule)
+PL|close_above|1.1010|1.1000|1
+PL|close_below|1.0990|1.1000|-1
+PL|close_on_line|1.1000|1.1000|0
+PL|line_nan|1.1000|nan|0
+PL|line_empty|1.1000|empty|0
+PL|close_inf|inf|1.1000|0
+TL|fast_above|2.0|1.0|1
+TL|fast_below|1.0|2.0|-1
+TL|equal|1.5|1.5|0
+TL|fast_nan|nan|1.0|0
+TL|slow_nan|1.0|nan|0
+TL|fast_empty|empty|1.0|0
+TL|slow_inf|1.0|inf|0
+TL|tiny_gap_counts|0.00000101|0.00000100|1
+TL|negative_values|-0.5|-0.7|1
+CL|above_zero|0.0003|0|1
+CL|below_zero|-0.0003|0|-1
+CL|on_centre|0|0|0
+CL|above_50|55|50|1
+CL|below_50|45|50|-1
+CL|positive_but_below_50|10|50|-1
+CL|above_100|100.2|100|1
+CL|value_nan|nan|0|0
+CL|value_empty|empty|50|0
+VL|above_level|5.0|4.0|1
+VL|at_level_fails|4.0|4.0|0
+VL|below_level|3.0|4.0|0
+VL|level_value_nan|nan|4.0|0
+VA|at_average_passes|10|1.0|8;10;12|1
+VA|below_average|9.9|1.0|8;10;12|0
+VA|above_average|11|1.0|8;10;12|1
+VA|mult_1_2|11|1.2|8;10;12|0
+VA|history_has_nan|11|1.0|8;nan;12|0
+VA|vol_value_empty|empty|1.0|8;10;12|0
+VC|above_other|3.0|2.0|1
+VC|equal_fails|2.0|2.0|0
+VC|other_nan|3.0|nan|0
