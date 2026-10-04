@@ -1,0 +1,8 @@
+name=BAD
+source=builtin
+indicator=STOCHASTIC
+warmup=50
+slot=C1
+signal=two_line
+buf_fast=0
+buf_slow=1

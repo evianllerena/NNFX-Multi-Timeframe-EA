@@ -1,0 +1,15 @@
+# Reference exit: MACD(12,26,9) main line vs signal line.
+# Pipeline reference only (not chosen for performance).
+name=REF_EXIT_MACD_CROSS
+slot=EXIT
+source=builtin
+indicator=MACD
+input=int:12
+input=int:26
+input=int:9
+input=enum:PRICE_CLOSE
+signal=two_line
+buf_fast=0
+buf_slow=1
+warmup=50
+notes=MT5 standard MACD.

@@ -1,0 +1,15 @@
+# Reference baseline: 20-period simple moving average of the close.
+# Pipeline reference only (not chosen for performance).
+name=REF_BASELINE_SMA20
+slot=BASELINE
+source=builtin
+indicator=MA
+# IND_MA inputs, in order: period, shift, method, applied price (MQL5 docs, IndicatorCreate example)
+input=int:20
+input=int:0
+input=enum:MODE_SMA
+input=enum:PRICE_CLOSE
+signal=price_line
+buf_main=0
+warmup=50
+notes=MT5 standard Moving Average. Old project's reference baseline (20 SMA).

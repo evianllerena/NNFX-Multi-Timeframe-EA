@@ -1,0 +1,18 @@
+# Reference C2: MACD(12,26,9) main line vs its centre line 0.
+# Pipeline reference only (not chosen for performance).
+name=REF_C2_MACD_MAIN
+slot=C2
+source=builtin
+indicator=MACD
+# IND_MACD inputs, in order: fast EMA, slow EMA, signal period, applied price
+input=int:12
+input=int:26
+input=int:9
+input=enum:PRICE_CLOSE
+signal=centre_line
+# MQL5 docs, iMACD: "0 - MAIN_LINE, 1 - SIGNAL_LINE"
+buf_main=0
+# MACD main = fast EMA - slow EMA, so its centre line is 0 by definition
+centre=0
+warmup=50
+notes=MT5 standard MACD.

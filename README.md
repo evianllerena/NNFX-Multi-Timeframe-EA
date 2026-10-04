@@ -5,7 +5,7 @@ the 30M, 1H and 4H charts. One shared rules core runs as three instances (one pe
 timeframe); the timeframe that performs best on untouched test data is the one
 taken forward.
 
-**Status: Phase 4 (MQL5 rules core). No order-placing code exists yet.**
+**Status: Phase 5 (indicator slots and profiles). No order-placing code exists yet.**
 Nothing in this repo is proven. Every rule and every result must pass the checks
 in `docs/SPEC.md` (Verification plan) before it is trusted.
 
@@ -18,6 +18,7 @@ in `docs/SPEC.md` (Verification plan) before it is trusted.
 | `docs/DECISIONS.md` | Every decision taken, when, and why |
 | `docs/ENVIRONMENT.md` | Facts read from the MT5 terminal (account type, history on disk) |
 | `docs/CHANGELOG.md` | What changed in the repo, by date |
+| `docs/VERIFICATION.md` | Every check run against the code, with its exact result |
 | `MQL5/` | Mirrors MT5's own `MQL5` folder: `Experts/NNFX`, `Include/NNFX`, `Scripts/NNFX`, `Presets` |
 | `profiles/` | Indicator profile files: swapping an indicator means editing one of these, never the code |
 | `tests/` | Python answer key, hand-built rule cases, MT5 test scripts |
@@ -31,9 +32,9 @@ in `docs/SPEC.md` (Verification plan) before it is trusted.
 | 0 Rulebook | `docs/RULEBOOK.md` | Approved 2026-10-01 |
 | 1 Intraday spec | `docs/SPEC.md` | Approved 2026-10-03 |
 | 2 Repo setup | This structure | Merged 2026-10-03 (PR #1) |
-| 3 Python answer key | `tests/python` + rule cases | 100% of rule cases pass; interpretations I-1 to I-15 approved |
-| 4 MQL5 rules core | `MQL5/Include/NNFX` | Same rule cases pass in MT5 |
-| 5 Indicator slots + profiles | `profiles/`, slot modules | Values match MT5's Data Window |
+| 3 Python answer key | `tests/python` + rule cases | Merged 2026-10-03 (PR #2) |
+| 4 MQL5 rules core | `MQL5/Include/NNFX` | 47/47 in MT5; merged 2026-10-03 (PR #3) |
+| 5 Indicator slots + profiles | `profiles/`, slot modules | SignalTest 56/56; export check PASS on 5 pairs; Data Window match; no repainting |
 | 6 Orders, risk, recovery | Execution modules | Trade checks and restart tests pass |
 | 7 Bar-by-bar cross-check | EA vs answer key | Zero mismatches |
 | 8 Shootout | `results/` | Validity checks V1–V14 pass |

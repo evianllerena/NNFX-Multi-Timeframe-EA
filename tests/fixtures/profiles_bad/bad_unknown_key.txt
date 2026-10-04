@@ -1,0 +1,9 @@
+name=BAD
+source=builtin
+indicator=MACD
+input=int:12
+warmup=50
+slot=C2
+signal=centre_line
+bufmain=0
+centre=0

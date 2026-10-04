@@ -1,0 +1,14 @@
+# Reference C1: RVI(10), main line vs signal line.
+# Pipeline reference only (not chosen for performance).
+name=REF_C1_RVI10
+slot=C1
+source=builtin
+indicator=RVI
+# IND_RVI inputs: averaging period
+input=int:10
+signal=two_line
+# MQL5 docs, iRVI: "0 - MAIN_LINE, 1 - SIGNAL_LINE"
+buf_fast=0
+buf_slow=1
+warmup=50
+notes=MT5 standard RVI.

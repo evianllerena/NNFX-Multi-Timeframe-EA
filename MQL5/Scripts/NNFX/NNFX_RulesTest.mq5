@@ -10,7 +10,8 @@
 //| Places NO orders. Reads the fixture files and writes one report: |
 //|   MQL5\Files\NNFX_RulesTest.txt                                  |
 //|                                                                  |
-//| Status: NOT YET COMPILED.                                        |
+//| Status: compiled 2026-10-03, MT5 build 6235, 0 errors 0 warnings;|
+//| NNFX_RulesTest 47/47 (docs/VERIFICATION.md).                     |
 //+------------------------------------------------------------------+
 #property script_show_inputs
 
