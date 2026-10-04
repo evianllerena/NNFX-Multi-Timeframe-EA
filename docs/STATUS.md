@@ -12,9 +12,14 @@ Last updated: 2026-10-04.
 | 2 Repo setup | Merged |
 | 3 Python answer key | Merged |
 | 4 MQL5 rules core | Merged (PR #3) |
-| 5 Indicator slots and profiles | PR #4 open, branch `phase-5-slots-profiles`. Compile, RulesTest 47/47, SignalTest 56/56 and check_export PASS done (`docs/VERIFICATION.md`). **Next:** run `tools/run_phase5_checks.ps1`, then gate G1 review |
+| 5 Indicator slots and profiles | PR #4 **merged at `58e2994` on 2026-10-04 15:47 UTC, before the G1_phase5_1 fixes** (see note below). The fixes passed review G1_phase5_2 at `bb4c381` (final run `20261004_115738`: OVERALL PASS, `docs/VERIFICATION.md`). Draft PR from branch `phase-5-fixes` brings `521013b`, `bb4c381` and `6c80511` to `main`; under review as `G1_phase5_3` |
 | 6 Orders, risk, recovery, guard, calendar export | Not started. Needs owner approval, then gate G2 plan review |
 | 7 onward | See `docs/SPEC.md` |
+
+**Note (2026-10-04):** PR #4 was merged at `58e2994` on 2026-10-04 15:47 UTC, 4.5 minutes after review
+G1_phase5_1 returned CHANGES REQUESTED and before its fixes. The fix commits `521013b`, `bb4c381` and `6c80511`
+were pushed to the merged branch afterwards, so they did not reach `main`. This PR (branch `phase-5-fixes`)
+brings them to `main`. Guards against a repeat: `docs/REVIEW_PROTOCOL.md`, "Merge safety".
 
 ## Waiting on the owner
 
@@ -22,11 +27,15 @@ Last updated: 2026-10-04.
 - Review D5-1 to D5-5 (`docs/DECISIONS.md`).
 - Choose the live broker (`docs/ENVIRONMENT.md`; MetaQuotes-Demo is not a retail broker).
 
-## Known open questions (answered by the Phase 5b run)
+## Answered by the Phase 5b runs (2026-10-04)
 
-- Does MT5 run scripts and the Strategy Tester from a `/config` file on this PC?
-- Can the tester read `Common\Files\NNFX\profiles`?
-- The Phase 5b changes to `NNFX_ExportBars.mq5` and `BarBuilder.mqh` are not yet compiled.
+- MT5 runs scripts and the Strategy Tester from a `/config` file on this PC: **yes**
+  (runs `20261004_113357` and `20261004_115428`; terminal log "successfully initialized from start config").
+- The tester can read `Common\Files\NNFX\profiles`: **yes** (the repaint check loaded all 5 profiles and wrote its report).
+- The Phase 5b changes to `NNFX_ExportBars.mq5` and `BarBuilder.mqh` compile with 0 errors, 0 warnings.
+- Scripts started from `/config` can begin before MT5 has logged in (G1_phase5_1 F1). Scripts that read
+  server data now wait for login (`MQL5/Include/NNFX/Connection.mqh`). The EnvCheck numbers from run
+  `20261004_113357` were read before login and are not used.
 
 ## Do not use
 

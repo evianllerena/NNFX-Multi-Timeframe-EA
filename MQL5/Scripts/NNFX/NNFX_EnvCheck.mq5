@@ -8,17 +8,25 @@
 //|  - may download small amounts of price/tick history on demand;   |
 //|  - writes one report file: MQL5\Files\NNFX_EnvCheck.txt          |
 //|                                                                  |
-//| Status: compiled 2026-10-04, MT5 build 6238, 0 errors 0 warnings.|
+//| Status: compiled 2026-10-04 (build 6238, 0 errors, 0 warnings;   |
+//| run 20261004_115428, RESULT: VALID).                             |
 //| (the runner tools/run_phase5_checks.ps1 keeps the full report).  |
+//|                                                                  |
+//| Waits until MT5 is logged in before reading anything; if it is   |
+//| not, the report ends "RESULT: INVALID (not connected)" and holds |
+//| no numbers. A valid report ends "RESULT: VALID ...".             |
 //|                                                                  |
 //| Answers docs/ENVIRONMENT.md "Still to check" items 1-4.          |
 //+------------------------------------------------------------------+
 // Inputs keep their defaults when run automatically (no input dialog, so unattended runs never wait for a click).
 #property strict
 
+#include <NNFX\Connection.mqh>
+
 input string InpSymbols      = "EURUSD,AUDNZD,EURGBP,AUDCAD,CHFJPY"; // Pairs to check (VP's 5 test pairs, rulebook P2)
 input bool   InpCheckTicks   = true;  // Probe real-tick history (one 3-day window per year)
 input int    InpTickFromYear = 2016;  // First year to probe for ticks
+input int    InpConnectWait  = 120;   // Seconds to wait for the terminal to log in
 
 int g_file = INVALID_HANDLE;
 
@@ -152,7 +160,6 @@ void OnStart()
 
    Out("NNFX_EnvCheck report, terminal build " + IntegerToString(TerminalInfoInteger(TERMINAL_BUILD)));
    Out("");
-   CheckAccount();
 
    string syms[];
    int count = StringSplit(InpSymbols, ',', syms);
@@ -161,10 +168,24 @@ void OnStart()
       StringTrimLeft(syms[i]);
       StringTrimRight(syms[i]);
    }
-   CheckTime(count > 0 ? syms[0] : _Symbol);
-   for(int i = 0; i < count; i++)
-      if(syms[i] != "")
-         CheckSymbol(syms[i]);
+
+   // Nothing is read before the terminal is logged in: before login, account and symbol
+   // properties hold defaults, not the server's values.
+   string detail;
+   bool connected = NNFXWaitConnected(syms, InpConnectWait, detail);
+   Out("Connection:   " + detail);
+   Out("");
+   if(connected)
+   {
+      CheckAccount();
+      CheckTime(count > 0 ? syms[0] : _Symbol);
+      for(int i = 0; i < count; i++)
+         if(syms[i] != "")
+            CheckSymbol(syms[i]);
+      Out("RESULT: VALID (read after login)");
+   }
+   else
+      Out(NNFX_RESULT_NOT_CONNECTED);
 
    Out("== END ==");
    if(g_file != INVALID_HANDLE)
