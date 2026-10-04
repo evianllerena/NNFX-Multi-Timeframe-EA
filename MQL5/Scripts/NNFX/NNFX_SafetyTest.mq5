@@ -9,7 +9,8 @@
 //| the account this script runs on.                                 |
 //|                                                                  |
 //| Places NO orders. Writes MQL5\Files\NNFX_SafetyTest.txt          |
-//| Status: not yet compiled.                                        |
+//| Status: compiled 2026-10-04 (build 6238, 0 errors, 0 warnings;   |
+//| 6/6, run 20261004_162607).                                       |
 //+------------------------------------------------------------------+
 // Inputs keep their defaults when run automatically (no input dialog, so unattended runs never wait for a click).
 #property strict

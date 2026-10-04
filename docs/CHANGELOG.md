@@ -2,6 +2,21 @@
 
 Newest first.
 
+## 2026-10-04 — Phase 6b: orders
+
+- `MQL5/Include/NNFX/Orders.mqh`: the only module that sends orders; every public method checks
+  `NNFXOrdersAllowed` first (orders only in the tester or on DEMO; OD-18). Two halves with the stop in the same
+  request, SL/TP from the fill (OD-14), stops-level and free-margin checks (OD-5), 3 retries 1 s apart with a
+  duplicate check (OD-13), TP1 -> breakeven at once (T2, OD-15), trail at closes (T4), stopless positions closed
+  with an alarm, manual ones alarm only (OD-8). Test-only paths under `#ifdef NNFX_TEST_BUILD` (F3).
+- `OrderMath.mqh`, `TradeLog.mqh`; test EA `NNFX_OrderTest.mq5`; `NNFX_SafetyTest.mq5` (S1), `NNFX_OrderMathTest.mq5`.
+- `nnfx_ref/orders.py`, `tests/fixtures/orders/order_cases.txt` (28 cases); `tools/check_trades.py` (Check 1c,
+  F4 with a 1e-6 float bound) and `test_check_trades.py`; `test_order_calls.py` (S2, S2b).
+- 6a verdict note 2: second fixture cases for the minimum lot, the volume cap and OD-4.
+- Runner: SafetyTest, OrderMathTest, the tester order run (step 4b) and `check_trades.py`.
+- Tester order run: 154 trades, `check_trades.py` PASS. Planted bugs: 13 of 13 (check_trades), 6 of 6 (S4).
+  75 Python tests pass. Demo order run and the MT5-offline check are still pending.
+
 ## 2026-10-04 — Phase 6a: sizing and exposure
 
 - `docs/PLAN_PHASE6.md`: the Phase 6 plan (gate G2 PASS) with the verdict's edits F1-F4; `docs/DECISIONS.md`:

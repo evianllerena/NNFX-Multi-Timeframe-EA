@@ -21,7 +21,8 @@
 //| defined (the test EA NNFX_OrderTest) and refuses outside the     |
 //| Strategy Tester (G2 verdict F3).                                 |
 //|                                                                  |
-//| Status: not yet compiled.                                        |
+//| Status: compiled 2026-10-04 (build 6238, 0 errors, 0 warnings;   |
+//| tester order run, check_trades PASS, run 20261004_162607).       |
 //+------------------------------------------------------------------+
 #ifndef NNFX_ORDERS_MQH
 #define NNFX_ORDERS_MQH

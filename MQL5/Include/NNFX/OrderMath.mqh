@@ -17,7 +17,8 @@
 //|  safety orders only in the tester or on a DEMO account (OD-18)   |
 //|                                                                  |
 //| Places NO orders.                                                |
-//| Status: not yet compiled.                                        |
+//| Status: compiled 2026-10-04 (build 6238, 0 errors, 0 warnings;   |
+//| OrderMathTest 22/22, SafetyTest 6/6, run 20261004_162607).       |
 //+------------------------------------------------------------------+
 #ifndef NNFX_ORDERMATH_MQH
 #define NNFX_ORDERMATH_MQH

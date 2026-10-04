@@ -12,7 +12,8 @@
 //| RETRY, ALARM, TESTSTOPLESS (test build only).                    |
 //|                                                                  |
 //| Places NO orders.                                                |
-//| Status: not yet compiled.                                        |
+//| Status: compiled 2026-10-04 (build 6238, 0 errors, 0 warnings;   |
+//| run 20261004_162607).                                            |
 //+------------------------------------------------------------------+
 #ifndef NNFX_TRADELOG_MQH
 #define NNFX_TRADELOG_MQH

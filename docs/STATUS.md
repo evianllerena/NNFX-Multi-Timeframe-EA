@@ -13,7 +13,7 @@ Last updated: 2026-10-04.
 | 3 Python answer key | Merged |
 | 4 MQL5 rules core | Merged (PR #3) |
 | 5 Indicator slots and profiles | Merged: PR #4 (at `58e2994`, before the G1_phase5_1 fixes; see note below) and PR #5 (the reviewed fixes, `0e701dd`) |
-| 6 Orders, risk, recovery, guard, news, EA | Plan: gate G2 **PASS** (`G2_phase6_1`), `docs/PLAN_PHASE6.md`; owner decisions OD-1 to OD-21 in `docs/DECISIONS.md`. **6a sizing + exposure:** draft PR from branch `phase-6a-sizing-exposure`; run `20261004_125319` OVERALL PASS (SizingTest 42/42); planted bugs 12 of 12; under review as `G1_phase6a_1`. 6b-6f not started |
+| 6 Orders, risk, recovery, guard, news, EA | Plan: gate G2 **PASS** (`G2_phase6_1`), `docs/PLAN_PHASE6.md`; owner decisions OD-1 to OD-21 in `docs/DECISIONS.md`. **6a sizing + exposure:** merged (PR #6, `G1_phase6a_1` PASS). **6b orders:** draft PR from branch `phase-6b-orders`; run `20261004_162607` OVERALL PASS (SafetyTest 6/6, OrderMathTest 22/22, SizingTest 46/46, tester order run 154 trades, `check_trades.py` PASS); planted bugs 13 + 6; under review as `G1_phase6b_1`. **Pending:** the demo order run (weekday) and the MT5-offline check (owner's firewall rule). 6c-6f not started |
 | 7 onward | See `docs/SPEC.md` |
 
 **Note (2026-10-04):** PR #4 was merged at `58e2994` on 2026-10-04 15:47 UTC, 4.5 minutes after review
@@ -28,6 +28,10 @@ brings them to `main` (merged 2026-10-04 as `0e701dd`). Guards against a repeat:
 - Choose the live broker (`docs/ENVIRONMENT.md`; MetaQuotes-Demo is not a retail broker).
 - Carry-over 1, MT5-offline part: add the firewall rule in `tools/run_offline_check.ps1` (admin PowerShell),
   then run `tools\run_offline_check.ps1 -Mt5Offline` with MT5 closed, then remove the rule. Not run yet.
+  The G1_phase6a_1 verdict requires it before the 6b order test is accepted.
+- 6b demo order run (weekday, market open): with MT5 open on a EURUSD H1 chart, attach `NNFX\NNFX_OrderTest` with
+  `InpMinLots=true` and `InpMaxTrades=5`; when the 5 trades are closed, run
+  `python tools\check_trades.py <Common\Files\NNFX\trades\OrderTest_EURUSD_demo.csv>`. Not run yet.
 
 ## Answered by the Phase 5b runs (2026-10-04)
 
