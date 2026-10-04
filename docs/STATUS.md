@@ -12,7 +12,7 @@ Last updated: 2026-10-04.
 | 2 Repo setup | Merged |
 | 3 Python answer key | Merged |
 | 4 MQL5 rules core | Merged (PR #3) |
-| 5 Indicator slots and profiles | PR #4 open, branch `phase-5-slots-profiles`. Gate G1: `G1_phase5_1` returned CHANGES REQUESTED (F1-F5); fixes applied, `tools/run_phase5_checks.ps1` OVERALL PASS on the fixes (run `20261004_115428`, `docs/VERIFICATION.md`). **Next:** final run on the PR's last commit, then packet `G1_phase5_2` for review |
+| 5 Indicator slots and profiles | PR #4 open, branch `phase-5-slots-profiles`. **G1 PASS; ready for owner merge** (`G1_phase5_2`, after `G1_phase5_1` CHANGES REQUESTED F1-F5 were fixed). Final run `20261004_115738` on `bb4c381`: OVERALL PASS (`docs/VERIFICATION.md`) |
 | 6 Orders, risk, recovery, guard, calendar export | Not started. Needs owner approval, then gate G2 plan review |
 | 7 onward | See `docs/SPEC.md` |
 
