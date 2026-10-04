@@ -12,9 +12,14 @@ Last updated: 2026-10-04.
 | 2 Repo setup | Merged |
 | 3 Python answer key | Merged |
 | 4 MQL5 rules core | Merged (PR #3) |
-| 5 Indicator slots and profiles | PR #4 open, branch `phase-5-slots-profiles`. **G1 PASS; ready for owner merge** (`G1_phase5_2`, after `G1_phase5_1` CHANGES REQUESTED F1-F5 were fixed). Final run `20261004_115738` on `bb4c381`: OVERALL PASS (`docs/VERIFICATION.md`) |
+| 5 Indicator slots and profiles | PR #4 **merged at `58e2994` on 2026-10-04 15:47 UTC, before the G1_phase5_1 fixes** (see note below). The fixes passed review G1_phase5_2 at `bb4c381` (final run `20261004_115738`: OVERALL PASS, `docs/VERIFICATION.md`). Draft PR from branch `phase-5-fixes` brings `521013b`, `bb4c381` and `6c80511` to `main`; under review as `G1_phase5_3` |
 | 6 Orders, risk, recovery, guard, calendar export | Not started. Needs owner approval, then gate G2 plan review |
 | 7 onward | See `docs/SPEC.md` |
+
+**Note (2026-10-04):** PR #4 was merged at `58e2994` on 2026-10-04 15:47 UTC, 4.5 minutes after review
+G1_phase5_1 returned CHANGES REQUESTED and before its fixes. The fix commits `521013b`, `bb4c381` and `6c80511`
+were pushed to the merged branch afterwards, so they did not reach `main`. This PR (branch `phase-5-fixes`)
+brings them to `main`. Guards against a repeat: `docs/REVIEW_PROTOCOL.md`, "Merge safety".
 
 ## Waiting on the owner
 

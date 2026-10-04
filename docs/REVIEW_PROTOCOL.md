@@ -54,6 +54,21 @@ When the owner says "apply review":
 
 The owner may override a finding; that is recorded in `docs/DECISIONS.md`.
 
+## Merge safety
+
+Added 2026-10-04 after PR #4 was merged before its review fixes
+(`C:\Users\Evision\NNFX-Review\G1_phase5_2\AUDIT_main_merge.md`).
+
+- Every PR is opened with `gh pr create --draft`. It is marked ready (`gh pr ready <n>`) only after
+  `VERDICT.md` says PASS and names the head commit.
+- The owner merges only when the verdict says "MERGE OK <7-char commit>" and the PR page shows that
+  same latest commit.
+- Every `PACKET.md` includes, pasted unedited in `evidence\github_state.txt`, the output of
+  `git fetch origin`, `git rev-parse origin/main <branch>` and
+  `gh pr view <n> --json state,isDraft,mergedAt,headRefOid`, all run when the packet is written.
+  No statement about GitHub without it.
+- One branch per PR; never push to a branch whose PR is merged.
+
 ## Unchanged
 
 Approval before building; branch and PR; never push to `main`; only the owner merges;
