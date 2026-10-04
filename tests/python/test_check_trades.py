@@ -121,6 +121,17 @@ class TestCheckTrades(unittest.TestCase):
             find(rs, "OPEN", "T0002", 2).update(lots="3.34")
         self.corrupt(change, "planned risk")
 
+    def test_risk_just_above_target_fails(self):
+        # planned 1998.0 vs a target 0.01 lower: far below one lot step (6.00 here), far above float noise.
+        # "No tolerance above target" (F4) means even this small real excess fails.
+        rows = good_rows()
+        bal = repr((3.33 * 300 * 2 - 0.01) / 0.02)
+        for h in (1, 2):
+            find(rows, "OPEN", "T0002", h).update(balance=bal)
+        ok, out = run(rows)
+        self.assertFalse(ok, out)
+        self.assertIn("planned risk", out)
+
     def test_risk_float_noise_passes(self):
         # planned 1998.0 vs a target 5e-10 lower: float noise only, inside RISK_BOUND (1e-6)
         rows = good_rows()
