@@ -2,6 +2,17 @@
 
 Newest first.
 
+## 2026-10-04 — Phase 6b: review G1_phase6b_1 fixes (F1, F4, F5)
+
+- F1: test-only hooks in `Orders.mqh` (inside `#ifdef NNFX_TEST_BUILD`, refusing outside the tester):
+  `TestFailNextHalf2` (ABORT), `TestStopsLevelOverride` and `TestFreeMarginOverride` (REFUSE, OD-5),
+  `TestFillOffset` (MODIFY, OD-14). ABORT logs half 1's OPEN and CLOSE. `check_trades.py`: ABORT must close half 1,
+  REFUSE must send nothing, `--require-note`; no breakeven required when half 2 closed in TP1's tick.
+  `test_order_calls.py` knows the hooks (S2b).
+- F4: `docs/REVIEW_PROTOCOL.md`: failed or invalid runs move to `invalid\` with `REASON.txt`, never deleted.
+- F5: breakeven rows note `via=transaction|tick` (in the tester: all via the tick poll).
+- Run `20261004_164337` OVERALL PASS; planted bugs 15 of 15, S4 7 of 7. F2 (demo run) and F3 (offline check) pending.
+
 ## 2026-10-04 — Phase 6b: orders
 
 - `MQL5/Include/NNFX/Orders.mqh`: the only module that sends orders; every public method checks

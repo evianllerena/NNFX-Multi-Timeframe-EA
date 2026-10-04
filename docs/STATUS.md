@@ -13,7 +13,7 @@ Last updated: 2026-10-04.
 | 3 Python answer key | Merged |
 | 4 MQL5 rules core | Merged (PR #3) |
 | 5 Indicator slots and profiles | Merged: PR #4 (at `58e2994`, before the G1_phase5_1 fixes; see note below) and PR #5 (the reviewed fixes, `0e701dd`) |
-| 6 Orders, risk, recovery, guard, news, EA | Plan: gate G2 **PASS** (`G2_phase6_1`), `docs/PLAN_PHASE6.md`; owner decisions OD-1 to OD-21 in `docs/DECISIONS.md`. **6a sizing + exposure:** merged (PR #6, `G1_phase6a_1` PASS). **6b orders:** draft PR from branch `phase-6b-orders`; run `20261004_162607` OVERALL PASS (SafetyTest 6/6, OrderMathTest 22/22, SizingTest 46/46, tester order run 154 trades, `check_trades.py` PASS); planted bugs 13 + 6; under review as `G1_phase6b_1`. **Pending:** the demo order run (weekday) and the MT5-offline check (owner's firewall rule). 6c-6f not started |
+| 6 Orders, risk, recovery, guard, news, EA | Plan: gate G2 **PASS** (`G2_phase6_1`), `docs/PLAN_PHASE6.md`; owner decisions OD-1 to OD-21 in `docs/DECISIONS.md`. **6a sizing + exposure:** merged (PR #6, `G1_phase6a_1` PASS). **6b orders:** draft PR #7 from branch `phase-6b-orders`. Review `G1_phase6b_1`: CHANGES REQUESTED (F1-F5). F1 (ABORT, REFUSE stops level, REFUSE margin, MODIFY exercised in the tester), F4 (evidence never deleted) and F5 (BE via) done: run `20261004_164337` OVERALL PASS, planted bugs 15 of 15 and S4 7 of 7. **Pending before `G1_phase6b_2`:** F2 the demo order run (weekday) and F3 the MT5-offline check (owner's firewall step). 6c may start on a branch from `phase-6b-orders`. 6d-6f not started |
 | 7 onward | See `docs/SPEC.md` |
 
 **Note (2026-10-04):** PR #4 was merged at `58e2994` on 2026-10-04 15:47 UTC, 4.5 minutes after review
