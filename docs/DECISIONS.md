@@ -88,3 +88,33 @@ candle of the chart's timeframe (30 min, 1 h or 4 h).
 | D5-3 | C1, C2 and exit may each be two-line or centre-line (the old project limited C2 to centre-line; VP doesn't) | C | Pending review |
 | D5-4 | A candle with any missing or warm-up value is never fed to the rules core (logged with the reason instead) | C | Pending review |
 | D5-5 | Volume average reads the previous N readings of the profile's own buffer (fixes the old harness reading buffer 0) | C | Pending review |
+
+## Phase 6 plan decisions (approved 2026-10-04)
+
+From review `G2_phase6_1` (PASS). The owner accepted the reviewer's recommended default for every open decision
+("accept recommended defaults"; changes: none). Options and reasons are in `docs/PLAN_PHASE6.md`, section 11.
+Label C (owner's choice) unless stated.
+
+| ID | Decision | Label | Status |
+| --- | --- | --- | --- |
+| OD-1 | A test EA (`NNFX_OrderTest`) in 6b-6e; the real EA `NNFX_EA.mq5` in sub-phase 6f | C | Approved |
+| OD-2 | Drawdown pause measured from the peak of equity, sampled at each candle close | C | Approved |
+| OD-3 | Daily loss counts closed trades only; the day starts at server midnight (the daily close, 00:00 server) | C | Approved |
+| OD-4 | Split mode (M7): three or more signals on one currency leg are all skipped | C | Approved |
+| OD-5 | Not enough free margin for the sized trade: skip and log | C | Approved |
+| OD-6 | Sizing uses the larger of `SYMBOL_TRADE_TICK_VALUE` and `SYMBOL_TRADE_TICK_VALUE_LOSS`, read at order time | C | Approved |
+| OD-7 | On start or restart with an unprocessed closed candle: skip it and wait for the next new candle | C | Approved |
+| OD-8 | A stopless position with our magic is closed at once with an alarm; a manual stopless position raises an alarm only | C | Approved |
+| OD-9 | State file in `MQL5\Files\NNFX\state\` (per terminal, never shared with the tester) | C | Approved |
+| OD-10 | Restart tests: both a tester simulated restart and a demo real restart | C | Approved |
+| OD-11 | VP's event-name mapping is a text file in the repo; the owner approves the names | C | Approved |
+| OD-12 | Live news from a CSV refreshed daily by the export script, with an alarm if older than 24 h | C | Approved |
+| OD-13 | Order retries: 3, 1 s apart, a duplicate check before each | C | Approved |
+| OD-14 | Accept any fill; SL/TP from the fill price; log the slippage | C | Approved |
+| OD-15 | Breakeven is exactly the entry price | A (T2) | Approved |
+| OD-16 | Magic numbers 30M = 26030, 1H = 26060, 4H = 26240, fixed in the presets | C | Approved |
+| OD-17 | Running through a weekend: Friday's last candle is acted on at the Monday open | C | Approved |
+| OD-18 | CONTEST accounts are refused (orders only on DEMO or in the Strategy Tester) | C | Approved |
+| OD-19 | Elections/referendums blackout list (N2) starts empty; the owner adds entries | C | Approved |
+| OD-20 | A trade counts for same-currency exposure (M6) until fully closed, including a breakeven runner | C | Approved |
+| OD-21 | Non-FX symbols are ignored for exposure, with a log line | C | Approved |
