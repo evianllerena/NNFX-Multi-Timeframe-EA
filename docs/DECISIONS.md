@@ -54,25 +54,27 @@ Labels: **A** = VP's own words · **B** = secondary source · **C** = no source 
 | S-10 | On a netting account, each pair is traded by one timeframe only | C | Approved |
 | S-11 | Every backtest passes validity checks V1–V14 before it counts | C (owner requirement) | Approved 2026-10-03 |
 
-## Phase 3 interpretations (pending owner approval, 2026-10-03)
+## Phase 3 interpretations (reviewed by owner 2026-10-03)
 
-Exact logic the Python answer key uses where the rulebook leaves room. Full wording in
-`tests/python/README.md`. Each is a C-level interpretation until the owner approves it.
+Exact logic the answer key and the MQL5 core use where the rulebook leaves room. The owner-facing
+wording, with an intraday example for each, is in the living rulebook doc ("Exact-logic
+interpretations"); technical detail is in `tests/python/README.md`. "One candle" always means one
+candle of the chart's timeframe (30 min, 1 h or 4 h).
 
 | ID | Interpretation (short) | Rule | Status |
 | --- | --- | --- | --- |
-| I-1 | Decide at close, act at next open; first candle is warm-up | E0 | Pending |
-| I-2 | "Fresh" = direction differs from previous candle; cross = close on one side after a close on the other side or on the line | E1, E2 | Pending |
-| I-3 | Cross and C1 signal on one candle = E2 with C1 age 0 | E1, E2 | Pending |
-| I-4 | Bridge-too-far counts C1 candles before the cross candle; E2 only | E5 | Pending |
-| I-5 | Pullback: next candle must be within 1 ATR with everything agreeing | E3 | Pending |
-| I-6 | One-candle: exactly one lagging item and within 1 ATR; next candle all agree and within 1 ATR | E4 | Pending |
-| I-7 | An expired wait doesn't stop a new signal on the same candle | E3, E4 | Pending |
-| I-8 | Exit indicator exits while it reads against the trade, not only on its flip | X2 | Pending |
-| I-9 | Several exits on one close: one exit at next open; reason order X5, X2, X3, X4 | X2-X5 | Pending |
-| I-10 | News exit at first close in the 24 h window; 1 x current ATR threshold | X5 | Pending |
-| I-11 | Trail only after TP1; switch-on uses entry ATR, distance uses current ATR | T4 | Pending |
-| I-12 | Continuation armed by E1-E4 only; disarmed by a close beyond the baseline; (a) also by C1 reading against; can repeat | E6 | Pending |
-| I-13 | (a) fresh C2 in trend direction; (b) fresh exit-indicator signal with C1 and C2 agreeing | E6 | Pending |
-| I-14 | Standard signal beats continuation on the same candle | E6 | Pending |
-| I-15 | Answer-key fill assumptions: stop before target in one candle; breakeven checked from next candle; gapped stop fills at open | M3, T1, T2 | Pending |
+| I-1 | Read indicators only on a closed candle; act at that same moment (start of the next candle) | E0 | Reworded; awaiting tick |
+| I-2 | A signal = baseline cross or C1 switching; a trade also needs baseline, C1, C2 and volume to agree | E1, E2 | Reworded; awaiting tick |
+| I-3 | A trade opens only on a candle with a signal AND full agreement within 1 ATR; cross + C1 switch on one candle = baseline-cross entry | E1, E2 | Reworded; awaiting tick |
+| I-4 | 7-candle rule counts C1 candles before the cross; baseline-cross entries only | E5 | Approved |
+| I-5 | Pullback: wait one candle; enter if within 1 ATR and all agree | E3 | Approved |
+| I-6 | One-candle rule: exactly one late indicator, within 1 ATR; wait one candle | E4 | Approved |
+| I-7 | A dropped wait doesn't block a different valid signal on the same candle | E3, E4 | Reworded (intraday example); awaiting tick |
+| I-8 | Exit indicator exits while it reads against the trade, not only on its switch | X2 | Approved |
+| I-9 | Any exit reason at a close closes the trade straight away; several reasons = one close | X2-X5 | Reworded; awaiting tick |
+| I-10 | News exit at first close within 24 h; close if losing or up < 1 ATR | X5 | Approved |
+| I-11 | Trail after TP1 once a close is 2 ATR past entry; 1.5 ATR behind latest close; never back | T4 | Approved |
+| I-12 | Continuation: same direction, baseline not crossed since original entry, (a) C1 never against; can repeat | E6 | Approved |
+| I-13 | (a) C2 switches back; (b) exit indicator switches back with C1 and C2 agreeing | E6 | Approved |
+| I-14 | One trade per candle per pair; a regular entry beats a continuation, but if the regular entry is refused or only waiting, the continuation can open | E6 | Approved; code changed 2026-10-03 (fixtures E6_after_regular_refused, E6_regular_entry_wins) |
+| (note) | Answer-key fill assumptions (stop before target in one candle; breakeven from next candle; gapped stop fills at open). Checker-only, not a trading rule | M3, T1, T2 | No decision needed |

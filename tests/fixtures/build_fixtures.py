@@ -232,15 +232,63 @@ fx("E6_disarmed_by_baseline_cross", "E6",
 fx("E6b_continuation_fires", "E6", "Version (b): the exit indicator turns long again with C1 and C2 long: re-enter.",
    cont_bars(b(100.5, c1=1, c2=1, ex=-1), b(100.6, c1=1, c2=1, ex=1)),
    CONT_PRE + [[5, "ENTER", "E6", 1]], settings={"continuation": "b"})
+fx("E6_after_regular_refused", "E6",
+   "I-14: C1 returns to long from neutral (an E1 signal) on the same candle C2 turns long again. Volume "
+   "fails, so the regular entry would only wait a candle; the continuation (which ignores volume) opens instead.",
+   cont_bars(b(100.5, c1=0, c2=-1, ex=-1), b(100.6, c1=1, c2=1, ex=-1, vol=False)),
+   CONT_PRE + [[5, "SKIP", "E4", 1], [5, "ENTER", "E6", 1]])
+fx("E6_regular_entry_wins", "E6",
+   "I-14: same candle, but volume passes, so the regular entry (E1) opens and the continuation is not used.",
+   cont_bars(b(100.5, c1=0, c2=-1, ex=-1), b(100.6, c1=1, c2=1, ex=-1)),
+   CONT_PRE + [[5, "ENTER", "E1", 1]])
 fx("E6_off", "E6", "Continuation off: the E6a case does not re-enter.",
    cont_bars(b(100.5, c1=1, c2=-1, ex=-1), b(100.6, c1=1, c2=1, ex=-1)),
    CONT_PRE, settings={"continuation": "off"})
 
 
+MQL5_DIR = os.path.join(HERE, "mql5")
+
+
+def _num(x):
+    return repr(float(x))
+
+
+def _val(v):
+    if v is None:
+        return "none"
+    if isinstance(v, bool):
+        return "1" if v else "0"
+    if isinstance(v, (int, float)):
+        return _num(v)
+    return str(v)
+
+
+def to_mql5_text(item):
+    """Line format for the MQL5 test script (MQL5 has no built-in JSON reader).
+    Same data as the JSON file; tests/python/test_fixture_formats.py proves it."""
+    lines = ["NAME|" + item["name"], "RULE|" + item["rule"]]
+    for k in sorted(item["settings"]):
+        lines.append("SET|%s|%s" % (k, _val(item["settings"][k])))
+    lines.append("CHECK|" + ",".join(item["check"]))
+    for bar in item["bars"]:
+        lines.append("BAR|" + "|".join([
+            str(bar["t"]), _num(bar["o"]), _num(bar["h"]), _num(bar["l"]), _num(bar["c"]),
+            _num(bar["atr"]), _num(bar["base"]), str(bar["c1"]), str(bar["c2"]), str(bar["ex"]),
+            "1" if bar["vol"] else "0", ";".join(bar["block"]), "1" if bar["news"] else "0"]))
+    for i, ev, rule, d in item["expect"]:
+        lines.append("EXP|%d|%s|%s|%d" % (i, ev, rule, d))
+    for r in item.get("expect_r", []):
+        lines.append("EXPR|" + _num(r))
+    lines.append("END")
+    return "\n".join(lines) + "\n"
+
+
 def main():
-    for old in os.listdir(HERE):
-        if old.endswith(".json"):
-            os.remove(os.path.join(HERE, old))
+    os.makedirs(MQL5_DIR, exist_ok=True)
+    for folder, ext in ((HERE, ".json"), (MQL5_DIR, ".txt")):
+        for old in os.listdir(folder):
+            if old.endswith(ext):
+                os.remove(os.path.join(folder, old))
     names = set()
     for item in FIXTURES:
         if item["name"] in names:
@@ -249,7 +297,9 @@ def main():
         with open(os.path.join(HERE, item["name"] + ".json"), "w", encoding="utf-8", newline="\n") as f:
             json.dump(item, f, indent=1)
             f.write("\n")
-    print("wrote %d fixtures" % len(FIXTURES))
+        with open(os.path.join(MQL5_DIR, item["name"] + ".txt"), "w", encoding="ascii", newline="\n") as f:
+            f.write(to_mql5_text(item))
+    print("wrote %d fixtures (JSON + MQL5 text)" % len(FIXTURES))
 
 
 if __name__ == "__main__":

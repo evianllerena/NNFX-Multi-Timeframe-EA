@@ -2,6 +2,21 @@
 
 Newest first.
 
+## 2026-10-03 — Phase 4: MQL5 rules core
+
+- `MQL5/Include/NNFX/Settings.mqh`, `RulesCore.mqh`: the rules core in MQL5, a function-for-function
+  port of the Python answer key. No trading or indicator calls. **Not yet compiled.**
+- `MQL5/Scripts/NNFX/NNFX_RulesTest.mq5`: runs all rule cases in MT5 and writes a pass/fail report.
+  **Not yet compiled.**
+- `tests/fixtures/mql5/`: the same 45 rule cases in a line format MQL5 can read;
+  `tests/python/test_fixture_formats.py` proves they match the JSON exactly.
+- Pass line: 47 of 47 in MT5, the same as Python.
+- I-14 fix (owner-approved): if a regular entry is refused or only waiting, the continuation is
+  still checked. Changed in both `core.py` and `RulesCore.mqh`; two new fixtures (47 total).
+- Interpretations reviewed: I-4, 5, 6, 8, 10, 11, 12, 13, 14 approved; I-1, 2, 3, 7, 9 reworded
+  for intraday and awaiting a tick; the old I-15 is now a checker note.
+- `docs/RULEBOOK.md` snapshot is behind the living doc; it will be refreshed once I-1, 2, 3, 7, 9 are ticked.
+
 ## 2026-10-03 — Phase 3: Python answer key
 
 - `tests/python/nnfx_ref/`: rules engine (E0-E6, X1-X5, T1-T7), signals, sizing, exposure, settings.

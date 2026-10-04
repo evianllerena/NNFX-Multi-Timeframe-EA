@@ -276,6 +276,9 @@ class PairCore:
             # fall through: this candle may carry its own new signal
 
         # b) New standard signal: baseline cross (E2) takes priority over C1 signal (E1).
+        #    Work out what the regular signal would do; only an immediate entry is
+        #    acted on here (I-14: a regular entry beats a continuation).
+        outcome = None   # (event, rule, dir, note, wait_rule) for a refused or waiting signal
         trig, rule = 0, ""
         if cross:
             trig, rule = cross, "E2"
@@ -283,36 +286,32 @@ class PairCore:
             trig, rule = c1_fresh, "E1"
         if trig:
             d = trig
-            if rule == "E2" and s.btf_on:
-                age = self.c1_run_len if self.c1_run_dir == d else 0
-                if age >= s.btf_bars:
-                    self._emit(bar, "SKIP", "E5", d, note="C1 signal %d candles old" % age)
+            age = self.c1_run_len if self.c1_run_dir == d else 0
+            if rule == "E2" and s.btf_on and age >= s.btf_bars:
+                outcome = ("SKIP", "E5", d, "C1 signal %d candles old" % age, None)
+            else:
+                fails = []
+                if rule == "E2" and c1 != d:
+                    fails.append("c1")
+                if rule == "E1" and side != d:
+                    fails.append("baseline")
+                if c2 != d:
+                    fails.append("c2")
+                if not vol:
+                    fails.append("volume")
+                if not fails and within:
+                    self._enter(bar, d, rule, atr, blocks)
                     return
-            fails = []
-            if rule == "E2" and c1 != d:
-                fails.append("c1")
-            if rule == "E1" and side != d:
-                fails.append("baseline")
-            if c2 != d:
-                fails.append("c2")
-            if not vol:
-                fails.append("volume")
-            if not fails and within:
-                self._enter(bar, d, rule, atr, blocks)
-                return
-            if not fails and not within and s.pullback_on:
-                self.pending_entry = {"dir": d, "rule": "E3"}
-                self._emit(bar, "PENDING", "E3", d, note="beyond 1xATR")
-                return
-            if len(fails) == 1 and within and s.one_candle:
-                self.pending_entry = {"dir": d, "rule": "E4"}
-                self._emit(bar, "PENDING", "E4", d, note="waiting: " + fails[0])
-                return
-            why = fails + ([] if within else ["distance"])
-            self._emit(bar, "SKIP", rule, d, note=",".join(why))
-            return
+                if not fails and not within and s.pullback_on:
+                    outcome = ("PENDING", "E3", d, "beyond 1xATR", "E3")
+                elif len(fails) == 1 and within and s.one_candle:
+                    outcome = ("PENDING", "E4", d, "waiting: " + fails[0], "E4")
+                else:
+                    why = fails + ([] if within else ["distance"])
+                    outcome = ("SKIP", rule, d, ",".join(why), None)
 
         # c) Continuation (E6): flat after a trade, trend still armed, same direction.
+        #    Checked whenever no regular entry opened on this candle (I-14).
         if s.continuation != "off" and self.armed and self.trend_dir and self.last_exit_dir == self.trend_dir:
             d = self.trend_dir
             if s.continuation == "a":
@@ -320,4 +319,14 @@ class PairCore:
             else:
                 fire = ex_fresh == d and c1 == d and c2 == d
             if fire:
+                if outcome:
+                    self._emit(bar, "SKIP", outcome[1], outcome[2], note="continuation taken instead")
                 self._enter(bar, d, "E6", atr, blocks)
+                return
+
+        # d) Log the regular signal's outcome (refused, or waiting one candle).
+        if outcome:
+            event, orule, d, note, wait_rule = outcome
+            if wait_rule:
+                self.pending_entry = {"dir": d, "rule": wait_rule}
+            self._emit(bar, event, orule, d, note=note)
