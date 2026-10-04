@@ -33,6 +33,9 @@ Do not start the next step until the verdict says PASS.
 Rules for the packet:
 - Copy outputs unedited. Never retype a number.
 - A failed or invalid run is included, not left out.
+- Evidence is never deleted (G1_phase6b_1 F4; CONTRIBUTING "Nothing is deleted"). A failed or invalid run's raw
+  output is moved, unedited, to an `invalid\` subfolder, with a `REASON.txt` of one line saying why it is invalid,
+  before anything is re-run. Re-runs write to a new folder; they never overwrite.
 - If something was not run, say so in PACKET.md.
 
 ## Verdict

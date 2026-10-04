@@ -18,11 +18,15 @@ Reads a trade log written by MQL5/Include/NNFX/TradeLog.mqh and checks, trade by
            after TP1; each TRAIL stop within one tick of close -/+ 1.5 x ATR; never backwards
   test     a TESTSTOPLESS position must be closed with an ALARM in the same second; any other
            ALARM on our own position is a failure; manual-position alarms are information
+  ABORT    a trade with an ABORT row has no half 2 and half 1 is closed (a CLOSE/SL row for
+           half 1 after its OPEN; the ABORT note does not say the close failed): no lone half
+  REFUSE   a trade id with a REFUSE row has no OPEN row: nothing was sent (stops level, OD-5 margin)
   info     realised loss larger than planned (a gap through the stop) is reported, never
            a pass or a fail; REFUSE and RETRY rows are counted
 
 Usage:  python tools/check_trades.py LOG.csv [more.csv] [--min-trades N]
                                      [--require SL,TP1,BE,TRAILON,TRAIL,TP2,EXIT,RETRY,TESTSTOPLESS]
+                                     [--require-note TEXT ...]   (some row's note must contain TEXT)
 Exit code 0 = every file PASS.
 """
 import argparse
@@ -55,7 +59,7 @@ def near(a, b, tol):
     return abs(a - b) <= tol + 1e-12
 
 
-def check(path, min_trades=0, require=()):
+def check(path, min_trades=0, require=(), require_notes=()):
     rows = read_log(path)
     fails, info = [], []
     counts = defaultdict(int)
@@ -77,9 +81,21 @@ def check(path, min_trades=0, require=()):
         for h in (1, 2):
             if len(opens[h]) > 1:
                 fails.append("%s: half %d opened %d times (duplicate)" % (tid, h, len(opens[h])))
+        aborts = [r for _, r in evs if r["event"] == "ABORT"]
+        if aborts:
+            if opens[2]:
+                fails.append("%s: ABORT but half 2 was opened" % tid)
+            if any("FAILED" in a["note"] for a in aborts):
+                fails.append("%s: ABORT could not close half 1 (lone half left)" % tid)
+            if opens[1]:
+                if opens[1][0][1]["sl"] == 0.0:
+                    fails.append("%s: half 1 had no stop at its first record" % tid)
+                i1 = opens[1][0][0]
+                if not any(i > i1 and r["half"] == 1 and r["event"] in ("CLOSE", "SL") for i, r in evs):
+                    fails.append("%s: ABORT but no close of half 1 is logged (lone half left)" % tid)
+            continue
         if not opens[1] or not opens[2]:
-            if not any(r["event"] == "ABORT" for _, r in evs):
-                fails.append("%s: only one half opened and no ABORT row" % tid)
+            fails.append("%s: only one half opened and no ABORT row" % tid)
             continue
         o1, o2 = opens[1][0][1], opens[2][0][1]
         d = o1["dir"]
@@ -199,11 +215,18 @@ def check(path, min_trades=0, require=()):
         elif a["ticket"] not in test_tickets:
             fails.append("ALARM on our own position: %s" % a["note"])
 
+    for tid, evs in by_trade.items():
+        if any(r["event"] == "REFUSE" for _, r in evs) and any(r["event"] == "OPEN" for _, r in evs):
+            fails.append("%s: REFUSE row but an order was opened anyway" % tid)
+
     if len(trades) < min_trades:
         fails.append("only %d trades, need at least %d" % (len(trades), min_trades))
     for ev in require:
         if counts[ev] == 0:
             fails.append("coverage: no %s row in the log" % ev)
+    for text in require_notes:
+        if not any(text in r["note"] for r in rows):
+            fails.append("coverage: no row with %r in its note" % text)
 
     name = os.path.basename(path)
     print("=" * 70)
@@ -223,9 +246,10 @@ def main(argv=None):
     ap.add_argument("csv", nargs="+")
     ap.add_argument("--min-trades", type=int, default=0)
     ap.add_argument("--require", default="", help="comma-separated events that must appear at least once")
+    ap.add_argument("--require-note", action="append", default=[], help="a row's note must contain this text")
     a = ap.parse_args(argv)
     req = [x.strip() for x in a.require.split(",") if x.strip()]
-    ok = all([check(p, a.min_trades, req) for p in a.csv])
+    ok = all([check(p, a.min_trades, req, a.require_note) for p in a.csv])
     return 0 if ok else 1
 
 

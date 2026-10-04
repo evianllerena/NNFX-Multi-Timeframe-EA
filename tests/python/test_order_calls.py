@@ -3,9 +3,10 @@
 S2   Every trading call (OrderSend, OrderSendAsync, CTrade, PositionClose, PositionModify,
      OrderModify, OrderDelete) anywhere under MQL5/ is inside MQL5/Include/NNFX/Orders.mqh, and
      every public method of class CNNFXOrders starts with a call to NNFXOrdersAllowed.
-S2b  The test-only stopless path (G2 verdict F3): NNFXTestOpenWithoutStop and TestLoseNextReply
-     exist only inside "#ifdef NNFX_TEST_BUILD"; NNFXTestOpenWithoutStop refuses unless
-     MQLInfoInteger(MQL_TESTER) is true; NNFX_TEST_BUILD is defined only by the test EA
+S2b  The test-only paths (G2 verdict F3; G1_phase6b_1 F1): NNFXTestOpenWithoutStop, TestLoseNextReply,
+     TestFailNextHalf2, TestStopsLevelOverride, TestFreeMarginOverride and TestFillOffset exist only
+     inside "#ifdef NNFX_TEST_BUILD"; all but TestLoseNextReply refuse unless MQLInfoInteger(MQL_TESTER)
+     is true (TestLoseNextReply only drops a reply, the retry then finds the position); NNFX_TEST_BUILD is defined only by the test EA
      MQL5/Experts/NNFX/NNFX_OrderTest.mq5, never by NNFX_EA.mq5 or any other file.
 
 Comments and string literals are removed before scanning, so prose never counts.
@@ -22,7 +23,8 @@ ORDERS = os.path.join(MQL5, "Include", "NNFX", "Orders.mqh")
 TEST_EA = os.path.join(MQL5, "Experts", "NNFX", "NNFX_OrderTest.mq5")
 TRADING = re.compile(r"\b(OrderSend|OrderSendAsync|CTrade|PositionClose|PositionModify|OrderModify|OrderDelete)\b")
 GUARD = re.compile(r"^\s*if\s*\(\s*!\s*NNFXOrdersAllowed\s*\(")
-TEST_ONLY = ("NNFXTestOpenWithoutStop", "TestLoseNextReply")
+TEST_ONLY = ("NNFXTestOpenWithoutStop", "TestLoseNextReply", "TestFailNextHalf2", "TestStopsLevelOverride",
+             "TestFreeMarginOverride", "TestFillOffset")
 
 
 def strip_code(text):
@@ -146,10 +148,10 @@ def violations():
         for d in defs:
             if not any(a <= d.start() <= b for a, b in ranges):
                 found.append("S2b: %s defined outside #ifdef NNFX_TEST_BUILD" % name)
-    stopless = [m for m in methods if m[0] == "NNFXTestOpenWithoutStop"]
-    for name, body, _ in stopless:
-        if not re.search(r"if\s*\(\s*MQLInfoInteger\s*\(\s*MQL_TESTER\s*\)\s*==\s*0\s*\)\s*\{[^}]*return\s+false", body):
-            found.append("S2b: NNFXTestOpenWithoutStop does not refuse outside the Strategy Tester")
+    refuse = re.compile(r"if\s*\(\s*MQLInfoInteger\s*\(\s*MQL_TESTER\s*\)\s*==\s*0\s*\)\s*(\{[^}]*)?return\b")
+    for name, body, _ in methods:
+        if name in TEST_ONLY and name != "TestLoseNextReply" and not refuse.search(body):
+            found.append("S2b: %s does not refuse outside the Strategy Tester" % name)
     # S2b: NNFX_TEST_BUILD defined only by the test EA
     for path in mql_files():
         code_f = strip_code(read(path))

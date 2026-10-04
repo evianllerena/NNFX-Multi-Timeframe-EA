@@ -16,6 +16,9 @@
 //|    prove EnforceStops closes it with an alarm (F3)               |
 //|  - trade InpLoseReplyOn has its reply dropped once, to prove the |
 //|    retry never opens a duplicate (OD-13)                         |
+//|  - G1_phase6b_1 F1, one trade each: half 2 forced to fail        |
+//|    (ABORT), stops level too wide (REFUSE), no free margin        |
+//|    (REFUSE, OD-5), SL/TP planned off the fill (MODIFY, OD-14)    |
 //|                                                                  |
 //| Orders only in the tester or on a DEMO account (section 1).      |
 //| Log: Common\Files\NNFX\trades\OrderTest_<symbol>_<tester|demo>.csv|
@@ -35,6 +38,10 @@ input bool   InpMinLots       = false;  // Each half at the minimum lot (demo te
 input long   InpMagic         = 26999;  // Test magic (not one of the presets' 26030/26060/26240)
 input bool   InpStoplessTest  = true;   // Tester only: open one stopless position on purpose
 input int    InpLoseReplyOn   = 3;      // Tester only: drop the reply once on this trade number (0 = off)
+input int    InpAbortOn       = 7;      // Tester only: half 2 forced to fail on this trade -> ABORT (0 = off)
+input int    InpStopsRefuseOn = 9;      // Tester only: stops level 100000 points on this trade -> REFUSE (0 = off)
+input int    InpMarginRefuseOn = 11;    // Tester only: free margin 0 on this trade -> REFUSE, OD-5 (0 = off)
+input int    InpModifyOn      = 13;     // Tester only: SL/TP planned 20 points off on this trade -> MODIFY (0 = off)
 
 CNNFXOrders   g_orders;
 CNNFXTradeLog g_log;
@@ -84,13 +91,13 @@ void OnDeinit(const int reason)
 
 void OnTradeTransaction(const MqlTradeTransaction &trans, const MqlTradeRequest &request, const MqlTradeResult &result)
   {
-   g_orders.Poll();
+   g_orders.Poll("transaction");
   }
 
 void OnTick()
   {
    g_orders.EnforceStops();
-   g_orders.Poll();
+   g_orders.Poll("tick");
    datetime bar = iTime(_Symbol, _Period, 0);
    if(bar == g_last_bar)
       return;
@@ -132,8 +139,19 @@ void OnTick()
    int dir = (k % 2 == 1) ? 1 : -1;
    double cap = (k % 4 == 0) ? 2.0 : NNFX_CAP_OFF;
    g_exit_after = (k % 5 == 0) ? 8 : 0;
-   if(g_mode == "tester" && InpLoseReplyOn > 0 && k == InpLoseReplyOn)
-      g_orders.TestLoseNextReply();
+   if(g_mode == "tester")
+     {
+      if(InpLoseReplyOn > 0 && k == InpLoseReplyOn)
+         g_orders.TestLoseNextReply();
+      if(InpAbortOn > 0 && k == InpAbortOn)
+         g_orders.TestFailNextHalf2();
+      if(InpStopsRefuseOn > 0 && k == InpStopsRefuseOn)
+         g_orders.TestStopsLevelOverride(100000);
+      if(InpMarginRefuseOn > 0 && k == InpMarginRefuseOn)
+         g_orders.TestFreeMarginOverride(0.0);
+      if(InpModifyOn > 0 && k == InpModifyOn)
+         g_orders.TestFillOffset(20);
+     }
    string id = TradeId(k);
    if(g_orders.OpenTrade(_Symbol, dir, atr[0], InpRiskPct, cap, id, InpMinLots))
      {

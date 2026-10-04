@@ -19,7 +19,8 @@ What it does, in order (each step's result goes in SUMMARY.txt):
        pass line  RESULT: NO REPAINTING FOUND
      4b. The Phase 6b order run: Expert=NNFX\NNFX_OrderTest on EURUSD H1 (orders in the tester only);
        its trade log is checked in step 5 by tools/check_trades.py (at least 20 trades and every
-       order path: SL, TP1, BE, TRAILON, TRAIL, TP2, EXIT, RETRY, TESTSTOPLESS)
+       order path: SL, TP1, BE, TRAILON, TRAIL, TP2, EXIT, RETRY, TESTSTOPLESS, ABORT, REFUSE for the
+       stops level and for free margin, MODIFY; a breakeven moved via OnTradeTransaction)
   5. Runs the Python tests, tools/check_export.py --replay and tools/check_indicators.py on the
      exports written in step 3. Python is found automatically (-Python if given, then `py -3`,
      then `python`, then the newest %LOCALAPPDATA%\Programs\Python\Python3*\python.exe); each
@@ -308,7 +309,9 @@ if (-not $script:PyExe) {
         Step "5 check_trades.py" "NOT RUN" "no order-run trade log written in this run"
     } else {
         $o = Run-Py @("$Repo\tools\check_trades.py", $script:OrderLogThisRun, "--min-trades", "20",
-                      "--require", "SL,TP1,BE,TRAILON,TRAIL,TP2,EXIT,RETRY,TESTSTOPLESS")
+                      "--require", "SL,TP1,BE,TRAILON,TRAIL,TP2,EXIT,RETRY,TESTSTOPLESS,ABORT,REFUSE,MODIFY",
+                      "--require-note", "free margin", "--require-note", "minimum distance",
+                      "--require-note", "via=transaction")
         $code = $LASTEXITCODE
         $o | Set-Content "$Out\check_trades.txt" -Encoding ASCII
         $res = ([regex]::Matches($o, "(?m)^RESULT .*$") | Select-Object -Last 1).Value

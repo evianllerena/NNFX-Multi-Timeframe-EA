@@ -17,9 +17,10 @@
 //| trail at candle closes (T4); a stopless position with our magic  |
 //| is closed at once with an alarm, a manual one only alarms (OD-8).|
 //|                                                                  |
-//| NNFXTestOpenWithoutStop exists only when NNFX_TEST_BUILD is      |
-//| defined (the test EA NNFX_OrderTest) and refuses outside the     |
-//| Strategy Tester (G2 verdict F3).                                 |
+//| NNFXTestOpenWithoutStop and the Test* hooks exist only when      |
+//| NNFX_TEST_BUILD is defined (the test EA NNFX_OrderTest) and      |
+//| refuse outside the Strategy Tester (G2 verdict F3; G1_phase6b_1  |
+//| F1: force ABORT, REFUSE stops level, REFUSE margin, MODIFY).     |
 //|                                                                  |
 //| Status: compiled 2026-10-04 (build 6238, 0 errors, 0 warnings;   |
 //| tester order run, check_trades PASS, run 20261004_162607).       |
@@ -78,6 +79,10 @@ private:
    double            m_sl_atr, m_tp1_atr, m_trail_start, m_trail_dist;
 #ifdef NNFX_TEST_BUILD
    bool              m_lose_next_reply;
+   bool              m_fail_next_half2;     // one-shot: half 2's send fails -> ABORT
+   long              m_stops_override;      // one-shot: stops level in points (-1 = off) -> REFUSE
+   double            m_margin_override;     // one-shot: free margin (-1 = off) -> REFUSE (OD-5)
+   int               m_fill_offset;         // one-shot: plan SL/TP from price + dir x points -> MODIFY (OD-14)
 #endif
 
    void              Row(NNFXLogRow &r)
@@ -292,6 +297,10 @@ public:
      {
 #ifdef NNFX_TEST_BUILD
       m_lose_next_reply = false;
+      m_fail_next_half2 = false;
+      m_stops_override = -1;
+      m_margin_override = -1.0;
+      m_fill_offset = 0;
 #endif
      }
 
@@ -371,13 +380,30 @@ public:
          return false;
         }
       double price = (dir == 1) ? tick.ask : tick.bid;
+      double basis = price;   // the price SL/TP are planned from before the fill
+#ifdef NNFX_TEST_BUILD
+      if(m_fill_offset != 0 && MQLInfoInteger(MQL_TESTER) != 0)
+        {
+         basis = price + dir * m_fill_offset * point;   // towards profit: the planned stop is closer, never wider
+         Note("TEST", tradeId, sym, StringFormat("TEST: SL/TP planned from %d points away from the price (fill offset)", m_fill_offset));
+        }
+      m_fill_offset = 0;
+#endif
       double sl, tp1, tp2;
-      if(!NNFXPlanPrices(dir, price, atr, tickSize, m_sl_atr, m_tp1_atr, capAtr, sl, tp1, tp2))
+      if(!NNFXPlanPrices(dir, basis, atr, tickSize, m_sl_atr, m_tp1_atr, capAtr, sl, tp1, tp2))
         {
          Note("REFUSE", tradeId, sym, "prices not plannable");
          return false;
         }
       long stopsLevel = SymbolInfoInteger(sym, SYMBOL_TRADE_STOPS_LEVEL);
+#ifdef NNFX_TEST_BUILD
+      if(m_stops_override >= 0 && MQLInfoInteger(MQL_TESTER) != 0)
+        {
+         stopsLevel = m_stops_override;
+         Note("TEST", tradeId, sym, "TEST: stops level overridden to " + IntegerToString(m_stops_override) + " points");
+        }
+      m_stops_override = -1;
+#endif
       if(!NNFXStopDistanceOk(price, sl, stopsLevel, point) || !NNFXStopDistanceOk(price, tp1, stopsLevel, point))
         {
          Note("REFUSE", tradeId, sym, "stop or target inside the broker's minimum distance (" + IntegerToString(stopsLevel) + " points)");
@@ -398,6 +424,14 @@ public:
          return false;
         }
       double free = AccountInfoDouble(ACCOUNT_MARGIN_FREE);
+#ifdef NNFX_TEST_BUILD
+      if(m_margin_override >= 0.0 && MQLInfoInteger(MQL_TESTER) != 0)
+        {
+         free = m_margin_override;
+         Note("TEST", tradeId, sym, StringFormat("TEST: free margin overridden to %.2f", m_margin_override));
+        }
+      m_margin_override = -1.0;
+#endif
       if(margin > free)
         {
          Note("REFUSE", tradeId, sym, StringFormat("not enough free margin: needs %.2f, free %.2f (OD-5)", margin, free));
@@ -443,12 +477,41 @@ public:
       t.open1 = true;
       req.tp = tp2;
       req.comment = Comment(tradeId, 2);
-      t.pos2 = SendOpen(req, tradeId, 2);
+      bool failHalf2 = false;
+#ifdef NNFX_TEST_BUILD
+      failHalf2 = m_fail_next_half2 && MQLInfoInteger(MQL_TESTER) != 0;
+      m_fail_next_half2 = false;
+      if(failHalf2)
+         Note("TEST", tradeId, sym, "TEST: half 2 send forced to fail");
+#endif
+      t.pos2 = failHalf2 ? 0 : SendOpen(req, tradeId, 2);
       if(t.pos2 == 0)
         {
-         // Never leave one half alone: halves must be equal (M5).
-         ClosePosition(t.pos1);
-         Note("ABORT", tradeId, sym, "half 2 not opened; half 1 closed");
+         // Never leave one half alone: halves must be equal (M5). Log half 1's OPEN and its close.
+         LogFill("OPEN", t, 1, t.pos1, 0.0, 0.0, size.target_risk_money, balance, riskPct, tickValue, "half 2 failed");
+         bool closed = ClosePosition(t.pos1);
+         double cprice = 0;
+         long creason = -1;
+         if(closed && ClosingDeal(t.pos1, cprice, creason))
+           {
+            NNFXLogRow c;
+            NNFXLogRowClear(c);
+            c.event = "CLOSE";
+            c.trade_id = tradeId;
+            c.half = 1;
+            c.symbol = sym;
+            c.dir = dir;
+            c.ticket = t.pos1;
+            c.lots = half;
+            c.price = cprice;
+            c.tick_size = tickSize;
+            c.note = "closed by ABORT, deal reason " + IntegerToString(creason);
+            Row(c);
+           }
+         Note("ABORT", tradeId, sym, closed ? "half 2 not opened; half 1 closed" : "half 2 not opened; HALF 1 CLOSE FAILED",
+              t.pos1);
+         if(!closed)
+            Alert("NNFX: ABORT of ", tradeId, ": half 1 could not be closed");
          return false;
         }
       t.open2 = true;
@@ -491,8 +554,9 @@ public:
      }
 
    // Follows closures (SL, TP1, TP2) from the deal history; on TP1 moves half 2 to breakeven at once
-   // (T2, OD-15). Call from OnTradeTransaction and on every tick.
-   void              Poll(void)
+   // (T2, OD-15). Call from OnTradeTransaction (via "transaction") and on every tick (via "tick");
+   // the BE row records which one moved the stop (G1_phase6b_1 F5, U12).
+   void              Poll(const string via)
      {
       if(!NNFXOrdersAllowed(m_why))
          return;
@@ -536,7 +600,7 @@ public:
               {
                m_trades[i].tp1_done = true;
                if(m_trades[i].open2)
-                  MoveStop(m_trades[i].id, NNFXBreakevenPrice(m_trades[i].entry2), "BE", 0.0, 0.0);
+                  MoveStop(m_trades[i].id, NNFXBreakevenPrice(m_trades[i].entry2), "BE", 0.0, 0.0, "via=" + via);
               }
            }
         }
@@ -544,7 +608,7 @@ public:
 
    // Moves half 2's stop (BE or TRAIL). Never backwards.
    bool              MoveStop(const string tradeId, const double newSl, const string event, const double close,
-                              const double atr)
+                              const double atr, const string note = "")
      {
       if(!NNFXOrdersAllowed(m_why))
         {
@@ -581,7 +645,7 @@ public:
       r.atr = atr;
       r.close = close;
       r.tick_size = SymbolInfoDouble(m_trades[k].sym, SYMBOL_TRADE_TICK_SIZE);
-      r.note = (m_trades[k].trail_active ? "trail active" : "");
+      r.note = (m_trades[k].trail_active ? "trail active" : "") + (note == "" ? "" : (m_trades[k].trail_active ? "; " : "") + note);
       Row(r);
       return true;
      }
@@ -643,7 +707,7 @@ public:
          ok = ClosePosition(m_trades[k].pos1) && ok;
       if(m_trades[k].open2)
          ok = ClosePosition(m_trades[k].pos2) && ok;
-      Poll();
+      Poll("close");
       return ok;
      }
 
@@ -745,6 +809,47 @@ public:
       if(!NNFXOrdersAllowed(m_why))
          return;
       m_lose_next_reply = true;
+     }
+
+   // TEST BUILD ONLY (G1_phase6b_1 F1): the next trade's half 2 is not sent, to prove ABORT closes half 1.
+   void              TestFailNextHalf2(void)
+     {
+      if(!NNFXOrdersAllowed(m_why))
+         return;
+      if(MQLInfoInteger(MQL_TESTER) == 0)
+         return;
+      m_fail_next_half2 = true;
+     }
+
+   // TEST BUILD ONLY: the next trade sees this stops level (points), to prove the REFUSE before any order.
+   void              TestStopsLevelOverride(const long points)
+     {
+      if(!NNFXOrdersAllowed(m_why))
+         return;
+      if(MQLInfoInteger(MQL_TESTER) == 0)
+         return;
+      m_stops_override = points;
+     }
+
+   // TEST BUILD ONLY: the next trade sees this free margin, to prove the OD-5 REFUSE before any order.
+   void              TestFreeMarginOverride(const double value)
+     {
+      if(!NNFXOrdersAllowed(m_why))
+         return;
+      if(MQLInfoInteger(MQL_TESTER) == 0)
+         return;
+      m_margin_override = value;
+     }
+
+   // TEST BUILD ONLY: the next trade's SL/TP are planned from `points` away from the price (towards profit), so
+   // the real fill differs and the SL/TP must be re-set from the fill (MODIFY, OD-14).
+   void              TestFillOffset(const int points)
+     {
+      if(!NNFXOrdersAllowed(m_why))
+         return;
+      if(MQLInfoInteger(MQL_TESTER) == 0)
+         return;
+      m_fill_offset = points;
      }
 #endif
   };

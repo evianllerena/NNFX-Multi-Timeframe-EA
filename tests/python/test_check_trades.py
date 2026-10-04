@@ -68,6 +68,20 @@ def good_rows():
     rs.append(row("2026.06.05 18:00:00", "EXIT", "T0004", note="scripted signal exit"))
     rs.append(row("2026.06.05 18:00:00", "CLOSE", "T0004", 1, -1, ticket=41, lots=3.33, price=1.09950, entry=1.10000, tick_size=T))
     rs.append(row("2026.06.05 18:00:00", "CLOSE", "T0004", 2, -1, ticket=42, lots=3.33, price=1.09950, entry=1.10000, tick_size=T))
+    # T0005 ABORT: half 1 opened, half 2 failed, half 1 closed (G1_phase6b_1 F1)
+    rs.append(opened("2026.06.06 10:00:00", "T0005", 1, 1.10000, 3.33, 1.09700, 1.10200, ticket=51)[0])
+    rs.append(row("2026.06.06 10:00:00", "CLOSE", "T0005", 1, 1, ticket=51, lots=3.33, price=1.09999, tick_size=T,
+                  note="closed by ABORT"))
+    rs.append(row("2026.06.06 10:00:00", "ABORT", "T0005", ticket=51, note="half 2 not opened; half 1 closed"))
+    # T0006 REFUSE: nothing sent
+    rs.append(row("2026.06.07 10:00:00", "REFUSE", "T0006", note="not enough free margin: needs 3300.00, free 0.00 (OD-5)"))
+    # T0007 MODIFY: SL/TP re-set from the fill (OD-14); the OPEN row holds the stop planned before the fill
+    o = opened("2026.06.08 10:00:00", "T0007", 1, 1.10000, 3.33, 1.09720, 1.10220, ticket=71)
+    rs += o
+    for h, tp in ((1, 1.10200), (2, 0.0)):
+        m = dict(o[h - 1])
+        m.update(event="MODIFY", sl="1.097", tp=repr(tp), prev_sl="1.0972", note="SL/TP re-set from the fill price (OD-14)")
+        rs.append(m)
     # test-only stopless position, closed at once with an alarm
     rs.append(row("2026.06.01 01:00:00", "TESTSTOPLESS", "TS01", ticket=99, note="TEST: position opened without a stop on purpose"))
     rs.append(row("2026.06.01 01:00:00", "ALARM", "", ticket=99, note="missing stop on our position 99: closed at once"))
@@ -182,6 +196,28 @@ class TestCheckTrades(unittest.TestCase):
                                               note="missing stop on our position 55: closed at once")),
                      "ALARM on our own position")
 
+    def test_abort_without_half1_close(self):
+        self.corrupt(lambda rs: rs.remove(find(rs, "CLOSE", "T0005", 1)), "no close of half 1")
+
+    def test_abort_close_failed(self):
+        self.corrupt(lambda rs: find(rs, "ABORT", "T0005").update(note="half 2 not opened; HALF 1 CLOSE FAILED"),
+                     "lone half left")
+
+    def test_refuse_then_order(self):
+        self.corrupt(lambda rs: rs.append(opened("2026.06.07 10:00:01", "T0006", 1, 1.1, 3.33, 1.097, 1.102, ticket=61)[0]),
+                     "REFUSE row but an order was opened")
+
+    def test_modify_to_wrong_stop(self):
+        self.corrupt(lambda rs: [r.update(sl="1.0969") for r in rs if r["event"] == "MODIFY" and r["trade_id"] == "T0007"],
+                     "T0007: half 1 SL")
+
+    def test_require_note(self):
+        ok, out = run(good_rows(), require_notes=("free margin",))
+        self.assertTrue(ok, out)
+        ok, out = run(good_rows(), require_notes=("minimum distance",))
+        self.assertFalse(ok)
+        self.assertIn("coverage: no row with 'minimum distance'", out)
+
     def test_gap_loss_is_information_only(self):
         rows = good_rows()
         for h in (1, 2):
@@ -194,7 +230,7 @@ class TestCheckTrades(unittest.TestCase):
     def test_coverage_and_minimum(self):
         ok, out = run(good_rows(), min_trades=20)
         self.assertFalse(ok)
-        self.assertIn("only 4 trades", out)
+        self.assertIn("only 6 trades", out)
         rows = [r for r in good_rows() if r["event"] != "TP2"]
         ok, out = run(rows, require=("TP2",))
         self.assertFalse(ok)
