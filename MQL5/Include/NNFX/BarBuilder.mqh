@@ -9,8 +9,8 @@
 //| ATR is fixed engine machinery (rulebook M1: ATR(14)), never a    |
 //| profile.                                                         |
 //|                                                                  |
-//| Status: Phase 5 version compiled 2026-10-04 (build 6238, 0 errors);|
-//| Phase 5b changes NOT YET COMPILED.                               |
+//| Status: Phase 5b version compiled 2026-10-04 (build 6238, 0      |
+//| errors, 0 warnings; run_phase5_checks run 20261004_113357).      |
 //+------------------------------------------------------------------+
 #ifndef NNFX_BARBUILDER_MQH
 #define NNFX_BARBUILDER_MQH

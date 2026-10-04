@@ -7,13 +7,16 @@ What it does, in order (each step's result goes in SUMMARY.txt):
   3. Starts MT5 once per script with a /config file ([StartUp] Script=..., ShutdownTerminal=1):
        NNFX_RulesTest   pass line  RESULT: 47 passed, 0 failed, 47 total
        NNFX_SignalTest  pass line  RESULT: 56 passed, 0 failed, 56 total
-       NNFX_EnvCheck    information only (must finish: "== END ==")
+       NNFX_EnvCheck    information only, but must be read after login: "RESULT: VALID ..."
+                        ("RESULT: INVALID (not connected)" is a FAIL)
        NNFX_ExportBars  pass line  RESULT: 5 of 5 pairs complete
      A report only counts if it was written during this run.
   4. Starts the Strategy Tester with a /config file ([Tester] Expert=NNFX\NNFX_RepaintCheck ...)
        pass line  RESULT: NO REPAINTING FOUND
   5. Runs the Python tests, tools/check_export.py --replay and tools/check_indicators.py on the
-     exports written in step 3.
+     exports written in step 3. Python is found automatically (-Python if given, then `py -3`,
+     then `python`, then the newest %LOCALAPPDATA%\Programs\Python\Python3*\python.exe); each
+     candidate must run `--version`. The one used is printed in SUMMARY.txt.
 
 Everything (reports, compile logs, MT5 logs, Python output, SUMMARY.txt) is copied to
   <MT5 data folder>\MQL5\Files\NNFX\checks\<date-time>\
@@ -33,7 +36,7 @@ param(
     [string]$MT5     = "C:\Users\Evision\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075",
     [string]$Common  = "C:\Users\Evision\AppData\Roaming\MetaQuotes\Terminal\Common\Files",
     [string]$Install = "C:\Program Files\MetaTrader 5",
-    [string]$Python  = "python",
+    [string]$Python  = "",          # empty = find a working Python (see step 5)
     [string]$TesterFrom = "2026.06.01",
     [string]$TesterTo   = "2026.10.01",
     [switch]$SkipTester
@@ -136,7 +139,7 @@ function Run-Script([string]$script, [int]$timeoutMin) {
 $scripts = @(
     @{ Name = "NNFX_RulesTest";  Report = "$MT5\MQL5\Files\NNFX_RulesTest.txt";        Pass = "RESULT: 47 passed, 0 failed, 47 total"; Min = 5 },
     @{ Name = "NNFX_SignalTest"; Report = "$MT5\MQL5\Files\NNFX_SignalTest.txt";       Pass = "RESULT: 56 passed, 0 failed, 56 total"; Min = 5 },
-    @{ Name = "NNFX_EnvCheck";   Report = "$MT5\MQL5\Files\NNFX_EnvCheck.txt";         Pass = "== END ==";                              Min = 20; Info = $true },
+    @{ Name = "NNFX_EnvCheck";   Report = "$MT5\MQL5\Files\NNFX_EnvCheck.txt";         Pass = "RESULT: VALID";                          Min = 20; Info = $true },
     @{ Name = "NNFX_ExportBars"; Report = "$MT5\MQL5\Files\NNFX\export\_summary.txt";  Pass = "RESULT: 5 of 5 pairs complete";          Min = 30 }
 )
 $exportStart = $null
@@ -185,31 +188,70 @@ if ($SkipTester) {
 }
 
 # ---------------------------------------------------------------- 5. Python
-$py = & $Python -m unittest discover -s "$Repo\tests\python" 2>&1 | Out-String
-$py | Set-Content "$Out\python_unittest.txt" -Encoding ASCII
-$m = [regex]::Match($py, "Ran (\d+) tests")
-Step "5 Python unit tests" $(if ($LASTEXITCODE -eq 0) { "PASS" } else { "FAIL" }) $(if ($m.Success) { "$($m.Groups[1].Value) tests" } else { "" })
+# Runs Python and returns everything it printed, stdout and stderr in order, as plain text.
+# Windows PowerShell 5.1 turns each stderr line into an error record that Out-String prints with
+# a "NativeCommandError" wrapper; ToString() gives back just the line. $LASTEXITCODE is Python's.
+function Run-Py([string[]]$pyArgs) {
+    $lines = & $script:PyExe @($script:PyPre + $pyArgs) 2>&1 | ForEach-Object { $_.ToString() }
+    return (($lines | Out-String) -replace "`r?`n", "`r`n")
+}
+
+# Find a Python that actually runs (on some PCs "python" is only the Microsoft Store stub).
+$candidates = @()
+if ($Python) { $candidates += , @($Python) }
+$candidates += , @("py", "-3")
+$candidates += , @("python")
+$installed = Get-ChildItem "$env:LOCALAPPDATA\Programs\Python\Python3*\python.exe" -ErrorAction SilentlyContinue |
+             Sort-Object { [int]($_.Directory.Name -replace "\D", "") } -Descending | Select-Object -First 1
+if ($installed) { $candidates += , @($installed.FullName) }
+$script:PyExe = $null; $script:PyPre = @()
+foreach ($cand in $candidates) {
+    if (-not (Get-Command $cand[0] -ErrorAction SilentlyContinue)) { continue }
+    $ver = & $cand[0] @($cand | Select-Object -Skip 1) --version 2>&1 | ForEach-Object { $_.ToString() }
+    if ($LASTEXITCODE -eq 0 -and ($ver -join " ") -match "^Python 3\.") {
+        $script:PyExe = $cand[0]; $script:PyPre = @($cand | Select-Object -Skip 1)
+        break
+    }
+}
+if ($script:PyExe) {
+    $where = (Run-Py @("-c", "import sys; print(sys.executable + ' (Python ' + sys.version.split()[0] + ')')")).Trim()
+    Say "Python: $where  [found as: $((@($script:PyExe) + $script:PyPre) -join ' ')]"
+} else {
+    Say "Python: none found (tried: $(($candidates | ForEach-Object { $_ -join ' ' }) -join '; '))"
+}
 
 $csvs = @()
 if ($exportStart) {
     $csvs = @(Get-ChildItem "$MT5\MQL5\Files\NNFX\export\*.csv" -ErrorAction SilentlyContinue |
               Where-Object { $_.LastWriteTime -ge $exportStart } | ForEach-Object { $_.FullName })
 }
-if ($csvs.Count -eq 0) {
-    Step "5 check_export.py" "NOT RUN" "no export written in this run"
-    Step "5 check_indicators.py" "NOT RUN" "no export written in this run"
+if (-not $script:PyExe) {
+    Step "5 Python unit tests" "FAIL" "no working Python found"
+    Step "5 check_export.py" "NOT RUN" "no working Python found"
+    Step "5 check_indicators.py" "NOT RUN" "no working Python found"
 } else {
-    $o = & $Python "$Repo\tools\check_export.py" @csvs --replay 2>&1 | Out-String
+    $py = Run-Py @("-m", "unittest", "discover", "-s", "$Repo\tests\python")
     $code = $LASTEXITCODE
-    $o | Set-Content "$Out\check_export.txt" -Encoding ASCII
-    $n = ([regex]::Matches($o, "(?m)^RESULT .*: PASS")).Count
-    Step "5 check_export.py" $(if ($code -eq 0) { "PASS" } else { "FAIL" }) "$n of $($csvs.Count) files PASS"
+    $py | Set-Content "$Out\python_unittest.txt" -Encoding ASCII
+    $m = [regex]::Match($py, "Ran (\d+) tests")
+    Step "5 Python unit tests" $(if ($code -eq 0) { "PASS" } else { "FAIL" }) $(if ($m.Success) { "$($m.Groups[1].Value) tests" } else { "" })
 
-    $o = & $Python "$Repo\tools\check_indicators.py" @csvs 2>&1 | Out-String
-    $code = $LASTEXITCODE
-    $o | Set-Content "$Out\check_indicators.txt" -Encoding ASCII
-    $n = ([regex]::Matches($o, "(?m)^RESULT .*: PASS")).Count
-    Step "5 check_indicators.py" $(if ($code -eq 0) { "PASS" } else { "FAIL" }) "$n of $($csvs.Count) files PASS"
+    if ($csvs.Count -eq 0) {
+        Step "5 check_export.py" "NOT RUN" "no export written in this run"
+        Step "5 check_indicators.py" "NOT RUN" "no export written in this run"
+    } else {
+        $o = Run-Py (@("$Repo\tools\check_export.py") + $csvs + @("--replay"))
+        $code = $LASTEXITCODE
+        $o | Set-Content "$Out\check_export.txt" -Encoding ASCII
+        $n = ([regex]::Matches($o, "(?m)^RESULT .*: PASS")).Count
+        Step "5 check_export.py" $(if ($code -eq 0) { "PASS" } else { "FAIL" }) "$n of $($csvs.Count) files PASS"
+
+        $o = Run-Py (@("$Repo\tools\check_indicators.py") + $csvs)
+        $code = $LASTEXITCODE
+        $o | Set-Content "$Out\check_indicators.txt" -Encoding ASCII
+        $n = ([regex]::Matches($o, "(?m)^RESULT .*: PASS")).Count
+        Step "5 check_indicators.py" $(if ($code -eq 0) { "PASS" } else { "FAIL" }) "$n of $($csvs.Count) files PASS"
+    }
 }
 
 # ---------------------------------------------------------------- logs for the record

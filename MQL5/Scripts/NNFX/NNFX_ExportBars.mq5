@@ -11,12 +11,17 @@
 //|                                                                  |
 //| Places NO orders. Writes                                         |
 //|   MQL5\Files\NNFX\export\<symbol>_<timeframe>.csv                |
-//| Status: Phase 5 version compiled 2026-10-04 (build 6238, 0 errors);|
-//| Phase 5b changes NOT YET COMPILED.                               |
+//| Waits until MT5 is logged in first; if it is not, _summary.txt   |
+//| ends "RESULT: INVALID (not connected)" and nothing is exported.  |
+//|                                                                  |
+//| Status: Phase 5b version compiled 2026-10-04 (build 6238, 0      |
+//| errors, 0 warnings; run 20261004_113357). G1_phase5_1 F1 change  |
+//| (wait for login) not yet compiled.                               |
 //+------------------------------------------------------------------+
 // Inputs keep their defaults when run automatically (no input dialog, so unattended runs never wait for a click).
 
 #include <NNFX\BarBuilder.mqh>
+#include <NNFX\Connection.mqh>
 
 input string          InpSymbols  = "EURUSD,AUDNZD,EURGBP,AUDCAD,CHFJPY"; // Pairs (VP's 5 test pairs)
 input ENUM_TIMEFRAMES InpTF       = PERIOD_H1;                          // Timeframe
@@ -26,6 +31,7 @@ input string          InpC1       = "ref_c1_rvi10.txt";
 input string          InpC2       = "ref_c2_macd_main.txt";
 input string          InpExit     = "ref_exit_macd_cross.txt";
 input string          InpVolume   = "ref_volume_ticks20.txt";
+input int             InpConnectWait = 120;                             // Seconds to wait for the terminal to log in
 
 // Full-precision text for a value; bad values as tokens the Python checker understands.
 string Num(const double v)
@@ -148,11 +154,24 @@ void OnStart()
    profiles[4] = InpVolume;
    string syms[];
    int n = StringSplit(InpSymbols, ',', syms);
+   for(int k = 0; k < n; k++)
+      syms[k] = NNFXTrim(syms[k]);
    int done = 0;
    int summary = FileOpen("NNFX\\export\\_summary.txt", FILE_WRITE | FILE_TXT | FILE_ANSI);
+   // History and indicator values come from the server: export nothing before login.
+   string detail;
+   if(!NNFXWaitConnected(syms, InpConnectWait, detail))
+     {
+      FileWriteString(summary, "connection: " + detail + "\r\n");
+      FileWriteString(summary, NNFX_RESULT_NOT_CONNECTED + "\r\n");
+      FileClose(summary);
+      Print("NNFX_ExportBars: not connected, nothing exported: ", detail);
+      return;
+     }
+   FileWriteString(summary, "connection: " + detail + "\r\n");
    for(int k = 0; k < n; k++)
      {
-      string s = NNFXTrim(syms[k]);
+      string s = syms[k];
       if(s != "" && ExportOne(s, profiles, summary))
          done++;
      }
