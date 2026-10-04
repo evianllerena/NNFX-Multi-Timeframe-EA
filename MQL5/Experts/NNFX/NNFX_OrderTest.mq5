@@ -42,6 +42,7 @@ input int    InpAbortOn       = 7;      // Tester only: half 2 forced to fail on
 input int    InpStopsRefuseOn = 9;      // Tester only: stops level 100000 points on this trade -> REFUSE (0 = off)
 input int    InpMarginRefuseOn = 11;    // Tester only: free margin 0 on this trade -> REFUSE, OD-5 (0 = off)
 input int    InpModifyOn      = 13;     // Tester only: SL/TP planned 20 points off on this trade -> MODIFY (0 = off)
+input bool   InpStopWhenDone  = false;  // Remove the EA once InpMaxTrades trades were tried and none is open (demo run)
 
 CNNFXOrders   g_orders;
 CNNFXTradeLog g_log;
@@ -132,7 +133,14 @@ void OnTick()
    if(g_bars_flat < InpEveryBars)
       return;
    if(InpMaxTrades > 0 && g_trade_no >= InpMaxTrades)
+     {
+      if(InpStopWhenDone)
+        {
+         Print("NNFX_OrderTest: ", g_trade_no, " trades tried and none open: removing the EA (InpStopWhenDone)");
+         ExpertRemove();
+        }
       return;
+     }
 
    g_trade_no++;
    int k = g_trade_no;
