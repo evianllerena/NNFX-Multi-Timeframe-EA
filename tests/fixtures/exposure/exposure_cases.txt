@@ -1,0 +1,46 @@
+# Shared same-currency exposure cases (rulebook M6, M7; decisions S-4, OD-4, OD-20, OD-21).
+# Run by tests/python/test_sizing_exposure_fixtures.py and MQL5/Scripts/NNFX/NNFX_SizingTest.mq5.
+# Every expected answer is worked out by hand below each line; the code must agree.
+#
+# EX|name|mode|risk_pct|open positions|signals|expected risk per signal
+#     positions and signals: SYMBOL:dir;SYMBOL:dir (dir 1 = long, -1 = short); "-" = none
+#     expected: one number per signal, ";"-separated (0 = skipped)
+# CUR|name|symbol|base|quote|is_fx      (base/quote "-" = currencies cannot be read)
+#
+# VP's example: EUR/AUD long, AUD/USD short, AUD/CAD short = three times short AUD -> first keeps 2%
+EX|vp_all_short_aud|first|2|-|EURAUD:1;AUDUSD:-1;AUDCAD:-1|2;0;0
+# open long EUR; new EURGBP long = long EUR again -> skip
+EX|open_blocks_same_dir|first|2|EURUSD:1|EURGBP:1|0
+# open long EUR; EURGBP short = short EUR -> opposite direction, allowed (S-4)
+EX|opposite_dir_allowed|first|2|EURUSD:1|EURGBP:-1|2
+EX|unrelated_pairs|first|2|EURUSD:1|AUDNZD:1|2
+# suffixes are stripped: eurusd.m = EURUSD, EURGBP# = EURGBP -> both long EUR -> skip
+EX|suffix_symbols|first|2|eurusd.m:1|EURGBP#:1|0
+# split: EURUSD long and EURGBP long share long EUR only with each other -> 1% each (M7)
+EX|split_halves|split|2|-|EURUSD:1;EURGBP:1|1;1
+# split: an open EURJPY long already holds long EUR -> both skipped
+EX|split_respects_open|split|2|EURJPY:1|EURUSD:1;EURGBP:1|0;0
+# split: three signals all long EUR -> all skipped (OD-4)
+EX|split_three_on_leg_skip|split|2|-|EURUSD:1;EURGBP:1;EURJPY:1|0;0;0
+# split: EURUSD (+EUR -USD), EURGBP (+EUR -GBP), GBPJPY short (-GBP +JPY): +EUR twice, -GBP twice -> 1% each
+EX|split_two_shared_legs|split|2|-|EURUSD:1;EURGBP:1;GBPJPY:-1|1;1;1
+# OD-21: an open XAUUSD short (would be long USD) is ignored; EURUSD short = long USD -> allowed
+EX|nonfx_open_ignored|first|2|XAUUSD:-1|EURUSD:-1|2
+# a manual (or another EA's) GBPUSD short = long USD counts; EURUSD short = long USD -> skip
+EX|manual_position_counts|first|2|GBPUSD:-1|EURUSD:-1|0
+# OD-20: only half 2 of an AUDCAD long is left (breakeven runner) -> still long AUD; AUDNZD long -> skip
+EX|breakeven_runner_counts|first|2|AUDCAD:1|AUDNZD:1|0
+# AUDNZD long (+AUD -NZD), EURNZD short (-EUR +NZD): NZD in opposite directions -> both allowed
+EX|opposite_legs_both_taken|first|2|-|AUDNZD:1;EURNZD:-1|2;2
+# both halves of one EURUSD long open (+EUR -USD); USDJPY long = +USD -> opposite on USD -> allowed
+EX|two_halves_one_trade|first|2|EURUSD:1;EURUSD:1|USDJPY:1|2
+# USDJPY long (-JPY), EURJPY long (-JPY) -> second skipped (fixed order: first keeps 2%)
+EX|first_signal_keeps_risk|first|2|-|USDJPY:1;EURJPY:1|2;0
+#
+CUR|plain|EURUSD|EUR|USD|1
+CUR|lower_case_suffix|eurusd.m|EUR|USD|1
+CUR|hash_suffix|GBPJPY#|GBP|JPY|1
+CUR|letter_suffix|EURUSDm|EUR|USD|1
+CUR|metal|XAUUSD|XAU|USD|0
+CUR|index_too_short|US30|-|-|0
+CUR|same_currency_twice|EUREUR|EUR|EUR|0

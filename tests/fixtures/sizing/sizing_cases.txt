@@ -1,0 +1,44 @@
+# Shared sizing cases (rulebook M2-M5; docs/SPEC.md "Money, sizing and exposure"; decisions S-3, OD-6).
+# Run by tests/python/test_sizing_exposure_fixtures.py and MQL5/Scripts/NNFX/NNFX_SizingTest.mq5.
+# Every expected answer is worked out by hand below each line; the code must agree.
+#
+# SZ|name|balance|risk_pct|stop_dist|tick_size|tick_value|vol_min|vol_step|vol_max|skipped|half|total|risk_money
+#     vol_max "-" = no maximum. skipped 1 = "too small to size" (half/total/risk 0).
+# SE|name|balance|risk_pct|stop_dist|tick_size|tick_value|vol_min|vol_step|vol_max      (inputs must be rejected)
+# TV|name|tick_value|tick_value_loss|expected tick value used (0 = refuse)
+#
+# EURUSD-like: 0.0030 stop = 300 ticks x 1.00 = 300 per lot; target 200; 0.6667 lots; half 0.3333 -> 0.33
+SZ|eurusd_2pct|10000|2|0.0030|0.00001|1.0|0.01|0.01|500|0|0.33|0.66|198
+# target 2; 0.00667 lots; half 0.00333 -> 0 steps < 0.01: skip (the old harness traded 0.02 here)
+SZ|below_min_lot_skip|100|2|0.0030|0.00001|1.0|0.01|0.01|500|1|0|0|0
+# target 6; 0.02 lots; half exactly 0.01 = the minimum lot: allowed, risk 0.02 x 300 = 6
+SZ|exact_min_lot|300|2|0.0030|0.00001|1.0|0.01|0.01|500|0|0.01|0.02|6
+# target 5.98; 0.019933 lots; half 0.0099667 -> 0 steps: skip
+SZ|just_below_min_lot|299|2|0.0030|0.00001|1.0|0.01|0.01|500|1|0|0|0
+# 0.0010 stop = 100 per lot; target 600; 6 lots; half 3.0 = 30 steps of 0.1 (3.0/0.1 is not exact in floating point)
+SZ|float_step_edge|30000|2|0.0010|0.00001|1.0|0.1|0.1|-|0|3.0|6.0|600
+# target 200000; 666.67 lots; half 333.33 > max 50 -> 50; total 100; risk 100 x 300 = 30000 (lower, never higher)
+SZ|vol_max_cap|10000000|2|0.0030|0.00001|1.0|0.01|0.01|50|0|50|100|30000
+# CHFJPY-like: 0.450 stop = 450 ticks x 0.63346 = 285.057 per lot; target 2000; 7.0162 lots; half 3.5081 -> 3.50
+# total 7.00; risk 7 x 285.057 = 1995.399
+SZ|jpy_pair|100000|2|0.450|0.001|0.63346|0.01|0.01|500|0|3.5|7.0|1995.399
+# AUDNZD-like (non-USD quote): 0.0040 stop = 400 ticks x 0.56121 = 224.484 per lot; target 2000; 8.9093 lots
+# half 4.4547 -> 4.45; total 8.90; risk 8.9 x 224.484 = 1997.9076
+SZ|non_usd_quote|100000|2|0.0040|0.00001|0.56121|0.01|0.01|500|0|4.45|8.9|1997.9076
+# Split mode at 1% (M7): target 100; 0.3333 lots; half 0.1667 -> 0.16; total 0.32; risk 96
+SZ|one_percent|10000|1|0.0030|0.00001|1.0|0.01|0.01|500|0|0.16|0.32|96
+# Lot step 0.1, min 0.1: target 200; 0.6667 lots; half 0.3333 -> 0.3; total 0.6; risk 180
+SZ|step_point_one|10000|2|0.0030|0.00001|1.0|0.1|0.1|500|0|0.3|0.6|180
+#
+SE|stop_zero|10000|2|0|0.00001|1.0|0.01|0.01|500
+SE|tick_value_zero|10000|2|0.0030|0.00001|0|0.01|0.01|500
+SE|negative_balance|-10000|2|0.0030|0.00001|1.0|0.01|0.01|500
+SE|risk_zero|10000|0|0.0030|0.00001|1.0|0.01|0.01|500
+SE|vol_step_zero|10000|2|0.0030|0.00001|1.0|0.01|0|500
+#
+# OD-6: the larger of tick value and tick value for a loss; 0 if neither is > 0
+TV|equal|1.0|1.0|1.0
+TV|loss_larger|0.70173|0.70180|0.70180
+TV|loss_missing|0.6|0|0.6
+TV|both_zero|0|0|0
+TV|negative_and_zero|-1|0|0

@@ -21,6 +21,13 @@ class SizeResult:
     reason: str = ""
 
 
+def tick_value_for_sizing(tick_value: float, tick_value_loss: float) -> float:
+    """Decision OD-6: the larger of the broker's tick value and its tick value for a
+    losing trade, so lots can only come out smaller. 0.0 if neither is > 0 (refuse)."""
+    best = max(tick_value, tick_value_loss)
+    return best if best > 0 else 0.0
+
+
 def size_trade(balance: float, risk_pct: float, stop_distance: float, tick_size: float,
                tick_value: float, vol_min: float, vol_step: float,
                vol_max: Optional[float] = None) -> SizeResult:
