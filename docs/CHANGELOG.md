@@ -2,6 +2,18 @@
 
 Newest first.
 
+## 2026-10-04 — Phase 6a: sizing and exposure
+
+- `docs/PLAN_PHASE6.md`: the Phase 6 plan (gate G2 PASS) with the verdict's edits F1-F4; `docs/DECISIONS.md`:
+  owner decisions OD-1 to OD-21.
+- `MQL5/Include/NNFX/Sizing.mqh`, `Exposure.mqh`: MQL5 ports of `sizing.py` and `exposure.py`. No orders.
+- `tests/fixtures/sizing/`, `tests/fixtures/exposure/`: 42 shared cases with hand-worked answers;
+  `tests/python/test_sizing_exposure_fixtures.py`; `MQL5/Scripts/NNFX/NNFX_SizingTest.mq5` (42/42 in MT5).
+- `nnfx_ref`: `exposure.is_fx` and non-FX handling (OD-21); `sizing.tick_value_for_sizing` (OD-6).
+- Runner: SizingTest added; `-PythonOnly`. `tools/run_offline_check.ps1` (carry-over 1): no-Python path PASS;
+  MT5-offline path waits for the owner's firewall rule.
+- Planted-bug check on the MQL5 ports: 12 of 12 caught. 50 Python tests pass.
+
 ## 2026-10-04 — Phase 5: review G1_phase5_1 fixes
 
 - F1: `MQL5/Include/NNFX/Connection.mqh` (new). `NNFX_EnvCheck` and `NNFX_ExportBars` wait until MT5

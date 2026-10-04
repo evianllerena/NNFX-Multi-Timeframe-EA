@@ -10,7 +10,8 @@
 //|     the sizing it would give now for a 1.5 x ATR(14) H1 stop.    |
 //|                                                                  |
 //| Places NO orders. Writes MQL5\Files\NNFX_SizingTest.txt          |
-//| Status: not yet compiled.                                        |
+//| Status: compiled 2026-10-04 (build 6238, 0 errors, 0 warnings;   |
+//| 42/42, run 20261004_125319).                                       |
 //+------------------------------------------------------------------+
 // Inputs keep their defaults when run automatically (no input dialog, so unattended runs never wait for a click).
 #property strict

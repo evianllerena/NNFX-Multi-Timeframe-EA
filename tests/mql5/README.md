@@ -113,3 +113,14 @@ Strategy Tester: Expert `NNFX\NNFX_RepaintCheck`, symbol EURUSD, timeframe H1, m
 Confirmed on this PC (2026-10-04, runs `20261004_113357` and `20261004_115428`): the tester's
 local agent reads `Common\Files\NNFX\profiles` and writes its report to `Common\Files\NNFX\reports`.
 If that ever fails, the EA stops at start with "cannot open ... profiles" in the tester Journal.
+
+## Phase 6a: sizing and exposure (`NNFX_SizingTest`)
+
+Runs the shared cases `tests/fixtures/sizing/sizing_cases.txt` and `tests/fixtures/exposure/exposure_cases.txt`
+(copied to `$MT5\MQL5\Files\NNFX\sizing\` and `...\exposure\` by the runner) through `Sizing.mqh` and
+`Exposure.mqh`. Run by `tools/run_phase5_checks.ps1`; report `$MT5\MQL5\Files\NNFX_SizingTest.txt`.
+**Pass line:** `RESULT: 42 passed, 0 failed, 42 total`. The `LIVE` lines after it (tick values, the OD-6 choice,
+the sizing for a 1.5 x ATR(14) H1 stop) are information only and never counted.
+
+Offline checks (carry-over 1): `tools/run_offline_check.ps1 -NoPython` (no owner action) and `-Mt5Offline`
+(needs the firewall rule described in that script's header, added and removed by the owner).

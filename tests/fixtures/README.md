@@ -13,3 +13,10 @@ Format: see `tests/python/nnfx_ref/fixtures.py`. Rebuild with
 - `signals/signal_cases.txt`: raw indicator values -> expected direction or volume pass
   (37 cases, including NaN, infinity and EMPTY_VALUE). Run by `test_profiles.py` and `NNFX_SignalTest.mq5`.
 - `profiles_bad/`: 14 invalid profiles that both the Python and MQL5 readers must reject.
+
+## Phase 6a additions
+
+- `sizing/sizing_cases.txt`: 20 cases (10 sizings, 5 rejected inputs, 5 tick-value choices for OD-6).
+- `exposure/exposure_cases.txt`: 22 cases (15 allocations in modes first/split, 7 symbol readings incl. non-FX).
+- Every answer is worked out by hand in the file's comments. Run by `test_sizing_exposure_fixtures.py` and
+  `NNFX_SizingTest.mq5`.

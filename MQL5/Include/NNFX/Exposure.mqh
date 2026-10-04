@@ -14,7 +14,8 @@
 //| of the 8 majors, rulebook P1) are ignored with a log line.       |
 //|                                                                  |
 //| Places NO orders.                                                |
-//| Status: not yet compiled.                                        |
+//| Status: compiled 2026-10-04 (build 6238, 0 errors, 0 warnings;   |
+//| NNFX_SizingTest 42/42, run 20261004_125319).                       |
 //+------------------------------------------------------------------+
 #ifndef NNFX_EXPOSURE_MQH
 #define NNFX_EXPOSURE_MQH

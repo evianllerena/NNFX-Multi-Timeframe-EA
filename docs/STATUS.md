@@ -12,20 +12,22 @@ Last updated: 2026-10-04.
 | 2 Repo setup | Merged |
 | 3 Python answer key | Merged |
 | 4 MQL5 rules core | Merged (PR #3) |
-| 5 Indicator slots and profiles | PR #4 **merged at `58e2994` on 2026-10-04 15:47 UTC, before the G1_phase5_1 fixes** (see note below). The fixes passed review G1_phase5_2 at `bb4c381` (final run `20261004_115738`: OVERALL PASS, `docs/VERIFICATION.md`). Draft PR from branch `phase-5-fixes` brings `521013b`, `bb4c381` and `6c80511` to `main`; under review as `G1_phase5_3` |
-| 6 Orders, risk, recovery, guard, calendar export | Not started. Needs owner approval, then gate G2 plan review |
+| 5 Indicator slots and profiles | Merged: PR #4 (at `58e2994`, before the G1_phase5_1 fixes; see note below) and PR #5 (the reviewed fixes, `0e701dd`) |
+| 6 Orders, risk, recovery, guard, news, EA | Plan: gate G2 **PASS** (`G2_phase6_1`), `docs/PLAN_PHASE6.md`; owner decisions OD-1 to OD-21 in `docs/DECISIONS.md`. **6a sizing + exposure:** draft PR from branch `phase-6a-sizing-exposure`; run `20261004_125319` OVERALL PASS (SizingTest 42/42); planted bugs 12 of 12; under review as `G1_phase6a_1`. 6b-6f not started |
 | 7 onward | See `docs/SPEC.md` |
 
 **Note (2026-10-04):** PR #4 was merged at `58e2994` on 2026-10-04 15:47 UTC, 4.5 minutes after review
 G1_phase5_1 returned CHANGES REQUESTED and before its fixes. The fix commits `521013b`, `bb4c381` and `6c80511`
 were pushed to the merged branch afterwards, so they did not reach `main`. This PR (branch `phase-5-fixes`)
-brings them to `main`. Guards against a repeat: `docs/REVIEW_PROTOCOL.md`, "Merge safety".
+brings them to `main` (merged 2026-10-04 as `0e701dd`). Guards against a repeat: `docs/REVIEW_PROTOCOL.md`, "Merge safety".
 
 ## Waiting on the owner
 
 - Tick I-1, I-2, I-3, I-7, I-9 in the living rulebook doc; then refresh the `docs/RULEBOOK.md` snapshot.
 - Review D5-1 to D5-5 (`docs/DECISIONS.md`).
 - Choose the live broker (`docs/ENVIRONMENT.md`; MetaQuotes-Demo is not a retail broker).
+- Carry-over 1, MT5-offline part: add the firewall rule in `tools/run_offline_check.ps1` (admin PowerShell),
+  then run `tools\run_offline_check.ps1 -Mt5Offline` with MT5 closed, then remove the rule. Not run yet.
 
 ## Answered by the Phase 5b runs (2026-10-04)
 

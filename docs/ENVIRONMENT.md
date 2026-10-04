@@ -47,6 +47,11 @@ Source: `MQL5\Files\NNFX\checks\20261004_115428\NNFX_EnvCheck.txt`, commit 52101
 | AUDCAD | 5 | 0.00001 / 0.70173 | 0.01 / 0.01 / 500.00 | 0 / 0 | 6.40 / -15.40 | 1993.04.27 | yes every year |
 | CHFJPY | 3 | 0.001 / 0.63346 | 0.01 / 0.01 / 500.00 | 0 / 0 | -0.50 / -0.10 | 1992.02.19 | yes every year |
 
+Tick value for a losing trade (`SYMBOL_TRADE_TICK_VALUE_LOSS`), read by `NNFX_SizingTest` in run `20261004_125319`
+(Sunday): EURUSD 1.00000, AUDNZD 0.56188, EURGBP 1.32393, AUDCAD 0.70174, CHFJPY 0.63348 USD. It is slightly above
+`SYMBOL_TRADE_TICK_VALUE` on AUDNZD, AUDCAD and CHFJPY, so the OD-6 rule (use the larger) changes the lot size. Both
+move with exchange rates; sizing reads them when the order is placed, never from here.
+
 Spreads (EURUSD 3, AUDNZD 205, EURGBP 2, AUDCAD 2, CHFJPY 4 points, all floating) were read with the
 market closed and are **not representative**. Tick values for pairs not quoted in USD move with
 exchange rates; these are the values at the time of reading.
