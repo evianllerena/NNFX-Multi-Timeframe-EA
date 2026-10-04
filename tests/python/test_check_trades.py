@@ -171,6 +171,18 @@ class TestCheckTrades(unittest.TestCase):
     def test_breakeven_not_at_entry(self):
         self.corrupt(lambda rs: find(rs, "BE", "T0001").update(sl="1.10005"), "is not half 2's entry")
 
+    def test_tp1_and_cap_same_tick_needs_no_breakeven(self):
+        # T0003: TP2 (runner cap) in the same second as TP1, half 2 already closed: no BE row is right.
+        rows = good_rows()
+        rows.remove(find(rows, "BE", "T0003"))
+        find(rows, "TP2", "T0003").update(time="2026.06.04 11:00:00")
+        ok, out = run(rows)
+        self.assertTrue(ok, out)
+
+    def test_cap_later_without_breakeven_fails(self):
+        # TP2 an hour after TP1 but no breakeven in between: half 2 was open at TP1.
+        self.corrupt(lambda rs: rs.remove(find(rs, "BE", "T0003")), "never moved to breakeven")
+
     def test_breakeven_late(self):
         self.corrupt(lambda rs: find(rs, "BE", "T0001").update(time="2026.06.02 14:00:00"), "not at once")
 

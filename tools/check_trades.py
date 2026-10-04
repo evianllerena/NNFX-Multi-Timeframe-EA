@@ -13,7 +13,8 @@ Reads a trade log written by MQL5/Include/NNFX/TradeLog.mqh and checks, trade by
            TP1 within one tick of entry +/- 1 x entry ATR (T1); half 2 no target, or the
            runner cap within one tick (T3, T7)
   T2       BE only after TP1, at exactly half 2's entry (OD-15), and at once: the BE row is
-           in the same second as the TP1 row when half 2 was still open
+           in the same second as the TP1 row when half 2 was still open (not closed at or before
+           TP1's time, e.g. by the runner cap in the same tick)
   T4       a TRAILON row (close >= 2 x entry ATR beyond entry) before any TRAIL; TRAIL only
            after TP1; each TRAIL stop within one tick of close -/+ 1.5 x ATR; never backwards
   test     a TESTSTOPLESS position must be closed with an ALARM in the same second; any other
@@ -146,10 +147,7 @@ def check(path, min_trades=0, require=(), require_notes=()):
         # T2 breakeven
         tp1_rows = [(i, r) for i, r in evs if r["event"] == "TP1"]
         be_rows = [(i, r) for i, r in evs if r["event"] == "BE"]
-        h2_closed_before = {}
-        for i, r in evs:
-            if r["half"] == 2 and r["event"] in ("SL", "TP2", "CLOSE"):
-                h2_closed_before.setdefault("i", i)
+        h2_close = next(((i, r) for i, r in evs if r["half"] == 2 and r["event"] in ("SL", "TP2", "CLOSE")), None)
         for i, r in be_rows:
             if not tp1_rows or i < tp1_rows[0][0]:
                 fails.append("%s: breakeven before TP1 (T2)" % tid)
@@ -158,7 +156,9 @@ def check(path, min_trades=0, require=(), require_notes=()):
                 fails.append("%s: breakeven stop %.10g is not half 2's entry %.10g" % (tid, r["sl"], entry2))
         if tp1_rows:
             ti, tr = tp1_rows[0]
-            half2_open = h2_closed_before.get("i", len(rows)) > ti
+            # Half 2 is still open at TP1 unless it closed before TP1 or in the same tick (same time):
+            # then there is nothing to move to breakeven (a big candle can fill TP1 and the cap together).
+            half2_open = h2_close is None or (h2_close[0] > ti and h2_close[1]["time"] != tr["time"])
             if half2_open:
                 if not be_rows:
                     fails.append("%s: TP1 filled but half 2 never moved to breakeven" % tid)
