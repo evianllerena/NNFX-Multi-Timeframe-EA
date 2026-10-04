@@ -14,9 +14,8 @@
 //| Waits until MT5 is logged in first; if it is not, _summary.txt   |
 //| ends "RESULT: INVALID (not connected)" and nothing is exported.  |
 //|                                                                  |
-//| Status: Phase 5b version compiled 2026-10-04 (build 6238, 0      |
-//| errors, 0 warnings; run 20261004_113357). G1_phase5_1 F1 change  |
-//| (wait for login) not yet compiled.                               |
+//| Status: compiled 2026-10-04 (build 6238, 0 errors, 0 warnings;   |
+//| run 20261004_115428, 5 of 5 pairs complete).                     |
 //+------------------------------------------------------------------+
 // Inputs keep their defaults when run automatically (no input dialog, so unattended runs never wait for a click).
 

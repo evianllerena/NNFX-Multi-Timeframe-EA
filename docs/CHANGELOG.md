@@ -2,6 +2,19 @@
 
 Newest first.
 
+## 2026-10-04 — Phase 5: review G1_phase5_1 fixes
+
+- F1: `MQL5/Include/NNFX/Connection.mqh` (new). `NNFX_EnvCheck` and `NNFX_ExportBars` wait until MT5
+  is connected, logged in and has a tick value above 0 for every pair before reading anything;
+  otherwise they write `RESULT: INVALID (not connected)`, which the runner counts as FAIL. The earlier
+  EnvCheck numbers (run `20261004_113357`) were read before login and are not used.
+- F2: `docs/STATUS.md`, `docs/VERIFICATION.md`, `docs/ENVIRONMENT.md`, `tools/README.md`,
+  `tests/mql5/README.md`, `MQL5/Include/NNFX/README.md` and file headers brought in line with the runs.
+- F3: independent planted-bug check of `tools/check_indicators.py` on the owner PC: 14 of 14 caught.
+- F4: `tools/run_phase5_checks.ps1` finds a working Python itself, prints it in `SUMMARY.txt`, and
+  writes Python's stderr without PowerShell's `NativeCommandError` wrapper.
+- `tools/run_phase5_checks.ps1` run `20261004_115428`: OVERALL PASS. 46 Python tests pass.
+
 ## 2026-10-04 — Phase 5b: automated verification
 
 - `tools/run_phase5_checks.ps1`: one command runs every Phase 5 check with MT5 closed: copy, compile

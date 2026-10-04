@@ -8,7 +8,8 @@
 //|  - may download small amounts of price/tick history on demand;   |
 //|  - writes one report file: MQL5\Files\NNFX_EnvCheck.txt          |
 //|                                                                  |
-//| Status: G1_phase5_1 F1 change (wait for login) not yet compiled. |
+//| Status: compiled 2026-10-04 (build 6238, 0 errors, 0 warnings;   |
+//| run 20261004_115428, RESULT: VALID).                             |
 //| (the runner tools/run_phase5_checks.ps1 keeps the full report).  |
 //|                                                                  |
 //| Waits until MT5 is logged in before reading anything; if it is   |

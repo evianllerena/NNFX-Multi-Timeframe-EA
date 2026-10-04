@@ -44,6 +44,11 @@ exported prices instead of the old Data Window comparison.
 A step marked `NOT RUN (automation did not engage)` means MT5 did not run that step from the
 command line on this PC; then do that step by hand as below and report it.
 
+`NNFX_EnvCheck` and `NNFX_ExportBars` wait (up to 120 s) until MT5 is logged in before reading
+anything. If it never logs in they write `RESULT: INVALID (not connected)` and the runner marks the
+step FAIL. The runner finds a working Python itself (`-Python <path>` overrides) and prints which
+one it used in `SUMMARY.txt`.
+
 ### Manual steps (fallback only)
 
 ### 1. Copy and compile
@@ -105,7 +110,6 @@ Strategy Tester: Expert `NNFX\NNFX_RepaintCheck`, symbol EURUSD, timeframe H1, m
 `$Common\NNFX\reports\Repaint_EURUSD_H1.txt`.
 **Pass line:** every profile `PASS` and `RESULT: NO REPAINTING FOUND`.
 
-Not yet confirmed on this PC: that the tester's local agent can read `Common\Files` (the MQL5
-docs say `FILE_COMMON` is the folder shared by all terminals). If it can't, the EA stops at start
-with "cannot open ... profiles" in the tester Journal; report that and the profiles will be
-embedded another way.
+Confirmed on this PC (2026-10-04, runs `20261004_113357` and `20261004_115428`): the tester's
+local agent reads `Common\Files\NNFX\profiles` and writes its report to `Common\Files\NNFX\reports`.
+If that ever fails, the EA stops at start with "cannot open ... profiles" in the tester Journal.

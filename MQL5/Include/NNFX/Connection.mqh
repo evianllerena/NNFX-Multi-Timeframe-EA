@@ -13,7 +13,8 @@
 //|  - SymbolInfoDouble(sym, SYMBOL_TRADE_TICK_VALUE) > 0 for every  |
 //|    listed pair                                                   |
 //|                                                                  |
-//| Status: not yet compiled.                                        |
+//| Status: compiled 2026-10-04 (build 6238, 0 errors, 0 warnings;   |
+//| run_phase5_checks run 20261004_115428).                          |
 //+------------------------------------------------------------------+
 #ifndef NNFX_CONNECTION_MQH
 #define NNFX_CONNECTION_MQH

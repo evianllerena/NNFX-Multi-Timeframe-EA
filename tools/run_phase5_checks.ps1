@@ -190,9 +190,14 @@ if ($SkipTester) {
 # ---------------------------------------------------------------- 5. Python
 # Runs Python and returns everything it printed, stdout and stderr in order, as plain text.
 # Windows PowerShell 5.1 turns each stderr line into an error record that Out-String prints with
-# a "NativeCommandError" wrapper; ToString() gives back just the line. $LASTEXITCODE is Python's.
+# a "NativeCommandError" wrapper; Exception.Message gives back just the line (ToString() would turn
+# an empty line into "System.Management.Automation.RemoteException"). $LASTEXITCODE is Python's.
+function Plain($item) {
+    if ($item -is [System.Management.Automation.ErrorRecord]) { return [string]$item.Exception.Message }
+    return [string]$item
+}
 function Run-Py([string[]]$pyArgs) {
-    $lines = & $script:PyExe @($script:PyPre + $pyArgs) 2>&1 | ForEach-Object { $_.ToString() }
+    $lines = & $script:PyExe @($script:PyPre + $pyArgs) 2>&1 | ForEach-Object { Plain $_ }
     return (($lines | Out-String) -replace "`r?`n", "`r`n")
 }
 
@@ -207,7 +212,7 @@ if ($installed) { $candidates += , @($installed.FullName) }
 $script:PyExe = $null; $script:PyPre = @()
 foreach ($cand in $candidates) {
     if (-not (Get-Command $cand[0] -ErrorAction SilentlyContinue)) { continue }
-    $ver = & $cand[0] @($cand | Select-Object -Skip 1) --version 2>&1 | ForEach-Object { $_.ToString() }
+    $ver = & $cand[0] @($cand | Select-Object -Skip 1) --version 2>&1 | ForEach-Object { Plain $_ }
     if ($LASTEXITCODE -eq 0 -and ($ver -join " ") -match "^Python 3\.") {
         $script:PyExe = $cand[0]; $script:PyPre = @($cand | Select-Object -Skip 1)
         break
