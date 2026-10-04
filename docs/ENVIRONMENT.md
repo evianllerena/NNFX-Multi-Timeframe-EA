@@ -25,16 +25,33 @@ retail broker. The spec requires testing on the same broker that will be traded 
 because spreads, commission, server time and history all differ by broker. Which broker
 will be used live is still an open question.
 
+## Read on 2026-10-04 (NNFX_EnvCheck, from the Experts log)
+
+The report file was still empty when read (the script was still probing tick history), so
+these lines come from the Experts log. `tools/run_phase5_checks.ps1` re-runs the check and
+keeps the full report.
+
+| Fact | Value |
+| --- | --- |
+| Terminal build | 6238 |
+| Account | MetaQuotes-Demo, DEMO, RETAIL_HEDGING, USD, 1:100, balance 100,000.00 |
+| Server time vs GMT | +3 hours on 2026-10-04 (may change with daylight saving) |
+| Daily candle | EURUSD D1 candle opens 00:00 server time |
+| Minimum stop distance | 0 points (pairs read) |
+| Server history starts (M1 base) | EURUSD 1971.01.04; AUDNZD 1993.04.05; EURGBP 1993.05.03 |
+| Real ticks (mid-January probe) | EURUSD: 2016 error 4401, 2017 onward yes; AUDNZD: 2016 onward yes |
+| Spreads | Read on a Sunday with the market closed (AUDNZD showed 205 points), so **not representative**; to be re-read during market hours |
+
 ## Still to check
 
 | # | Check | How |
 | --- | --- | --- |
-| 1 | Server history depth per pair and timeframe (30M, 1H, 4H) | `NNFX_EnvCheck` script |
-| 2 | Real-tick history: from which year | `NNFX_EnvCheck` script |
-| 3 | Broker server time offset and daily close time | `NNFX_EnvCheck` script |
-| 4 | Spread, minimum stop distance, lot step, tick value, swaps per pair | `NNFX_EnvCheck` script |
+| 1 | Server history depth: AUDCAD, CHFJPY (3 of 5 pairs read above) | `NNFX_EnvCheck` script (runner) |
+| 2 | Real-tick history: EURGBP, AUDCAD, CHFJPY | `NNFX_EnvCheck` script (runner) |
+| 3 | Server time offset after the daylight-saving change | `NNFX_EnvCheck` script, re-run after the change |
+| 4 | Spread during market hours; lot step, tick value, swaps per pair | `NNFX_EnvCheck` script (runner, on a weekday) |
 | 5 | Commission | Not exposed as a symbol property in MQL5; read from a demo trade's deal record, or the broker's published terms |
 | 6 | Does the broker keep order comments unchanged? | Small demo-account test |
 | 7 | How far back the economic calendar goes | Calendar export tool |
-| 8 | Can the tester run from the command line on this PC? | Try once |
+| 8 | Can the tester run from the command line on this PC? | `tools/run_phase5_checks.ps1` step 4 |
 | 9 | Live broker choice | Owner |

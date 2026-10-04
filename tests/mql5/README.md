@@ -27,6 +27,25 @@ Run `NNFX_RulesTest` on any chart; report: `$MT5\MQL5\Files\NNFX_RulesTest.txt`.
 
 ## Phase 5: slots and profiles
 
+### Automatic run (use this)
+
+Close MetaTrader 5 first (File > Exit), then:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "$Repo\tools\run_phase5_checks.ps1"
+```
+
+It copies, compiles, runs every script below through MT5's `/config` start-up file, runs the
+repaint check in the Strategy Tester, runs the Python checks, and writes everything to
+`$MT5\MQL5\Files\NNFX\checks\<date-time>\` with a `SUMMARY.txt`. No clicking, and no reading
+values by eye: `tools/check_indicators.py` recalculates every standard indicator value from the
+exported prices instead of the old Data Window comparison.
+
+A step marked `NOT RUN (automation did not engage)` means MT5 did not run that step from the
+command line on this PC; then do that step by hand as below and report it.
+
+### Manual steps (fallback only)
+
 ### 1. Copy and compile
 
 ```powershell
@@ -58,7 +77,8 @@ the Python tests give. Re-run `NNFX_RulesTest` too: still 47 of 47.
 
 ### 3. Export and check (`NNFX_ExportBars` + `tools/check_export.py`)
 
-Run `NNFX_ExportBars` on any chart (defaults: VP's 5 test pairs, H1, 3000 candles). It writes
+Run `NNFX_ExportBars` on any chart (defaults: VP's 5 test pairs, H1, 3000 candles). It first makes
+MT5 download enough history, and writes `_summary.txt` (pass line `RESULT: 5 of 5 pairs complete`). It writes
 `$MT5\MQL5\Files\NNFX\export\<PAIR>_H1.csv`. Then:
 
 ```powershell
@@ -68,12 +88,15 @@ python "$Repo\tools\check_export.py" (Get-ChildItem "$MT5\MQL5\Files\NNFX\export
 **Pass line:** `RESULT <file>: PASS` for every pair. The checker recomputes every C1, C2, exit
 direction and volume pass in Python from the raw values and must agree with MT5 on every candle.
 
-### 4. Data Window spot check (by eye)
+### 4. Indicator values recalculated (`tools/check_indicators.py`)
 
-Open an H1 chart of one pair and add MT5's own indicators with the reference settings:
-Moving Average (20, Simple, Close), RVI (10), MACD (12, 26, 9, Close), Volumes (Tick).
-Open the Data Window (Ctrl+D). For the three sample times `check_export.py` prints, hover over
-that candle and compare. **Pass line:** values agree (the Data Window rounds to fewer decimals).
+```powershell
+python "$Repo\tools\check_indicators.py" (Get-ChildItem "$MT5\MQL5\Files\NNFX\export\*.csv").FullName
+```
+
+Recalculates ATR(14), the 20 SMA, RVI(10) main and signal, MACD(12, 26, 9) main and signal and
+tick volume from the exported prices, using the formulas in MT5's own example source files.
+**Pass line:** `RESULT <file>: PASS` for every pair (at least 1,000 candles compared per value).
 
 ### 5. Repaint check (`NNFX_RepaintCheck`, Strategy Tester, spec V2)
 

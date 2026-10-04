@@ -3,7 +3,7 @@
 //| Format and rules: profiles/README.md.                            |
 //| Mirrors tests/python/nnfx_ref/profiles.py (parse + validate).    |
 //|                                                                  |
-//| Status: NOT YET COMPILED.                                        |
+//| Status: compiled 2026-10-04, MT5 build 6238, 0 errors 0 warnings.|
 //+------------------------------------------------------------------+
 #ifndef NNFX_PROFILE_MQH
 #define NNFX_PROFILE_MQH

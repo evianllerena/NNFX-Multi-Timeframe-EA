@@ -9,7 +9,8 @@
 //| ATR is fixed engine machinery (rulebook M1: ATR(14)), never a    |
 //| profile.                                                         |
 //|                                                                  |
-//| Status: NOT YET COMPILED.                                        |
+//| Status: Phase 5 version compiled 2026-10-04 (build 6238, 0 errors);|
+//| Phase 5b changes NOT YET COMPILED.                               |
 //+------------------------------------------------------------------+
 #ifndef NNFX_BARBUILDER_MQH
 #define NNFX_BARBUILDER_MQH
@@ -90,6 +91,18 @@ public:
      }
 
    string            SlotProfileName(const int k) const { return m_slots[k].Name(); }
+
+   // True once every indicator (five slots + ATR) has calculated all available candles.
+   bool              AllCalculated(void) const
+     {
+      int total = Bars(m_symbol, m_tf);
+      if(total <= 0 || m_atr == INVALID_HANDLE || BarsCalculated(m_atr) < total)
+         return false;
+      for(int k = 0; k < NNFX_SLOTS; k++)
+         if(m_slots[k].Handle() == INVALID_HANDLE || BarsCalculated(m_slots[k].Handle()) < total)
+            return false;
+      return true;
+     }
 
    double            Atr(const int shift) const
      {

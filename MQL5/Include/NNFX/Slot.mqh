@@ -8,7 +8,7 @@
 //| Reads only CLOSED candles: shift >= 1 (shift 0 is still forming).|
 //| Candles inside the profile's warm-up read as "not ready".        |
 //|                                                                  |
-//| Status: NOT YET COMPILED.                                        |
+//| Status: compiled 2026-10-04, MT5 build 6238, 0 errors 0 warnings.|
 //+------------------------------------------------------------------+
 #ifndef NNFX_SLOT_MQH
 #define NNFX_SLOT_MQH

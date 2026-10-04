@@ -14,7 +14,7 @@
 //| Report: Common\Files\NNFX\reports\Repaint_<symbol>_<tf>.txt      |
 //|                                                                  |
 //| This EA contains NO trading code: it places no orders.           |
-//| Status: NOT YET COMPILED.                                        |
+//| Status: compiled 2026-10-04, MT5 build 6238, 0 errors 0 warnings.|
 //+------------------------------------------------------------------+
 #property description "NNFX repaint check (V2). Strategy Tester only; places no orders."
 

@@ -10,9 +10,9 @@
 //|                   MQL5\Files\NNFX\profiles_bad\*.txt             |
 //|                                                                  |
 //| Places NO orders. Writes MQL5\Files\NNFX_SignalTest.txt          |
-//| Status: NOT YET COMPILED.                                        |
+//| Status: compiled 2026-10-04, MT5 build 6238, 0 errors 0 warnings.|
 //+------------------------------------------------------------------+
-#property script_show_inputs
+// Inputs keep their defaults when run automatically (no input dialog, so unattended runs never wait for a click).
 
 #include <NNFX\Slot.mqh>
 

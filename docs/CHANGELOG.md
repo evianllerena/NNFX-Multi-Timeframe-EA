@@ -2,6 +2,20 @@
 
 Newest first.
 
+## 2026-10-04 — Phase 5b: automated verification
+
+- `tools/run_phase5_checks.ps1`: one command runs every Phase 5 check with MT5 closed: copy, compile
+  (must be 0 errors, 0 warnings), each script through MT5's `/config` start-up file, the repaint
+  check in the Strategy Tester, and the Python checks. Writes `SUMMARY.txt` and keeps every report
+  and log in `MQL5\Files\NNFX\checks\<date-time>\`. **Not yet run.**
+- `tools/check_indicators.py` + 6 tests: recalculates ATR, SMA, RVI, MACD and tick volume from the
+  export using MT5's own source formulas. Replaces the by-eye Data Window check.
+- `NNFX_ExportBars`: makes MT5 download enough history first, waits until every indicator has
+  calculated, adds a `tickvol` column and writes `_summary.txt`. `BarBuilder.AllCalculated()` added.
+- All scripts: no input dialog (so nothing waits for a click in an unattended run).
+- `docs/VERIFICATION.md`: Phase 5 results; `docs/ENVIRONMENT.md`: first NNFX_EnvCheck facts.
+- 46 Python tests pass.
+
 ## 2026-10-04 — Phase 5: indicator slots and profiles
 
 - `profiles/`: profile format (README) and five reference profiles built from MT5 standard

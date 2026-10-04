@@ -8,12 +8,12 @@
 //|  - may download small amounts of price/tick history on demand;   |
 //|  - writes one report file: MQL5\Files\NNFX_EnvCheck.txt          |
 //|                                                                  |
-//| Status: NOT YET COMPILED. Compile in MetaEditor (F7) and send    |
-//| any compile errors back before running.                          |
+//| Status: compiled 2026-10-04, MT5 build 6238, 0 errors 0 warnings.|
+//| (the runner tools/run_phase5_checks.ps1 keeps the full report).  |
 //|                                                                  |
 //| Answers docs/ENVIRONMENT.md "Still to check" items 1-4.          |
 //+------------------------------------------------------------------+
-#property script_show_inputs
+// Inputs keep their defaults when run automatically (no input dialog, so unattended runs never wait for a click).
 #property strict
 
 input string InpSymbols      = "EURUSD,AUDNZD,EURGBP,AUDCAD,CHFJPY"; // Pairs to check (VP's 5 test pairs, rulebook P2)

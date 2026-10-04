@@ -54,7 +54,7 @@ def make_rows(n=80, warm=5):
             ref, vp = signals.EMPTY_VALUE, 0
         ok = 0 if is_warm else 1
         rows.append(["2026.09.%02d %02d:00" % (1 + i // 24, i % 24), num(o), num(h), num(l), num(c),
-                     num(0.0012), num(base), num(rvi_m), num(rvi_s), num(macd_m), "empty",
+                     str(int(vol)), num(0.0012), num(base), num(rvi_m), num(rvi_s), num(macd_m), "empty",
                      num(macd_m), num(macd_s), num(vol), num(ref), str(c1), str(c2), str(ex),
                      str(vp), str(ok), why])
     return rows
@@ -88,14 +88,14 @@ class TestCheckExport(unittest.TestCase):
 
     def test_wrong_direction_fails(self):
         rows = make_rows()
-        rows[40][15] = str(-int(rows[40][15]) if rows[40][15] != "0" else 1)
+        rows[40][16] = str(-int(rows[40][16]) if rows[40][16] != "0" else 1)
         ok, out = run(rows)
         self.assertFalse(ok)
         self.assertIn("C1 direction", out)
 
     def test_wrong_volume_average_fails(self):
         rows = make_rows()
-        rows[50][14] = repr(float(rows[50][14]) * 1.01)
+        rows[50][15] = repr(float(rows[50][15]) * 1.01)
         ok, out = run(rows)
         self.assertFalse(ok)
         self.assertIn("volume average", out)
@@ -116,7 +116,7 @@ class TestCheckExport(unittest.TestCase):
 
     def test_signal_on_warmup_row_fails(self):
         rows = make_rows()
-        rows[2][17] = "1"
+        rows[2][18] = "1"
         ok, out = run(rows)
         self.assertFalse(ok)
         self.assertIn("EXIT direction", out)
@@ -124,8 +124,8 @@ class TestCheckExport(unittest.TestCase):
     def test_constant_indicator_is_flagged(self):
         rows = make_rows()
         for r in rows[5:]:
-            r[16] = "1"
-            r[9] = "0.001"     # C2 value always above centre -> always long
+            r[17] = "1"
+            r[10] = "0.001"     # C2 value always above centre -> always long
         ok, out = run(rows)
         self.assertTrue(ok, out)
         self.assertIn("C2 never changes", out)

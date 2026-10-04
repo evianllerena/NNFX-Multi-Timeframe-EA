@@ -24,8 +24,9 @@ sys.path.insert(0, os.path.join(ROOT, "tests", "python"))
 from nnfx_ref import profiles as P  # noqa: E402
 from nnfx_ref import signals  # noqa: E402
 
-COLUMNS = ["time", "open", "high", "low", "close", "atr", "base", "c1_a", "c1_b", "c2_a", "c2_b",
+COLUMNS = ["time", "open", "high", "low", "close", "tickvol", "atr", "base", "c1_a", "c1_b", "c2_a", "c2_b",
            "ex_a", "ex_b", "vol", "vol_ref", "c1", "c2", "ex", "vol_pass", "ok", "why"]
+NUMERIC = [c for c in COLUMNS[1:16]]
 SLOT_KEYS = [("C1", "c1"), ("C2", "c2"), ("EXIT", "ex")]
 
 
@@ -58,7 +59,7 @@ def read_csv(path):
         if len(parts) != len(COLUMNS):
             raise SystemExit("%s line %d: expected %d columns, got %d" % (path, n, len(COLUMNS), len(parts)))
         r = dict(zip(COLUMNS, parts))
-        for k in COLUMNS[1:15]:
+        for k in NUMERIC:
             r[k] = tok(r[k])
         for k in ("c1", "c2", "ex", "vol_pass", "ok"):
             r[k] = int(r[k])

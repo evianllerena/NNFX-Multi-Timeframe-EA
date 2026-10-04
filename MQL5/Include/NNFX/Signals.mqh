@@ -5,7 +5,7 @@
 //| Bad values never become signals: NaN, infinity and EMPTY_VALUE   |
 //| all read as 0 (or "fail" for volume).                            |
 //|                                                                  |
-//| Status: NOT YET COMPILED.                                        |
+//| Status: compiled 2026-10-04, MT5 build 6238, 0 errors 0 warnings.|
 //+------------------------------------------------------------------+
 #ifndef NNFX_SIGNALS_MQH
 #define NNFX_SIGNALS_MQH

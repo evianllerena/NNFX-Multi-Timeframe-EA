@@ -13,7 +13,7 @@
 //| Status: compiled 2026-10-03, MT5 build 6235, 0 errors 0 warnings;|
 //| NNFX_RulesTest 47/47 (docs/VERIFICATION.md).                     |
 //+------------------------------------------------------------------+
-#property script_show_inputs
+// Inputs keep their defaults when run automatically (no input dialog, so unattended runs never wait for a click).
 
 #include <NNFX\RulesCore.mqh>
 

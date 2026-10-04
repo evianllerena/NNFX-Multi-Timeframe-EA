@@ -11,9 +11,10 @@
 //|                                                                  |
 //| Places NO orders. Writes                                         |
 //|   MQL5\Files\NNFX\export\<symbol>_<timeframe>.csv                |
-//| Status: NOT YET COMPILED.                                        |
+//| Status: Phase 5 version compiled 2026-10-04 (build 6238, 0 errors);|
+//| Phase 5b changes NOT YET COMPILED.                               |
 //+------------------------------------------------------------------+
-#property script_show_inputs
+// Inputs keep their defaults when run automatically (no input dialog, so unattended runs never wait for a click).
 
 #include <NNFX\BarBuilder.mqh>
 
@@ -43,35 +44,49 @@ string TfName(const ENUM_TIMEFRAMES tf)
    return s;
   }
 
-bool ExportOne(const string symbol, const string &profiles[])
+// Ask MT5 for enough candles and wait until the terminal has them (history is downloaded on
+// request). Returns the number of candles available.
+int EnsureHistory(const string symbol, const int need)
+  {
+   MqlRates rates[];
+   int got = 0;
+   for(int k = 0; k < 120; k++)          // up to about 60 seconds
+     {
+      got = CopyRates(symbol, InpTF, 0, need, rates);
+      if(got >= need)
+         break;
+      Sleep(500);
+     }
+   return MathMax(got, Bars(symbol, InpTF));
+  }
+
+bool ExportOne(const string symbol, const string &profiles[], const int summary)
   {
    if(!SymbolSelect(symbol, true))
      {
       Print("NNFX_ExportBars: symbol not found: ", symbol);
+      FileWriteString(summary, symbol + " requested=" + IntegerToString(InpBars) + " written=0 usable=0 complete=no reason=symbol_not_found\r\n");
       return false;
      }
+   // Candles to export + warm-up margin + the current (forming) candle.
+   int need = InpBars + 200;
+   int have = EnsureHistory(symbol, need);
    CNNFXBarBuilder bb;
    if(!bb.Init(symbol, InpTF, profiles, true))
      {
       Print("NNFX_ExportBars: ", symbol, ": ", bb.Error());
+      FileWriteString(summary, symbol + " requested=" + IntegerToString(InpBars) + " written=0 usable=0 complete=no reason=init_failed\r\n");
       return false;
      }
-   // Wait (briefly) for history and indicator calculation.
-   for(int k = 0; k < 50 && Bars(symbol, InpTF) < InpBars + 100; k++)
-      Sleep(200);
-   for(int k = 0; k < 50; k++)
-     {
-      NNFXBar b;
-      NNFXRaw r;
-      if(bb.Build(1, b, r))
-         break;
-      Sleep(200);
-     }
+   for(int k = 0; k < 120 && !bb.AllCalculated(); k++)   // up to about 60 seconds
+      Sleep(500);
+   bool calculated = bb.AllCalculated();
    int available = Bars(symbol, InpTF) - 2;
    int count = MathMin(InpBars, available);
    if(count < 1)
      {
       Print("NNFX_ExportBars: ", symbol, ": no history on ", TfName(InpTF));
+      FileWriteString(summary, symbol + " requested=" + IntegerToString(InpBars) + " written=0 usable=0 complete=no reason=no_history\r\n");
       return false;
      }
    string path = "NNFX\\export\\" + symbol + "_" + TfName(InpTF) + ".csv";
@@ -84,17 +99,23 @@ bool ExportOne(const string symbol, const string &profiles[])
    FileWriteString(h, StringFormat("# symbol=%s timeframe=%s profiles=%s,%s,%s,%s,%s atr=14 build=%d\r\n",
                                    symbol, TfName(InpTF), profiles[0], profiles[1], profiles[2],
                                    profiles[3], profiles[4], (int)TerminalInfoInteger(TERMINAL_BUILD)));
-   FileWriteString(h, "time,open,high,low,close,atr,base,c1_a,c1_b,c2_a,c2_b,ex_a,ex_b,vol,vol_ref,"
+   FileWriteString(h, "time,open,high,low,close,tickvol,atr,base,c1_a,c1_b,c2_a,c2_b,ex_a,ex_b,vol,vol_ref,"
                       "c1,c2,ex,vol_pass,ok,why\r\n");
    int written = 0, usable = 0;
+   string first = "", last = "";
    // Oldest first, so the file reads in time order.
    for(int shift = count; shift >= 1; shift--)
      {
       NNFXBar b;
       NNFXRaw r;
       bool ok = bb.Build(shift, b, r);
-      string row = TimeToString(r.time, TIME_DATE | TIME_MINUTES) + "," +
-                   Num(b.o) + "," + Num(b.h) + "," + Num(b.l) + "," + Num(b.c) + "," + Num(b.atr) + "," +
+      string t = TimeToString(r.time, TIME_DATE | TIME_MINUTES);
+      if(first == "")
+         first = t;
+      last = t;
+      string row = t + "," +
+                   Num(b.o) + "," + Num(b.h) + "," + Num(b.l) + "," + Num(b.c) + "," +
+                   IntegerToString(iVolume(symbol, InpTF, shift)) + "," + Num(b.atr) + "," +
                    Num(r.v[NNFX_SLOT_BASE][0]) + "," +
                    Num(r.v[NNFX_SLOT_C1][0]) + "," + Num(r.v[NNFX_SLOT_C1][1]) + "," +
                    Num(r.v[NNFX_SLOT_C2][0]) + "," + Num(r.v[NNFX_SLOT_C2][1]) + "," +
@@ -108,9 +129,13 @@ bool ExportOne(const string symbol, const string &profiles[])
          usable++;
      }
    FileClose(h);
-   Print(StringFormat("NNFX_ExportBars: %s %s: %d candles written (%d usable) to MQL5\\Files\\%s",
-                      symbol, TfName(InpTF), written, usable, path));
-   return true;
+   bool complete = (written == InpBars) && calculated;
+   FileWriteString(summary, StringFormat("%s requested=%d written=%d usable=%d complete=%s history=%d calculated=%s first=%s last=%s\r\n",
+                                         symbol, InpBars, written, usable, complete ? "yes" : "no", have,
+                                         calculated ? "yes" : "no", first, last));
+   Print(StringFormat("NNFX_ExportBars: %s %s: %d of %d candles written (%d usable)%s to MQL5\\Files\\%s",
+                      symbol, TfName(InpTF), written, InpBars, usable, complete ? "" : " INCOMPLETE", path));
+   return complete;
   }
 
 void OnStart()
@@ -124,12 +149,15 @@ void OnStart()
    string syms[];
    int n = StringSplit(InpSymbols, ',', syms);
    int done = 0;
+   int summary = FileOpen("NNFX\\export\\_summary.txt", FILE_WRITE | FILE_TXT | FILE_ANSI);
    for(int k = 0; k < n; k++)
      {
       string s = NNFXTrim(syms[k]);
-      if(s != "" && ExportOne(s, profiles))
+      if(s != "" && ExportOne(s, profiles, summary))
          done++;
      }
-   Print(StringFormat("NNFX_ExportBars: finished, %d of %d pairs exported", done, n));
+   FileWriteString(summary, StringFormat("RESULT: %d of %d pairs complete\r\n", done, n));
+   FileClose(summary);
+   Print(StringFormat("NNFX_ExportBars: finished, %d of %d pairs complete", done, n));
   }
 //+------------------------------------------------------------------+
