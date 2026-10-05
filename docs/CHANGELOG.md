@@ -11,7 +11,10 @@ Newest first.
   `test_order_calls.py` knows the hooks (S2b).
 - F4: `docs/REVIEW_PROTOCOL.md`: failed or invalid runs move to `invalid\` with `REASON.txt`, never deleted.
 - F5: breakeven rows note `via=transaction|tick` (in the tester: all via the tick poll).
-- Run `20261004_164337` OVERALL PASS; planted bugs 15 of 15, S4 7 of 7. F2 (demo run) and F3 (offline check) pending.
+- Run `20261004_164337` OVERALL PASS; planted bugs 15 of 15, S4 7 of 7.
+- F2: demo order run on MetaQuotes-Demo (EURUSD M1, 5 trades): `check_trades.py` PASS; `NNFX_DealReport.mq5`
+  (read-only) records FOK fills, comments kept, commission 0.00. A first attempt failed (Algo Trading off), kept in
+  `invalid\`. `NNFX_OrderTest`: `InpStopWhenDone`. F3 (offline check) pending.
 
 ## 2026-10-04 — Phase 6b: orders
 

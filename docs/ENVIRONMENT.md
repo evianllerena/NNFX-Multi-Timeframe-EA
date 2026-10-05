@@ -77,6 +77,20 @@ keeps the full report.
 | Real ticks (mid-January probe) | EURUSD: 2016 error 4401, 2017 onward yes; AUDNZD: 2016 onward yes |
 | Spreads | Read on a Sunday with the market closed (AUDNZD showed 205 points), so **not representative**; to be re-read during market hours |
 
+## Demo order run facts (MetaQuotes-Demo, 2026-10-05 server time)
+
+From the 6b demo order run `demo_20261004_224606` (`NNFX_OrderTest`, EURUSD M1, minimum lots, 5 trades) and the read-only
+`NNFX_DealReport`:
+
+| Fact | Value |
+| --- | --- |
+| Filling mode of the EA's orders (U9) | FOK (`SYMBOL_FILLING_MODE` allows it; the EA picks FOK first). The server's own SL/TP closes are IOC |
+| Commission, swap, fees (U11) | 0.00 on all 20 deals (5 trades x 2 halves, open + close) |
+| Comments (U5) | Kept unchanged on opening orders and deals |
+| Breakeven after TP1 (U12) | Both breakeven moves made by `OnTradeTransaction` (`via=transaction`); in the tester it was the tick poll |
+| Slippage | T0003: fills 3 and 8 points away from the requested price; SL/TP re-set from the fills (MODIFY, OD-14) |
+| Algo Trading button | Must be on: a first attempt with it off got retcode 10027 "AutoTrading disabled by client" on every order (kept in `checks\invalid\demo_20261004_171933\`) |
+
 ## Still to check
 
 | # | Check | How |
@@ -85,8 +99,8 @@ keeps the full report.
 | 2 | ~~Real-tick history: EURGBP, AUDCAD, CHFJPY~~ | Done: mid-January probe finds ticks 2016-2026 on all 5 pairs, run `20261004_115428`. A probe is one 3-day window per year, not a full coverage check |
 | 3 | Server time offset after the daylight-saving change | `NNFX_EnvCheck` script, re-run after the change |
 | 4 | Spread during market hours | `NNFX_EnvCheck` script (runner, on a weekday). Lot step, tick value and swaps: done, run `20261004_115428` |
-| 5 | Commission | Not exposed as a symbol property in MQL5; read from a demo trade's deal record, or the broker's published terms |
-| 6 | Does the broker keep order comments unchanged? | Small demo-account test |
+| 5 | Commission | **MetaQuotes-Demo: 0.00** on all 20 deals of the demo order run (`demo_20261004_224606`, `NNFX_DealReport.txt`; swap and fee also 0.00). The live broker's commission is still unknown (live broker not chosen) |
+| 6 | ~~Does the broker keep order comments unchanged?~~ | **Yes on MetaQuotes-Demo**: every opening order and deal kept the EA's comment (`NNFX T0001 h1` ...). Closes made by the server carry the server's own comment (`[sl 1.12007]`, `[tp 1.11902]`). Demo order run `demo_20261004_224606`, `NNFX_DealReport.txt`. To re-check on the live broker |
 | 7 | How far back the economic calendar goes | Calendar export tool |
 | 8 | ~~Can the tester run from the command line on this PC?~~ | **Yes**: `tools/run_phase5_checks.ps1` step 4 ran the Strategy Tester from a `/config` file (runs `20261004_113357`, `20261004_115428`) |
 | 9 | Live broker choice | Owner |

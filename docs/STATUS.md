@@ -13,7 +13,7 @@ Last updated: 2026-10-04.
 | 3 Python answer key | Merged |
 | 4 MQL5 rules core | Merged (PR #3) |
 | 5 Indicator slots and profiles | Merged: PR #4 (at `58e2994`, before the G1_phase5_1 fixes; see note below) and PR #5 (the reviewed fixes, `0e701dd`) |
-| 6 Orders, risk, recovery, guard, news, EA | Plan: gate G2 **PASS** (`G2_phase6_1`), `docs/PLAN_PHASE6.md`; owner decisions OD-1 to OD-21 in `docs/DECISIONS.md`. **6a sizing + exposure:** merged (PR #6, `G1_phase6a_1` PASS). **6b orders:** draft PR #7 from branch `phase-6b-orders`. Review `G1_phase6b_1`: CHANGES REQUESTED (F1-F5). F1 (ABORT, REFUSE stops level, REFUSE margin, MODIFY exercised in the tester), F4 (evidence never deleted) and F5 (BE via) done: run `20261004_164337` OVERALL PASS, planted bugs 15 of 15 and S4 7 of 7. **Pending before `G1_phase6b_2`:** F2 the demo order run (weekday) and F3 the MT5-offline check (owner's firewall step). 6c may start on a branch from `phase-6b-orders`. 6d-6f not started |
+| 6 Orders, risk, recovery, guard, news, EA | Plan: gate G2 **PASS** (`G2_phase6_1`), `docs/PLAN_PHASE6.md`; owner decisions OD-1 to OD-21 in `docs/DECISIONS.md`. **6a sizing + exposure:** merged (PR #6, `G1_phase6a_1` PASS). **6b orders:** draft PR #7 from branch `phase-6b-orders`. Review `G1_phase6b_1`: CHANGES REQUESTED (F1-F5). F1 (ABORT, REFUSE stops level, REFUSE margin, MODIFY exercised in the tester), F4 (evidence never deleted) and F5 (BE via) done: run `20261004_164337` OVERALL PASS, planted bugs 15 of 15 and S4 7 of 7. F2 demo order run done (`demo_20261004_224606`, 5 trades, `check_trades.py` PASS; an earlier attempt failed with Algo Trading off and is kept in `checks\invalid\`). **Pending before `G1_phase6b_2`:** F3 the MT5-offline check (owner's firewall step). 6c may start on a branch from `phase-6b-orders`. 6d-6f not started |
 | 7 onward | See `docs/SPEC.md` |
 
 **Note (2026-10-04):** PR #4 was merged at `58e2994` on 2026-10-04 15:47 UTC, 4.5 minutes after review
@@ -29,9 +29,6 @@ brings them to `main` (merged 2026-10-04 as `0e701dd`). Guards against a repeat:
 - Carry-over 1, MT5-offline part: add the firewall rule in `tools/run_offline_check.ps1` (admin PowerShell),
   then run `tools\run_offline_check.ps1 -Mt5Offline` with MT5 closed, then remove the rule. Not run yet.
   The G1_phase6a_1 verdict requires it before the 6b order test is accepted.
-- 6b demo order run (weekday, market open): with MT5 open on a EURUSD H1 chart, attach `NNFX\NNFX_OrderTest` with
-  `InpMinLots=true` and `InpMaxTrades=5`; when the 5 trades are closed, run
-  `python tools\check_trades.py <Common\Files\NNFX\trades\OrderTest_EURUSD_demo.csv>`. Not run yet.
 
 ## Answered by the Phase 5b runs (2026-10-04)
 
