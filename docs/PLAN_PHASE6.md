@@ -538,6 +538,7 @@ the real one.
 | Same run twice | Identical decision logs and trade logs (a first look at V14; the full V14 is Phase 8) |
 | All three presets start | The 30M, 1H and 4H presets each start in the tester for one week with no errors; each run's trade log carries its own magic |
 | Demo smoke test | Weekday, the 1H preset, the 5 pairs, at least one full day: no errors; decision log complete; `orders allowed: DEMO` |
+| MT5-offline check (carry-over 1; deferred here from 6b by owner decision D6b-1) | Required before 6f is accepted and before any demo forward-test. With the owner's firewall rule blocking `terminal64.exe`: `tools\run_offline_check.ps1 -Mt5Offline` shows EnvCheck and ExportBars `FAIL - RESULT: INVALID (not connected)`; and `NNFX_EA` (or `NNFX_OrderTest`) on a live chart logs a REFUSE "not connected" and opens 0 orders (the tester skips the wait, so not in the tester) |
 
 ### Planted bugs (new checker: `tools/check_decision_log.py`)
 
@@ -670,7 +671,7 @@ Also SPEC Verification plan, 1e: "Restart | Restart MT5 in each trade state (sec
 | 6c | `NNFX_RecoveryTest` all pass; R1–R4 in the tester (`compare_runs.py` IDENTICAL) and on demo |
 | 6d | `NNFX_GuardTest` all pass; rollover samples line up; master switch demo test; weekday spreads recorded |
 | 6e | `NNFX_NewsTest` all pass; calendar export PASS; tester = live flags for one week; time-base samples line up |
-| 6f | EA tester run on 5 pairs completes; `check_trades.py` PASS; `check_decision_log.py` PASS; two runs identical; three presets start; demo smoke test |
+| 6f | EA tester run on 5 pairs completes; `check_trades.py` PASS; `check_decision_log.py` PASS; two runs identical; three presets start; demo smoke test; **MT5-offline check (D6b-1)** |
 
 Every step updates `docs/STATUS.md`, `docs/VERIFICATION.md` and `tools/README.md` in its own PR.
 

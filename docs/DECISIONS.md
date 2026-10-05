@@ -118,3 +118,9 @@ Label C (owner's choice) unless stated.
 | OD-19 | Elections/referendums blackout list (N2) starts empty; the owner adds entries | C | Approved |
 | OD-20 | A trade counts for same-currency exposure (M6) until fully closed, including a breakeven runner | C | Approved |
 | OD-21 | Non-FX symbols are ignored for exposure, with a log line | C | Approved |
+
+## Phase 6b review decisions
+
+| ID | Decision | Label | Status |
+| --- | --- | --- | --- |
+| D6b-1 | The MT5-offline check (carry-over 1; G1_phase6a_1 note 3; G1_phase6b_1 F3) is **deferred** from the 6b gate to the **6f G1 gate**: it must pass before the real EA (`NNFX_EA.mq5`) is accepted and before any demo forward-test. It covers EnvCheck `RESULT: INVALID (not connected)` and the EA/order path refusing with "not connected" and opening 0 orders, run on a live chart (the tester skips the wait) | C (owner, 2026-10-04) | Approved |
