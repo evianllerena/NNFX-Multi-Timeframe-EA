@@ -154,3 +154,15 @@ Restart test (b), real restarts on the demo (weekday): `powershell -ExecutionPol
 tools\run_demo_restarts.ps1`. It needs MetaQuotes MT5 closed at the start and Algo Trading on, and nobody needs to
 watch it. MT5 opens and closes by itself; if MT5 relaunches or is closed, the driver handles it (D6c-3).
 **Pass lines:** `R1`-`R4` each restarted, `RESULT: REBUILDS MATCH (n of n)`, and `OVERALL: PASS`.
+
+G1_phase6c_1 additions:
+- **Test (a)** has an eighth run, `R2_history_only`: the state file is deleted AND comments are ignored. The
+  trade then gets the documented fallback ID `R<half 1 ticket>`.
+  - It is compared with `--fallback-ids`.
+  - Pass lines: `IDENTICAL`, `REBUILDS MATCH`, and `fallback ID used and logged PASS - T.... -> R...`.
+- **Test (b)** makes R2 a hard kill (`-HardKill R2`): `Stop-Process -Force` on the driver's own PID, right after a
+  candle.
+  - Pass line: `R2 hard kill: no PRESTOP, rebuilt = last STATE row PASS`.
+- **Leftover test trades** (D-OPS-1): run
+  `powershell -ExecutionPolicy Bypass -Command "& .\tools\close_test_leftovers.ps1 -Magics 26998,26997"`.
+  - Pass line: `whole account flat PASS`.

@@ -40,3 +40,5 @@ Format: see `tests/python/nnfx_ref/fixtures.py`. Rebuild with
 - Run by `test_recovery.py` (answer key `nnfx_ref/recovery.py`) and `NNFX_RecoveryTest.mq5`.
 - Deviation from `docs/PLAN_PHASE6.md`: the plan said JSON. These are line-based `.txt` files, like every fixture
   since Phase 5, because MQL5 reads them without a JSON parser.
+- G1_phase6c_1 F3: `fallback_pairing_after_abort` now expects the logged fallback IDs
+  (`fallback id R31 = positions 31+32`, `fallback id R21 = position 21`).

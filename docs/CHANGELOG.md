@@ -2,6 +2,24 @@
 
 Newest first.
 
+## 2026-10-06 — Phase 6c: review G1_phase6c_1 fixes (F1-F4)
+
+- F3: the fallback trade ID of a "deal history only" rebuild is documented. It is `R` + half 1's position ticket,
+  in both `State.mqh` and `recovery.py`. Each mapping is logged in the REBUILD note as
+  `fallback id R54 = positions 54+55`.
+  - `compare_runs.py --fallback-ids` accepts an ID difference only when it is exactly that, and logged.
+  - Restart test (a) gains `R2_history_only` (state file deleted AND comments ignored).
+  - The test EA's schedule follows its trade under the fallback ID (an INFO row).
+- F2: `run_demo_restarts.ps1 -HardKill R2` kills its own PID right after a candle. `compare_runs.py rebuilds`
+  compares a REBUILD with no PRESTOP against the last STATE row.
+- F1: demo test (b) was re-run on the head code, with every input listed.
+- F4b (D-OPS-1): `NNFX_OrderTest InpCloseLeftovers` (demo only, magics 26990-26999 only) and
+  `tools/close_test_leftovers.ps1`. The account is flat.
+- Test EA: the real-restart rebuild and the cleanup wait until MT5 is connected and logged in (+3 s). Nothing trades
+  before that.
+- The tester driver waits and retries if MT5 was opened by someone else. `test_compare_runs.py` gains 5 tests (102 in all).
+- Owner: D6c-3 confirmed; standing approvals D-OPS-1; `REVIEW_PROTOCOL.md`: keep every PR page current.
+
 ## 2026-10-06 — Phase 6c: state and recovery
 
 - `MQL5/Include/NNFX/State.mqh`: the state file (`NNFXSTATE|1`, FNV-1a checksum, atomic write via `.tmp` and

@@ -502,6 +502,12 @@ At least 8:
 **Branch** `phase-6f-ea`, draft PR. Depends on 6a–6e. The test EA (`NNFX_OrderTest`) serves 6b–6e; this step builds
 the real one.
 
+**Carried from 6c (G1_phase6c_1, lessons of the restart tests):**
+- After a "deal history only" rebuild, a trade's ID is the fallback `R<half 1 ticket>`, not its original `T####`.
+  Nothing in the real EA may key on the original ID. The test EA's schedule needed a fix for exactly this.
+- The real-restart rebuild must wait until MT5 is connected and logged in, as the test EA now does (OnTimer, +3 s).
+  Nothing may trade before the rebuild. OnInit can run before MT5 has synchronized its positions.
+
 ### Implements
 
 **SPEC, Architecture:**
