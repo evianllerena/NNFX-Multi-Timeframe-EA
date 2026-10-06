@@ -81,6 +81,14 @@ input int    InpTesterMaster   = -1;     // TESTER ONLY: -1 = read NNFX_MASTER, 
 // so a pause can start while a trade is open ("none" = off; refused outside the tester). The limits otherwise trip
 // from closed losses only, with the account flat (run 6d_drawdown_pause_20261006_114114).
 input string InpTesterPauseAt  = "none";
+// DEMO master-switch test (PLAN 6d), test magics 26990-26999 only (D-OPS-1): this instance (A) sets NNFX_MASTER = 1,
+// opens a second chart (InpMasterTestSymbol, same period) with the template InpMasterTestTpl (instance B, written by
+// tools/run_demo_master_test.ps1), switches NNFX_MASTER to 0 after InpMasterOffAfter candles and back to 1 after
+// InpMasterOffFor more. Every change is a GUARD row. "" = off.
+input string InpMasterTestTpl  = "";
+input string InpMasterTestSymbol = "GBPUSD";
+input int    InpMasterOffAfter = 5;
+input int    InpMasterOffFor   = 5;
 input string InpBaseline      = "ref_baseline_sma20.txt";  // Profiles (Common\Files\NNFX\profiles) for the tracker
 input string InpC1            = "ref_c1_rvi10.txt";
 input string InpC2            = "ref_c2_macd_main.txt";
@@ -110,6 +118,7 @@ NNFXBroker       g_broker;
 NNFXDrawdown     g_dd;
 bool             g_dl_was = false;      // daily loss blocked at the last candle (to log the change once)
 bool             g_pause_forced = false;
+int              g_master_candles = -1;  // candles since the master-switch test started (-1 = not running)
 bool             g_pending_rebuild = false;  // a real restart: no trading until the rebuild has run (OnTimer)
 uint             g_ready_since = 0;     // GetTickCount() when MT5 was first seen connected and logged in
 string           g_last_saved = "";
@@ -330,6 +339,34 @@ void CloseLeftovers(void)
                             PositionsTotal()));
   }
 
+// DEMO master-switch test (instance A only): start, switch off, switch on; one step per candle
+void MasterTestStep(void)
+  {
+   if(InpMasterTestTpl == "")
+      return;
+   if(g_master_candles < 0)
+     {
+      GlobalVariableSet(NNFX_GV_MASTER, 1.0);
+      long id = ChartOpen(InpMasterTestSymbol, _Period);
+      bool ok = (id > 0) && ChartApplyTemplate(id, InpMasterTestTpl);
+      Row("GUARD", StringFormat("TEST master switch: NNFX_MASTER = 1; chart %s opened (id %I64d) with template %s: %s, error %d",
+                                InpMasterTestSymbol, id, InpMasterTestTpl, ok ? "applied" : "FAILED", GetLastError()));
+      g_master_candles = 0;
+      return;
+     }
+   g_master_candles++;
+   if(g_master_candles == InpMasterOffAfter)
+     {
+      GlobalVariableSet(NNFX_GV_MASTER, 0.0);
+      Row("GUARD", "TEST master switch: NNFX_MASTER = 0 (OFF)");
+     }
+   else if(g_master_candles == InpMasterOffAfter + InpMasterOffFor)
+     {
+      GlobalVariableSet(NNFX_GV_MASTER, 1.0);
+      Row("GUARD", "TEST master switch: NNFX_MASTER = 1 (ON)");
+     }
+  }
+
 // The guard at a candle close (6d). Server time = TimeCurrent() (the broker's clock; never TimeLocal, D6d-4).
 string GuardAtCandle(const bool indicatorOk)
   {
@@ -409,6 +446,12 @@ int OnInit()
    if(InpGuard && InpServerDst != "none" && InpServerDst != "EU" && InpServerDst != "US")
      {
       Print("NNFX_OrderTest: InpServerDst must be none, EU or US");
+      return INIT_PARAMETERS_INCORRECT;
+     }
+   if(InpMasterTestTpl != "" && (MQLInfoInteger(MQL_TESTER) != 0 || InpMagic < 26990 || InpMagic > 26999 ||
+                                  AccountInfoInteger(ACCOUNT_TRADE_MODE) != ACCOUNT_TRADE_MODE_DEMO || !InpGuard))
+     {
+      Print("NNFX_OrderTest: the master-switch test is demo only, test magic 26990-26999, with InpGuard=true");
       return INIT_PARAMETERS_INCORRECT;
      }
    if(InpTesterPauseAt != "none" && MQLInfoInteger(MQL_TESTER) == 0)
@@ -684,6 +727,7 @@ void OnTick()
         }
       g_orders.OnBarClose(_Symbol, close, atr[0]);
       g_orders.Reconcile();
+      MasterTestStep();
       string blocks = InpGuard ? GuardAtCandle(ok) : "";
       ScheduleStep(atr[0], blocks);
      }

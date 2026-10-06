@@ -142,7 +142,8 @@ if ($PythonOnly) {
     $programs = @("Scripts\NNFX\NNFX_RulesTest", "Scripts\NNFX\NNFX_SignalTest", "Scripts\NNFX\NNFX_ExportBars",
                   "Scripts\NNFX\NNFX_EnvCheck", "Experts\NNFX\NNFX_RepaintCheck", "Scripts\NNFX\NNFX_SizingTest",
                   "Scripts\NNFX\NNFX_SafetyTest", "Scripts\NNFX\NNFX_OrderMathTest", "Experts\NNFX\NNFX_OrderTest",
-                  "Scripts\NNFX\NNFX_RecoveryTest", "Scripts\NNFX\NNFX_DealReport", "Scripts\NNFX\NNFX_GuardTest")
+                  "Scripts\NNFX\NNFX_RecoveryTest", "Scripts\NNFX\NNFX_DealReport", "Scripts\NNFX\NNFX_GuardTest",
+                  "Experts\NNFX\NNFX_TemplateProbe")
     $compileOk = $true
     foreach ($f in $programs) {
         $src = "$MT5\MQL5\$f.mq5"; $log = "$MT5\MQL5\$f.log"; $ex5 = "$MT5\MQL5\$f.ex5"
@@ -265,7 +266,8 @@ if ($PythonOnly) {
           "InpStoplessTest=true", "InpLoseReplyOn=3", "InpAbortOn=7", "InpStopsRefuseOn=9", "InpMarginRefuseOn=11",
           "InpModifyOn=13", "InpStopWhenDone=false", "InpRestartAt=none", "InpRestartDeleteState=false",
           "InpRestartIgnoreComments=false", "InpCloseLeftovers=false",
-          "InpGuard=false", "InpInstanceOn=true", "InpServerWinterOffset=2", "InpServerDst=US", "InpWeekendHours=0", "InpMaxSpread=0", "InpTesterMaster=-1", "InpTesterPauseAt=none") |
+          "InpGuard=false", "InpInstanceOn=true", "InpServerWinterOffset=2", "InpServerDst=US", "InpWeekendHours=0", "InpMaxSpread=0", "InpTesterMaster=-1", "InpTesterPauseAt=none",
+          "InpMasterTestTpl=", "InpMasterTestSymbol=GBPUSD", "InpMasterOffAfter=5", "InpMasterOffFor=5") |
             Set-Content -LiteralPath $ini -Encoding ASCII
         $err = Run-Terminal $ini 60
         if ((Fresh $orderSummary $t0) -and (Fresh $orderLog $t0)) {
@@ -296,7 +298,8 @@ if ($PythonOnly) {
           "InpModifyOn=0", "InpStopWhenDone=false", "InpRestartAt=none", "InpRestartDeleteState=false",
           "InpRestartIgnoreComments=false", "InpCloseLeftovers=false",
           "InpGuard=true", "InpInstanceOn=true", "InpServerWinterOffset=2", "InpServerDst=US", "InpWeekendHours=4",
-          "InpMaxSpread=0", "InpTesterMaster=1", "InpTesterPauseAt=none") |
+          "InpMaxSpread=0", "InpTesterMaster=1", "InpTesterPauseAt=none",
+          "InpMasterTestTpl=", "InpMasterTestSymbol=GBPUSD", "InpMasterOffAfter=5", "InpMasterOffFor=5") |
             Set-Content -LiteralPath $ini -Encoding ASCII
         $err = Run-Terminal $ini 60
         if ((Fresh $orderSummary $t0) -and (Fresh $orderLog $t0)) {
@@ -327,7 +330,8 @@ if ($PythonOnly) {
           "InpModifyOn=0", "InpStopWhenDone=false", "InpRestartAt=none", "InpRestartDeleteState=false",
           "InpRestartIgnoreComments=false", "InpCloseLeftovers=false",
           "InpGuard=true", "InpInstanceOn=true", "InpServerWinterOffset=2", "InpServerDst=US", "InpWeekendHours=4",
-          "InpMaxSpread=0", "InpTesterMaster=1", "InpTesterPauseAt=2026.06.09 13:00") |
+          "InpMaxSpread=0", "InpTesterMaster=1", "InpTesterPauseAt=2026.06.09 13:00",
+          "InpMasterTestTpl=", "InpMasterTestSymbol=GBPUSD", "InpMasterOffAfter=5", "InpMasterOffFor=5") |
             Set-Content -LiteralPath $ini -Encoding ASCII
         $err = Run-Terminal $ini 60
         if ((Fresh $orderSummary $t0) -and (Fresh $orderLog $t0)) {

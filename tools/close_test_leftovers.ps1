@@ -84,7 +84,8 @@ foreach ($m in $Magics) {
     Write-Set $set @("InpRiskPct=2.0", "InpEveryBars=2", "InpMaxTrades=0", "InpMinLots=true", "InpMagic=$m", "InpStoplessTest=false",
         "InpLoseReplyOn=0", "InpAbortOn=0", "InpStopsRefuseOn=0", "InpMarginRefuseOn=0", "InpModifyOn=0", "InpStopWhenDone=false",
         "InpRestartAt=none", "InpRestartDeleteState=false", "InpRestartIgnoreComments=false", "InpCloseLeftovers=true",
-        "InpGuard=false", "InpInstanceOn=true", "InpServerWinterOffset=2", "InpServerDst=US", "InpWeekendHours=0", "InpMaxSpread=0", "InpTesterMaster=-1", "InpTesterPauseAt=none")
+        "InpGuard=false", "InpInstanceOn=true", "InpServerWinterOffset=2", "InpServerDst=US", "InpWeekendHours=0", "InpMaxSpread=0", "InpTesterMaster=-1", "InpTesterPauseAt=none",
+        "InpMasterTestTpl=", "InpMasterTestSymbol=GBPUSD", "InpMasterOffAfter=5", "InpMasterOffFor=5")
     $ini = "$Out\run_cleanup_$m.ini"
     @("[StartUp]", "Expert=NNFX\NNFX_OrderTest", "ExpertParameters=$set", "Symbol=EURUSD", "Period=M1") |
         Set-Content $ini -Encoding ASCII
