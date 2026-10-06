@@ -91,6 +91,37 @@ From the 6b demo order run `demo_20261004_224606` (`NNFX_OrderTest`, EURUSD M1, 
 | Slippage | T0003: fills 3 and 8 points away from the requested price; SL/TP re-set from the fills (MODIFY, OD-14) |
 | Algo Trading button | Must be on: a first attempt with it off got retcode 10027 "AutoTrading disabled by client" on every order (kept in `checks\invalid\demo_20261004_171933\`) |
 
+## OANDA TMS (candidate live broker)
+
+Owner decision D6c-2. Read-only `NNFX_EnvCheck` on the OANDA TMS **demo** account, compiled with OANDA's own
+MetaEditor; no orders on OANDA. Run `oanda_envcheck_20261005_222410` (report in the OANDA data folder
+`...\Terminal\47AEB69EDDAD4D73097816C71FB25856\MQL5\Files\NNFX\checks\oanda_envcheck_20261005_222410\`), started
+Monday 2026-10-05 22:24 EDT = **Tuesday 04:24 server time (Asian session)**. `RESULT: VALID (read after login)`.
+
+| Fact | Value |
+| --- | --- |
+| Terminal | OANDA TMS MT5 Terminal, build 6241, `C:\Program Files\OANDA TMS MT5 Terminal` |
+| Account | OANDATMS-MT5, login 62316800, OANDA TMS Brokers S.A., DEMO, **RETAIL_HEDGING**, **currency EUR**, 1:100, balance 50000.00 |
+| Server time vs GMT | **+2.00 hours** on 2026-10-06 (MetaQuotes-Demo was +3); D1 candle opens 00:00 server, H4 on 00/04/08... |
+| Symbol names | AUDNZD, AUDCAD, CHFJPY exist only as **`.pro`** (`AUDNZD.pro`, `AUDCAD.pro`, `CHFJPY.pro`). EURUSD and EURGBP were found under the plain name (see the warning below) |
+
+| Pair (as found) | Digits | Spread at 04:24 server | Stops / freeze | Lot min / step / max | Tick size / value (EUR) | Swap long / short (mode) | History starts (M1) | Real ticks, mid-January probe |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| EURUSD | 5 | **2400 (fixed)** | 0 / 0 | 0.01 / 0.01 / 50 | 0.00001 / 0.88216 | 0.00 / 0.00 (mode 0) | 1971.01.03 | 2016 error 4401; 2017-2026 yes |
+| AUDNZD.pro | 5 | 17 (floating) | 0 / 0 | 0.01 / 0.01 / 50 | 0.00001 / 0.49938 | 0.82 / -2.71 (mode 5) | 1993.04.04 | 2016 error 4401; 2017, 2018 no; 2019-2026 yes |
+| EURGBP | 5 | **2400 (fixed)** | 0 / 0 | 0.01 / 0.01 / 50 | 0.00001 / 1.16183 | 0.00 / 0.00 (mode 0) | 1993.05.02 | 2016 error 4401; 2017-2021 yes; 2022, 2023 no; 2024-2026 yes |
+| AUDCAD.pro | 5 | 21 (floating) | 0 / 0 | 0.01 / 0.01 / 50 | 0.00001 / 0.62516 | 1.25 / -3.14 (mode 5) | 1993.04.26 | 2016 error 4401; 2017, 2018 no; 2019-2026 yes |
+| CHFJPY.pro | 3 | 45 (floating) | 0 / 0 | 0.01 / 0.01 / **25** | 0.001 / 0.56468 | -2.28 / 0.26 (mode 5) | 1992.02.18 | 2016 error 4401; 2017, 2018 no; 2019-2026 yes |
+
+**Warning, not verified: the plain-name EURUSD and EURGBP readings are probably not the tradable instruments.**
+Both show a fixed 2400-point spread and zero swaps (swap mode 0), unlike the three `.pro` pairs. EnvCheck takes the
+requested name first if it exists, so it never looked for `EURUSD.pro` / `EURGBP.pro`. To re-check with those names
+(another ~15 minutes with the OANDA terminal closed) before any OANDA number is relied on.
+
+Also: the account currency is **EUR** (MetaQuotes-Demo is USD), so tick values are in EUR; spreads were read in the
+Asian session, not at the London/New York overlap; commission is still unknown (not a symbol property; it needs a
+deal record, and no orders are placed on OANDA under D6c-2, or the broker's published terms).
+
 ## Still to check
 
 | # | Check | How |
