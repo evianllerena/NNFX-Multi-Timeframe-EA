@@ -86,6 +86,17 @@ function Inputs-Read([datetime]$since) {
     }
     return -1
 }
+# Our PID ended by itself (e.g. MT5 LiveUpdate: run demo_restart_20261006_000708 updated build 6238 -> 6241 and came
+# back under a NEW pid). D6c-1: the driver never touches a PID it did not start, so it lists any tested terminal
+# still running for the owner and stops.
+function Stop-Exited($proc) {
+    Say ("STOP: pid {0} exited by itself at {1} (MT5 LiveUpdate restarts under a new PID)" -f $proc.Id, (Get-Date -Format "HH:mm:ss"))
+    foreach ($o in @(Get-Process terminal64 -ErrorAction SilentlyContinue | Where-Object { $_.Path -ieq $Terminal })) {
+        Say ("  tested terminal still running, NOT started by this driver, not touched: pid {0}; the owner closes it" -f $o.Id)
+    }
+    $script:AllPass = $false
+    Done
+}
 function Start-EA([string]$ini, [int]$want) {
     $t0 = Get-Date
     $proc = Start-MT5 $ini
@@ -96,6 +107,8 @@ function Start-EA([string]$ini, [int]$want) {
         $script:AllPass = $false
         Done
     }
+    Start-Sleep -Seconds 5
+    if ($proc.HasExited) { Stop-Exited $proc }
     return $proc
 }
 function Write-Set([string]$name, [string[]]$lines) {
@@ -122,8 +135,9 @@ if (-not $okAcc) { Say "STOP: not the expected demo account; nothing was traded.
 # 2. start the EA
 # NOT "$common": PowerShell names ignore case, and $Common is the [string] Common Files parameter (run
 # demo_restart_20261005_225412, kept in checks\invalid\, squashed this list into one string).
-# Magic 26998: its own deal history, apart from the 6b demo run (26999).
-$eaInputs = @("InpRiskPct=2.0", "InpEveryBars=2", "InpMinLots=true", "InpMagic=26998", "InpStoplessTest=false", "InpLoseReplyOn=0",
+# Magic 26997: its own deal history. 26999 = the 6b demo run; 26998 = run demo_restart_20261006_000708 (invalid),
+# which left trade T0003 open at the broker (its own SL/TP).
+$eaInputs = @("InpRiskPct=2.0", "InpEveryBars=2", "InpMinLots=true", "InpMagic=26997", "InpStoplessTest=false", "InpLoseReplyOn=0",
             "InpAbortOn=0", "InpStopsRefuseOn=0", "InpMarginRefuseOn=0", "InpModifyOn=0")
 Write-Set "NNFX_OrderTest_restart.set" ($eaInputs + @("InpMaxTrades=0", "InpStopWhenDone=false"))
 @("[StartUp]", "Expert=NNFX\NNFX_OrderTest", "ExpertParameters=NNFX_OrderTest_restart.set", "Symbol=EURUSD", "Period=M1") |
@@ -153,7 +167,7 @@ $deadline = (Get-Date).AddMinutes($Minutes)
 $prev = @()
 while ($done.Count -lt 4 -and (Get-Date) -lt $deadline) {
     Start-Sleep -Seconds 5
-    if ($p.HasExited) { Say "terminal exited on its own at $(Get-Date -Format HH:mm:ss)"; break }
+    if ($p.HasExited) { Stop-Exited $p }
     $now = @(Classify)
     $target = @($now | Where-Object { -not $done.ContainsKey($_) -and $prev -contains $_ }) | Select-Object -First 1
     $prev = $now
