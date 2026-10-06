@@ -117,7 +117,17 @@ void OnStart()
          b.name = "test";
          b.winter_offset = (int)StringToInteger(p[2]);
          b.dst = p[3];
-         string got = TimeToString(NNFXUtcToServer(b, StringToTime(p[4])), TIME_DATE | TIME_MINUTES);
+         // through the EA's own loader: a one-line event file in UTC, read with NNFXNewsLoad
+         string path = "NNFX\\news\\_load_test.txt";
+         int h = FileOpen(path, FILE_WRITE | FILE_TXT | FILE_ANSI);
+         FileWriteString(h, "# NNFX news events, generated 2026.10.06 00:00 GMT, times in UTC\r\n"
+                            "time_utc|currency|event_id|name|vp\r\n" +
+                            p[4] + "|USD|840030016|Nonfarm Payrolls|Non-Farm Payrolls\r\n");
+         FileClose(h);
+         NNFXNewsEvent le[];
+         datetime gen;
+         int nl = NNFXNewsLoad(path, false, b, le, gen);
+         string got = (nl == 1) ? TimeToString(le[0].time, TIME_DATE | TIME_MINUTES) : StringFormat("%d events", nl);
          Check("UTC", p[1], got == p[5], "expected " + p[5] + " got " + got);
         }
       else if(p[0] == "X5")
