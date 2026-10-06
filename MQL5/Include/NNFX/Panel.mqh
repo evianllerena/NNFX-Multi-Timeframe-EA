@@ -18,7 +18,8 @@
 //| same three actions with custom chart events, auto-confirmed;     |
 //| that path exists only when NNFX_TEST_BUILD is defined.           |
 //| No trading calls.                                                |
-//| Status: not yet compiled.                                        |
+//| Status: compiled 2026-10-06 (build 6241, 0 errors, 0 warnings)   |
+//| in NNFX_OrderTest; demo test: tools/run_demo_master_test.ps1.    |
 //+------------------------------------------------------------------+
 #ifndef NNFX_PANEL_MQH
 #define NNFX_PANEL_MQH

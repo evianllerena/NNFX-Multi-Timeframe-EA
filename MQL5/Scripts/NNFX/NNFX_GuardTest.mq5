@@ -8,7 +8,8 @@
 //| server offset now, and the master global variable.               |
 //|                                                                  |
 //| Places NO orders. Writes MQL5\Files\NNFX_GuardTest.txt           |
-//| Status: not yet compiled.                                        |
+//| Status: compiled 2026-10-06 (build 6241, 0 errors, 0 warnings);  |
+//| 56/56 (runner runs from 20261006_102315 on).                     |
 //+------------------------------------------------------------------+
 // Inputs keep their defaults when run automatically (no input dialog, so unattended runs never wait for a click).
 #property strict

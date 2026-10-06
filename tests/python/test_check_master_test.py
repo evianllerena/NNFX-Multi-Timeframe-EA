@@ -185,6 +185,34 @@ class TestCheckMasterPanel(unittest.TestCase):
         self.assertIn("without an EXIT row", out)
         self.assertIn("still open after close-all", out)
 
+    def test_new_trade_after_close_all_passes(self):
+        rs = panel_rows() + [row("2026.10.06 19:20:00", "OPEN", tid="T0004", half=1),
+                             row("2026.10.06 19:20:00", "STATE", "proc=...; state=TRADE|T0004|... / CONT|...")]
+        ok, out = self.run_panel(rs)
+        self.assertTrue(ok, out)
+
+    def test_reset_applied_by_the_other_instance_passes(self):
+        # the reset is account-wide: B may reach its next candle first (run master_20261006_130813)
+        rs = [r for r in panel_rows() if "D6d-3" not in r["note"]]
+        paths = []
+        b = log_b() + [row("2026.10.06 19:18:00", "GUARD", "drawdown reset by hand (D6d-3): was not paused")]
+        for rows in (log_a() + rs, b):
+            tmp = tempfile.NamedTemporaryFile("w", suffix=".csv", delete=False, newline="", encoding="ascii")
+            w = csv.DictWriter(tmp, fieldnames=COLS, lineterminator="\r\n")
+            w.writeheader()
+            w.writerows(rows)
+            tmp.close()
+            paths.append(tmp.name)
+        buf = io.StringIO()
+        try:
+            with redirect_stdout(buf):
+                ok = c.check(paths[0], paths[1], panel=True)
+        finally:
+            for p in paths:
+                os.remove(p)
+        self.assertTrue(ok, buf.getvalue())
+        self.assertIn("(B)", buf.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()

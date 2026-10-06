@@ -174,8 +174,8 @@ Step "leftovers closed, whole account flat" $flat (@($c | Where-Object { $_ -mat
 # 6. checks
 if ((Test-Path "$Out\OrderTest_EURUSD_demo.csv") -and (Test-Path "$Out\OrderTest_GBPUSD_demo.csv")) {
     foreach ($ck in @(@{ N = "check_master_test"; A = @("$Repo\tools\check_master_test.py", "$Out\OrderTest_EURUSD_demo.csv", "$Out\OrderTest_GBPUSD_demo.csv", "--panel") },
-                      @{ N = "check_trades A"; A = @("$Repo\tools\check_trades.py", "$Out\OrderTest_EURUSD_demo.csv", "--require-note", "orders allowed: DEMO") },
-                      @{ N = "check_trades B"; A = @("$Repo\tools\check_trades.py", "$Out\OrderTest_GBPUSD_demo.csv", "--require-note", "orders allowed: DEMO") })) {
+                      @{ N = "check_trades A"; A = @("$Repo\tools\check_trades.py", "$Out\OrderTest_EURUSD_demo.csv", "--require-note", "orders allowed: DEMO", "--be-lag-seconds", "2") },
+                      @{ N = "check_trades B"; A = @("$Repo\tools\check_trades.py", "$Out\OrderTest_GBPUSD_demo.csv", "--require-note", "orders allowed: DEMO", "--be-lag-seconds", "2") })) {
         $lines = & $Python @($ck.A) 2>&1 | ForEach-Object { if ($_ -is [System.Management.Automation.ErrorRecord]) { $_.Exception.Message } else { [string]$_ } }
         $code = $LASTEXITCODE
         $txt = (($lines | Out-String) -replace "`r?`n", "`r`n")

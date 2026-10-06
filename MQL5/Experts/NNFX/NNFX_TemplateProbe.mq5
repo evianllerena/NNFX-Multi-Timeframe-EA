@@ -6,7 +6,8 @@
 //| master-switch test. Places NO orders and has no trading code.    |
 //| Writes MQL5\Profiles\Templates\<InpName>.tpl and a line in       |
 //| MQL5\Files\NNFX_TemplateProbe.txt.                               |
-//| Status: not yet compiled.                                        |
+//| Status: compiled 2026-10-06 (build 6241, 0 errors, 0 warnings);  |
+//| used by tools/run_demo_master_test.ps1.                          |
 //+------------------------------------------------------------------+
 #property strict
 

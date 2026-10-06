@@ -19,7 +19,8 @@
 //| (a setting: winter offset + "none"/"EU"/"US"). Pure functions    |
 //| take server times; nothing here reads the clock. Never          |
 //| TimeLocal() (D6d-4). No trading calls.                           |
-//| Status: not yet compiled.                                        |
+//| Status: compiled 2026-10-06 (build 6241, 0 errors, 0 warnings);  |
+//| GuardTest 56/56; planted bugs 9 of 9 (G1-G9).                    |
 //+------------------------------------------------------------------+
 #ifndef NNFX_GUARD_MQH
 #define NNFX_GUARD_MQH

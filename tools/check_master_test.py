@@ -18,9 +18,10 @@ With --panel (instance A's chart buttons, driven by the test EA through the pane
   - "instance switch OFF by the chart button", later "... ON ...": no new entry of A in between; any SKIP of A
     in between names "instance"
   - "drawdown reset requested by the chart button" is followed, at a later candle, by the guard's
-    "drawdown reset by hand (D6d-3)" row (manual, logged)
-  - "close-all by the chart button": every trade of A open at that moment gets an EXIT row "close-all button" and
-    no trade of A is left open in the next STATE row
+    "drawdown reset by hand (D6d-3)" row (manual, logged) in A's OR B's log: the reset is account-wide and the
+    first instance to reach its next candle applies it (run master_20261006_130813: B at 20:25)
+  - "close-all by the chart button": every trade of A open at that moment gets an EXIT row "close-all button",
+    its open halves a CLOSE (or SL/TP2) row, and it is in no later STATE row (A may open a NEW trade after it)
 
 Usage:  python tools/check_master_test.py A.csv B.csv [--panel]
 Exit code 0 = PASS.
@@ -42,12 +43,16 @@ def ts(r):
     return datetime.strptime(r["time"], "%Y.%m.%d %H:%M:%S")
 
 
-def check_panel(a, fails):
+def check_panel(a, fails, b=()):
     g = [(i, r) for i, r in enumerate(a) if r["event"] == "GUARD"]
     off = next((i for i, r in g if "instance switch OFF by the chart button" in r["note"]), None)
     on = next((i for i, r in g if off is not None and i > off and "instance switch ON by the chart button" in r["note"]), None)
     req = next((i for i, r in g if "drawdown reset requested by the chart button" in r["note"]), None)
-    done = next((i for i, r in g if req is not None and i > req and "drawdown reset by hand (D6d-3)" in r["note"]), None)
+    done_row = None
+    if req is not None:
+        t_req = ts(a[req])
+        done_row = next((r for r in list(a) + list(b) if r["event"] == "GUARD" and ts(r) > t_req
+                         and "drawdown reset by hand (D6d-3)" in r["note"]), None)
     ca = next((i for i, r in g if "close-all by the chart button" in r["note"]), None)
     if off is None or on is None:
         fails.append("panel: no instance OFF and ON rows from the chart button")
@@ -61,11 +66,12 @@ def check_panel(a, fails):
             fails.append("panel: new entry %s at %s while the instance switch was OFF" % (opens[0]["trade_id"], opens[0]["time"]))
         for r in bad_skips:
             fails.append("panel: SKIP at %s does not name instance: %s" % (r["time"], r["note"]))
-    if req is None or done is None:
+    if req is None or done_row is None:
         fails.append("panel: drawdown reset requested by the button but no 'drawdown reset by hand (D6d-3)' row after it")
     else:
-        print("panel: drawdown reset requested %s, done and logged %s: %s" % (a[req]["time"], a[done]["time"], a[done]["note"]))
-        if a[done]["time"][:16] == a[req]["time"][:16]:
+        print("panel: drawdown reset requested %s, done and logged %s (%s): %s"
+              % (a[req]["time"], done_row["time"], "A" if done_row in a else "B", done_row["note"]))
+        if done_row["time"][:16] == a[req]["time"][:16]:
             fails.append("panel: drawdown reset applied in the same minute as the request (must be the next candle)")
     if ca is None:
         fails.append("panel: no close-all row from the chart button")
@@ -77,22 +83,26 @@ def check_panel(a, fails):
             if r["event"] in ("SL", "TP2", "EXIT", "CLOSE") and r["half"] == "2":
                 closed.add(r["trade_id"])
         open_then = opened - closed
-        exits = {r["trade_id"] for r in a[ca + 1:] if r["event"] == "EXIT" and "close-all button" in r["note"]}
-        nxt = next((r for r in a[ca + 1:] if r["event"] == "STATE"), None)
-        left = nxt is not None and "TRADE|" in nxt["note"]
-        print("panel: close-all at %s: trades open then %s, EXIT rows %s, next STATE %s"
-              % (a[ca]["time"], sorted(open_then), sorted(exits), "has an open trade" if left else "flat"))
+        after = a[ca + 1:]
+        exits = {r["trade_id"] for r in after if r["event"] == "EXIT" and "close-all button" in r["note"]}
+        shut = {r["trade_id"] for r in after if r["event"] in ("CLOSE", "SL", "TP2")}
+        later = [r for r in after if r["event"] == "STATE"]
+        still = sorted(t for t in open_then if any("TRADE|%s|" % t in r["note"] for r in later))
+        print("panel: close-all at %s: trades open then %s, EXIT rows %s, closed %s, in a later STATE %s"
+              % (a[ca]["time"], sorted(open_then), sorted(exits), sorted(shut & open_then), still))
         if open_then - exits:
             fails.append("panel: close-all left %s without an EXIT row" % sorted(open_then - exits))
-        if nxt is None or left:
-            fails.append("panel: a trade of A still open after close-all (or no STATE row after it)")
+        if open_then - shut:
+            fails.append("panel: close-all did not close %s" % sorted(open_then - shut))
+        if still:
+            fails.append("panel: %s still open after close-all" % still)
 
 
 def check(path_a, path_b, panel=False):
     a, b = read(path_a), read(path_b)
     fails = []
     if panel:
-        check_panel(a, fails)
+        check_panel(a, fails, b)
     guard = [r for r in a if r["event"] == "GUARD" and "TEST master switch" in r["note"]]
     start = next((r for r in guard if "chart" in r["note"]), None)
     off = next((r for r in guard if "(OFF)" in r["note"]), None)

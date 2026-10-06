@@ -186,6 +186,30 @@ class TestCheckTrades(unittest.TestCase):
     def test_breakeven_late(self):
         self.corrupt(lambda rs: find(rs, "BE", "T0001").update(time="2026.06.02 14:00:00"), "not at once")
 
+    # --be-lag-seconds (live logs: breakeven via=transaction may land a second after TP1; run master_20261006_130813)
+    def be_one_second_late(self, note):
+        rows = copy.deepcopy(good_rows())
+        find(rows, "BE", "T0001").update(time="2026.06.02 13:00:01", note=note)
+        return rows
+
+    def test_be_lag_allowed_only_with_the_option(self):
+        ok, out = run(self.be_one_second_late("via=transaction"))
+        self.assertFalse(ok, out)
+        self.assertIn("not at once", out)
+        ok, out = run(self.be_one_second_late("via=transaction"), be_lag=2)
+        self.assertTrue(ok, out)
+        self.assertIn("breakeven 1 s after TP1", out)
+
+    def test_be_lag_needs_via_transaction(self):
+        ok, out = run(self.be_one_second_late("via=tick"), be_lag=2)
+        self.assertFalse(ok, out)
+
+    def test_be_lag_bound(self):
+        rows = self.be_one_second_late("via=transaction")
+        find(rows, "BE", "T0001").update(time="2026.06.02 13:00:03")
+        ok, out = run(rows, be_lag=2)
+        self.assertFalse(ok, out)
+
     def test_trail_backwards(self):
         self.corrupt(lambda rs: find(rs, "TRAIL", "T0001").update(sl="1.09990", close="1.10290"), "backwards")
 

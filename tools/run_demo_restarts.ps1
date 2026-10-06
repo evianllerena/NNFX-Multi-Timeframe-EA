@@ -250,7 +250,7 @@ Copy-Item "$MT5\MQL5\Logs\$day.log" "$Out\experts_$day.log" -ErrorAction Silentl
 # 5. checks
 $lg = "$Out\OrderTest_EURUSD_demo.csv"
 foreach ($c in @(@{ N = "rebuilt = before (compare_runs rebuilds)"; A = @("$Repo\tools\compare_runs.py", "rebuilds", $lg, "--min", "$($done.Count)") },
-                 @{ N = "check_trades (whole demo log)"; A = @("$Repo\tools\check_trades.py", $lg, "--require-note", "orders allowed: DEMO") })) {
+                 @{ N = "check_trades (whole demo log)"; A = @("$Repo\tools\check_trades.py", $lg, "--require-note", "orders allowed: DEMO", "--be-lag-seconds", "2") })) {
     $lines = & $Python @($c.A) 2>&1 | ForEach-Object { if ($_ -is [System.Management.Automation.ErrorRecord]) { $_.Exception.Message } else { [string]$_ } }
     $code = $LASTEXITCODE
     $txt = (($lines | Out-String) -replace "`r?`n", "`r`n")

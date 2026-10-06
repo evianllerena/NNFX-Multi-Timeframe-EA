@@ -34,6 +34,7 @@ import argparse
 import csv
 import os
 import sys
+from datetime import datetime
 from collections import defaultdict
 
 RISK_BOUND = 1e-6          # account currency: float noise only (verdict note 1)
@@ -60,7 +61,7 @@ def near(a, b, tol):
     return abs(a - b) <= tol + 1e-12
 
 
-def check(path, min_trades=0, require=(), require_notes=()):
+def check(path, min_trades=0, require=(), require_notes=(), be_lag=0):
     rows = read_log(path)
     fails, info = [], []
     counts = defaultdict(int)
@@ -163,7 +164,14 @@ def check(path, min_trades=0, require=(), require_notes=()):
                 if not be_rows:
                     fails.append("%s: TP1 filled but half 2 never moved to breakeven" % tid)
                 elif be_rows[0][1]["time"] != tr["time"]:
-                    fails.append("%s: breakeven at %s, not at once after TP1 at %s" % (tid, be_rows[0][1]["time"], tr["time"]))
+                    # "at once" (T2, OD-15): the same second, or on a live server up to --be-lag-seconds later when
+                    # the move came from the trade event (via=transaction); the tester always uses 0
+                    lag = (datetime.strptime(be_rows[0][1]["time"], "%Y.%m.%d %H:%M:%S")
+                           - datetime.strptime(tr["time"], "%Y.%m.%d %H:%M:%S")).total_seconds()
+                    if not (0 < lag <= be_lag and "via=transaction" in be_rows[0][1]["note"]):
+                        fails.append("%s: breakeven at %s, not at once after TP1 at %s" % (tid, be_rows[0][1]["time"], tr["time"]))
+                    else:
+                        info.append("%s: breakeven %d s after TP1 (via=transaction, live server)" % (tid, lag))
         # T4 trail
         on_rows = [(i, r) for i, r in evs if r["event"] == "TRAILON"]
         for i, r in on_rows:
@@ -247,9 +255,11 @@ def main(argv=None):
     ap.add_argument("--min-trades", type=int, default=0)
     ap.add_argument("--require", default="", help="comma-separated events that must appear at least once")
     ap.add_argument("--require-note", action="append", default=[], help="a row's note must contain this text")
+    ap.add_argument("--be-lag-seconds", type=int, default=0,
+                    help="live logs: breakeven via=transaction may land up to N s after TP1 (tester: 0)")
     a = ap.parse_args(argv)
     req = [x.strip() for x in a.require.split(",") if x.strip()]
-    ok = all([check(p, a.min_trades, req, a.require_note) for p in a.csv])
+    ok = all([check(p, a.min_trades, req, a.require_note, a.be_lag_seconds) for p in a.csv])
     return 0 if ok else 1
 
 
