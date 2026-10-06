@@ -507,6 +507,9 @@ the real one.
   Nothing in the real EA may key on the original ID. The test EA's schedule needed a fix for exactly this.
 - The real-restart rebuild must wait until MT5 is connected and logged in, as the test EA now does (OnTimer, +3 s).
   Nothing may trade before the rebuild. OnInit can run before MT5 has synchronized its positions.
+- The live server offset (`TimeTradeServer() - TimeGMT()`, used for the trading day boundary) must be read only
+  after login. In `NNFX_GuardTest` run `20261006_102315`, a script started from `/config` read `+0.00 hours` on
+  MetaQuotes-Demo, which is GMT+3.
 
 ### Implements
 

@@ -14,6 +14,7 @@
 #property strict
 
 #include <NNFX\Guard.mqh>
+#include <NNFX\Connection.mqh>
 
 input string InpCases = "NNFX\\guard\\guard_cases.txt";   // Guard cases (MQL5\Files)
 
@@ -174,9 +175,16 @@ void OnStart()
       FileClose(h);
      }
    Out(StringFormat("RESULT: %d passed, %d failed, %d total", g_pass, g_fail, g_pass + g_fail));
-   // INFO, never counted
-   Out(StringFormat("INFO server - GMT now: %+.2f hours (TimeTradeServer %s, TimeGMT %s)",
-                    (double)(TimeTradeServer() - TimeGMT()) / 3600.0, Fmt(TimeTradeServer()), Fmt(TimeGMT())));
+   // INFO, never counted. The live server offset only after login: before it, TimeTradeServer() read the same as
+   // TimeGMT() (run 20261006_102315: "+0.00 hours" on MetaQuotes-Demo, which is GMT+3)
+   string syms[1];
+   syms[0] = _Symbol;
+   string detail;
+   if(NNFXWaitConnected(syms, 60, detail))
+      Out(StringFormat("INFO server - GMT now: %+.2f hours (TimeTradeServer %s, TimeGMT %s; %s)",
+                       (double)(TimeTradeServer() - TimeGMT()) / 3600.0, Fmt(TimeTradeServer()), Fmt(TimeGMT()), detail));
+   else
+      Out("INFO server - GMT not read: not logged in (" + detail + ")");
    int ms = NNFXMasterState();
    Out("INFO master switch " + NNFX_GV_MASTER + ": " + (ms < 0 ? "missing (counts as OFF)" : (ms == 1 ? "on" : "off")));
    if(g_report != INVALID_HANDLE)
