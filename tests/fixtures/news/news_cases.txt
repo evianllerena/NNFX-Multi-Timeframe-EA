@@ -1,5 +1,5 @@
 # News cases (Phase 6e; docs/PLAN_PHASE6.md section 6). Shared by tests/python/test_news.py (answer key
-# nnfx_ref/news.py) and MQL5/Scripts/NNFX/NNFX_NewsTest.mq5. The event list is the APPROVED profiles/news_events.txt
+# nnfx_ref/news.py) and MQL5/Scripts/NNFX/NNFX_NewsTest.mq5. The event list is the APPROVED news/news_events.txt
 # (D6e-1). All times are server times. Every expected value is worked out by hand below.
 #
 # Rules: N1 blocks a pair at the candle close t when either currency has an event e with t < e <= t + 24 h, or an N2
@@ -76,3 +76,14 @@ X5|two_events_after|EURUSD|2026.06.09 21:00|2026.06.09 22:00|0
 # must be used)
 X5|weekend_first|GBPUSD|2026.06.13 00:00|2026.06.15 01:00|1
 X5|weekend_second|GBPUSD|2026.06.15 01:00|2026.06.15 02:00|0
+
+# UTC|id|broker winter offset|daylight-saving rule|event time in UTC (as the export stores it)|expected server time
+# The calendar gives history in TODAY's server offset, so the export stores UTC and the EA converts per date with
+# the broker's clock rule (run calendar_export_20261006_181154).
+# NFP Fri 9 Jan 2026 08:30 EST = 13:30 UTC; MetaQuotes rule GMT+2 winter (US) -> 15:30
+UTC|mq_winter_nfp|2|US|2026.01.09 13:30|2026.01.09 15:30
+# NFP Fri 5 Jun 2026 08:30 EDT = 12:30 UTC; GMT+3 in summer -> 15:30
+UTC|mq_summer_nfp|2|US|2026.06.05 12:30|2026.06.05 15:30
+# OANDA rule GMT+1 winter (EU): 5 Jun (EU summer) +2 -> 14:30; Tue 27 Oct (EU winter, US summer) +1 -> 13:30
+UTC|oanda_summer|1|EU|2026.06.05 12:30|2026.06.05 14:30
+UTC|oanda_gap_week|1|EU|2026.10.27 12:30|2026.10.27 13:30

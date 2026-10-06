@@ -9,12 +9,12 @@
 //|   currencies, every calendar event (id, name, importance, type,  |
 //|   sector, frequency) -> MQL5\Files\NNFX\calendar\events_list.csv |
 //|   Used once, to map VP's event list to the calendar's own names  |
-//|   (OD-11: profiles/news_events.txt, approved by the owner).      |
+//|   (OD-11: news/news_events.txt, approved by the owner).      |
 //| InpMode = "export": month by month from InpFrom to InpTo, every  |
 //|   calendar value of the 8 currencies whose event matches the     |
 //|   approved list (News.mqh NNFXNewsMatch: id or role pattern,     |
 //|   D6e-1) -> Common\Files\NNFX\calendar\events_<from>_<to>.txt     |
-//|   (time order, server time, the News.mqh format) and             |
+//|   (time order, in UTC, the News.mqh format) and                  |
 //|   MQL5\Files\NNFX\calendar\_summary.txt: one line per month and  |
 //|   "RESULT: <m> of <m> months exported, <e> errors".              |
 //| Status: not yet compiled.                                        |
@@ -124,6 +124,11 @@ void ExportEvents(string &cur[])
       Out("RESULT: FAIL (the event list is not approved, OD-11)");
       return;
      }
+   // The calendar gives every past event in TODAY's server offset (run calendar_export_20261006_181154, kept in
+   // invalid\: 243 of 246 US releases at exactly +3.00 h, summer and winter). So the file stores UTC = calendar time
+   // - the offset now; News.mqh turns UTC into server time per date with the broker's clock rule (Guard.mqh).
+   int offsetNow = (int)(TimeTradeServer() - TimeGMT());
+   offsetNow = (int)MathRound(offsetNow / 900.0) * 900;   // whole quarter hours
    NNFXNewsEvent ev[];
    int months = 0, monthsOk = 0, errors = 0;
    datetime first = MonthStart(InpFrom), last = MonthStart(InpTo);
@@ -156,7 +161,7 @@ void ExportEvents(string &cur[])
                continue;
             int j = ArraySize(ev);
             ArrayResize(ev, j + 1);
-            ev[j].time = vals[i].time;
+            ev[j].time = vals[i].time - offsetNow;   // UTC
             ev[j].cur = cur[c];
             ev[j].id = id;
             ev[j].name = e.name;
@@ -192,10 +197,10 @@ void ExportEvents(string &cur[])
       Out("RESULT: FAIL (cannot write Common\\Files\\" + name + ")");
       return;
      }
-   FileWriteString(h, StringFormat("# NNFX news events, generated %s GMT, server - GMT %+.2f h, months %s to %s, list %s, %s\r\n",
-                                   TimeToString(TimeGMT(), TIME_DATE | TIME_MINUTES),
-                                   (double)(TimeTradeServer() - TimeGMT()) / 3600.0, InpFrom, InpTo, InpList, status));
-   FileWriteString(h, "time|currency|event_id|name|vp\r\n");
+   FileWriteString(h, StringFormat("# NNFX news events, generated %s GMT, times in UTC (calendar time - server offset %+.2f h at export), months %s to %s, list %s, %s\r\n",
+                                   TimeToString(TimeGMT(), TIME_DATE | TIME_MINUTES), offsetNow / 3600.0, InpFrom, InpTo,
+                                   InpList, status));
+   FileWriteString(h, "time_utc|currency|event_id|name|vp\r\n");
    for(int i = 0; i < n; i++)
       FileWriteString(h, StringFormat("%s|%s|%s|%s|%s\r\n", TimeToString(ev[idx[i]].time, TIME_DATE | TIME_MINUTES),
                                       ev[idx[i]].cur, ev[idx[i]].id, ev[idx[i]].name, ev[idx[i]].vp));

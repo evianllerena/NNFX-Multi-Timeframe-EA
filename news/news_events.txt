@@ -3,6 +3,7 @@
 #
 # STATUS: APPROVED by the owner 2026-10-06 (D6e-1): VP's own words only, one entry per item he names, no extra
 #         events. The news rules stay N1 + X5 as in the rulebook (D6e-2).
+#         (Moved from profiles/ on 2026-10-06, content unchanged: profiles/ holds indicator profiles only.)
 #
 # Source of the names: NNFX_CalendarExport mode "list" on MetaQuotes-Demo, build 6241, 2026-10-06
 # (run calendar_list_20261006_171713; copy tests/fixtures/news/calendar_catalogue_20261006.csv). MetaQuotes'

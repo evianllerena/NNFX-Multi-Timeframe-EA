@@ -5,16 +5,17 @@ Over an event file written by NNFX_CalendarExport (mode "export") and its _summa
                  at least one event in the file (each month has several of VP's events; an empty month means the
                  export lost it)
   - duplicates:  no event twice (same currency, event id and time)
-  - VP's list:   every entry of the approved list (profiles/news_events.txt) appears at least once in each calendar
+  - VP's list:   every entry of the approved list (news/news_events.txt) appears at least once in each calendar
                  year of the range, unless named with --absent "CUR|VP item" (reported, never silent)
-  - time base:   the export is in server time. Every US release with a fixed New York clock time is converted
-                 server -> UTC (the broker clock rule, --winter-offset/--dst, the same rule as guard.py) -> New York
-                 and must show it: Nonfarm Payrolls 08:30, CPI m/m 08:30, Fed Interest Rate Decision 14:00. This also
-                 tests the clock rule itself (D6d-4) in every week where US and EU daylight saving differ.
+  - time base:   the export is in UTC (the calendar gives history in TODAY's server offset; run
+                 calendar_export_20261006_181154, kept in checks/invalid). Every US release with a fixed New York clock time
+                 is converted UTC -> New York and must show it: Nonfarm Payrolls 08:30, CPI m/m 08:30, Fed Interest
+                 Rate Decision 14:00. Releases that really moved (emergency cuts, a rescheduled report) are named with
+                 --exception "YYYY.MM.DD|event name" and reported, never silent.
   - format:      every row has 5 fields, a time "YYYY.MM.DD HH:MM", rows in time order, a "generated ... GMT" header
 
-Usage:  python tools/check_calendar.py EVENTS.txt _summary.txt --from 2019.01 --to 2026.09 --list profiles/news_events.txt
-                                       --winter-offset 2 --dst US [--absent "NZD|GDT"] ...
+Usage:  python tools/check_calendar.py EVENTS.txt _summary.txt --from 2019.01 --to 2026.09 --list news/news_events.txt
+                                       [--absent "NZD|GDT"] [--exception "2020.03.03|Fed Interest Rate Decision"] ...
 Exit code 0 = PASS.
 """
 import argparse
@@ -36,9 +37,8 @@ NY_TIMES = {
 }
 
 
-def ny_time(broker, server_t):
-    """Server time -> New York wall clock (US daylight saving)."""
-    u = g.server_to_utc(broker, server_t)
+def ny_time(u):
+    """UTC -> New York wall clock (US daylight saving)."""
     s, e = g.us_dst_dates(u.year)
     # New York local date/time: EDT (UTC-4) from 2nd Sunday March 07:00 UTC to 1st Sunday November 06:00 UTC
     edt = datetime(s.year, s.month, s.day, 7) <= u < datetime(e.year, e.month, e.day, 6)
@@ -56,15 +56,15 @@ def months_between(a, b):
     return out
 
 
-def check(events_path, summary_path, frm, to, list_path, broker, absent=()):
+def check(events_path, summary_path, frm, to, list_path, absent=(), exceptions=()):
     fails, info = [], []
     with open(events_path, encoding="latin-1") as f:
         lines = [ln.rstrip("\r\n") for ln in f]
-    if not lines or "generated" not in lines[0] or "GMT" not in lines[0]:
-        fails.append("no '# ... generated ... GMT' header line")
+    if not lines or "generated" not in lines[0] or "GMT" not in lines[0] or "times in UTC" not in lines[0]:
+        fails.append("no '# ... generated ... GMT, times in UTC ...' header line")
     rows = []
     for i, ln in enumerate(lines):
-        if ln.startswith("#") or ln.startswith("time|") or not ln.strip():
+        if ln.startswith("#") or ln.startswith("time_utc|") or not ln.strip():
             continue
         p = ln.split("|")
         if len(p) != 5:
@@ -119,19 +119,26 @@ def check(events_path, summary_path, frm, to, list_path, broker, absent=()):
                 else:
                     fails.append("%s: none in %s" % (tag, y))
     # time base
-    checked, wrong = 0, []
+    checked, wrong, excused = 0, [], []
     for r in rows:
         want = NY_TIMES.get((r[1], r[3]))
         if not want:
             continue
         checked += 1
-        got = ny_time(broker, r[0]).strftime("%H:%M")
+        local = ny_time(r[0])
+        got = local.strftime("%H:%M")
         if got != want:
-            wrong.append("%s %s %s: New York %s, expected %s" % (n.fmt_time(r[0]), r[1], r[3], got, want))
+            line = "%s %s %s: New York %s, expected %s" % (n.fmt_time(r[0]), r[1], r[3], local.strftime("%Y.%m.%d %H:%M"), want)
+            if "%s|%s" % (local.strftime("%Y.%m.%d"), r[3]) in exceptions:
+                excused.append(line)
+            else:
+                wrong.append(line)
+    for x in excused:
+        info.append("time base exception (named): " + x)
     print("%s: %d events, %d months (%s..%s), %d VP list entries, %d years" %
           (os.path.basename(events_path), len(rows), len(months), frm, to, len(entries), len(years)))
-    print("time base: %d US releases checked against their New York clock time (broker rule GMT+%d, %s): %d wrong"
-          % (checked, broker.winter_offset, broker.dst, len(wrong)))
+    print("time base: %d US releases checked against their New York clock time: %d wrong, %d named exceptions"
+          % (checked, len(wrong), len(excused)))
     if checked < 10:
         fails.append("only %d US releases to check the time base (need 10)" % checked)
     fails += ["time base: " + w for w in wrong]
@@ -155,11 +162,11 @@ def main(argv=None):
     ap.add_argument("--from", dest="frm", required=True)
     ap.add_argument("--to", required=True)
     ap.add_argument("--list", required=True)
-    ap.add_argument("--winter-offset", type=int, required=True)
-    ap.add_argument("--dst", choices=("none", "EU", "US"), required=True)
     ap.add_argument("--absent", action="append", default=[])
+    ap.add_argument("--exception", action="append", default=[],
+                    help='a release that really moved: "YYYY.MM.DD|event name" (New York date)')
     a = ap.parse_args(argv)
-    ok = check(a.events, a.summary, a.frm, a.to, a.list, g.Broker("broker", a.winter_offset, a.dst), set(a.absent))
+    ok = check(a.events, a.summary, a.frm, a.to, a.list, set(a.absent), set(a.exception))
     return 0 if ok else 1
 
 

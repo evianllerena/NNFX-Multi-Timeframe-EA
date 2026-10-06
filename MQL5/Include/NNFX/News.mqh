@@ -14,15 +14,20 @@
 //| Matching (D6e-1, R-15): id in the entry's ids OR the name fits   |
 //| its role pattern ("*" = any text): a new chair is still caught.  |
 //|                                                                  |
-//| Event file (pipe-separated, server time):                        |
+//| Event file (pipe-separated, times in UTC):                       |
 //|   # NNFX news events, generated YYYY.MM.DD HH:MM GMT, ...        |
-//|   time|currency|event_id|name|vp                                 |
-//|   2026.06.05 15:30|USD|840030016|Nonfarm Payrolls|Non-Farm ...   |
+//|   time_utc|currency|event_id|name|vp                             |
+//|   2026.06.05 12:30|USD|840030016|Nonfarm Payrolls|Non-Farm ...   |
+//| NNFXNewsLoad turns UTC into the broker's server time for each    |
+//| date with its clock rule (Guard.mqh, D6d-4): the calendar gives  |
+//| history in TODAY's offset, so the file cannot hold server time.  |
 //| Never TimeLocal (D6d-4). No trading calls.                       |
 //| Status: not yet compiled.                                        |
 //+------------------------------------------------------------------+
 #ifndef NNFX_NEWS_MQH
 #define NNFX_NEWS_MQH
+
+#include <NNFX\Guard.mqh>
 
 #define NNFX_NEWS_WINDOW (24 * 3600)
 
@@ -67,7 +72,7 @@ bool NNFXGlob(const string s, const string p, const int si = 0, const int pi = 0
    return si < ns && StringGetCharacter(s, si) == c && NNFXGlob(s, p, si + 1, pi + 1);
   }
 
-// profiles/news_events.txt lines: EVENT|currency|vp|pattern|id1,id2
+// news/news_events.txt lines: EVENT|currency|vp|pattern|id1,id2
 int NNFXNewsParseList(const string &lines[], NNFXNewsEntry &out[])
   {
    ArrayResize(out, 0);
@@ -115,8 +120,9 @@ bool NNFXNewsReadLines(const string path, string &lines[], const bool common)
    return true;
   }
 
-// The export file: events sorted by time; returns the count, -1 if it cannot be read. generatedGmt from line 1.
-int NNFXNewsLoad(const string path, const bool common, NNFXNewsEvent &out[], datetime &generatedGmt)
+// The export file: events in time order, each time turned from UTC into the broker's server time (its clock rule
+// for that date). Returns the count, -1 if it cannot be read. generatedGmt from line 1.
+int NNFXNewsLoad(const string path, const bool common, const NNFXBroker &broker, NNFXNewsEvent &out[], datetime &generatedGmt)
   {
    ArrayResize(out, 0);
    generatedGmt = 0;
@@ -134,11 +140,11 @@ int NNFXNewsLoad(const string path, const bool common, NNFXNewsEvent &out[], dat
          continue;
         }
       string p[];
-      if(StringSplit(s, '|', p) != 5 || p[0] == "time")
+      if(StringSplit(s, '|', p) != 5 || p[0] == "time_utc")
          continue;
       int k = ArraySize(out);
       ArrayResize(out, k + 1);
-      out[k].time = StringToTime(p[0]);
+      out[k].time = NNFXUtcToServer(broker, StringToTime(p[0]));
       out[k].cur = p[1];
       out[k].id = p[2];
       out[k].name = p[3];

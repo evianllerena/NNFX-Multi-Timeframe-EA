@@ -5,7 +5,7 @@ RULEBOOK [A]:
   N2  Elections and referendums -> don't trade that currency at all until settled (a blackout list, OD-19).
   X5  Major news within 24 hours on a currency you hold: exit if losing, or if in profit by less than 1 x ATR.
       I-10: checked at the FIRST candle close inside the 24-hour window.
-Owner: D6e-1 (the approved event list, profiles/news_events.txt), D6e-2 (N1 and X5 unchanged).
+Owner: D6e-1 (the approved event list, news/news_events.txt), D6e-2 (N1 and X5 unchanged).
 
 Definitions used here (all times are the broker's server time, as the calendar export writes them):
   an event at time e is "within 24 hours" of a candle close at t when  t < e <= t + 24 h
@@ -23,6 +23,8 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from fnmatch import fnmatchcase
 from typing import Iterable, List, Optional, Sequence, Tuple
+
+from . import guard
 
 WINDOW = timedelta(hours=24)
 
@@ -74,6 +76,18 @@ def match(entries: Sequence[Entry], currency: str, event_id: str, name: str) -> 
         if e.currency == currency and (event_id in e.ids or fnmatchcase(name, e.pattern)):
             return e
     return None
+
+
+def load_export(lines: Iterable[str], broker: "guard.Broker") -> List[Event]:
+    """The export file stores UTC (the calendar gives history in TODAY's server offset; run
+    calendar_export_20261006_181154). Each time becomes the broker's server time for its date (guard.py rule)."""
+    out = []
+    for ln in lines:
+        p = ln.rstrip("\r\n").split("|")
+        if ln.startswith("#") or len(p) != 5 or p[0] == "time_utc":
+            continue
+        out.append(Event(guard.utc_to_server(broker, parse_time(p[0])), p[1], p[2], p[3]))
+    return out
 
 
 def currencies(sym: str) -> Tuple[str, str]:

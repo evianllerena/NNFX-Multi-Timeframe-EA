@@ -4,7 +4,7 @@
 //| answer key (nnfx_ref/news.py) on the shared, hand-worked cases   |
 //|   MQL5\Files\NNFX\news\news_cases.txt                            |
 //| with the owner-approved list MQL5\Files\NNFX\news\news_events.txt|
-//| (copy of profiles/news_events.txt, D6e-1): event matching (incl. |
+//| (copy of news/news_events.txt, D6e-1): event matching (incl. |
 //| a new Fed chair / ECB president caught by the role pattern only),|
 //| N1 and N2 blocks, the X5 first-close flag.                       |
 //| Places NO orders. Writes MQL5\Files\NNFX_NewsTest.txt            |
@@ -109,6 +109,16 @@ void OnStart()
          if(why == "")
             why = "-";
          Check("N1", p[1], why == p[4], "expected " + p[4] + " got " + why);
+        }
+      else if(p[0] == "UTC")
+        {
+         // the export stores UTC; NNFXNewsLoad turns it into server time with the broker's clock rule
+         NNFXBroker b;
+         b.name = "test";
+         b.winter_offset = (int)StringToInteger(p[2]);
+         b.dst = p[3];
+         string got = TimeToString(NNFXUtcToServer(b, StringToTime(p[4])), TIME_DATE | TIME_MINUTES);
+         Check("UTC", p[1], got == p[5], "expected " + p[5] + " got " + got);
         }
       else if(p[0] == "X5")
         {
