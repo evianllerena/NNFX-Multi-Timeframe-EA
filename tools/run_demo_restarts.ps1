@@ -16,7 +16,9 @@ run_demo_restarts.ps1 - Phase 6c restart test (b): REAL restarts on the demo acc
      tools/check_trades.py on the whole demo log.
 
 D6c-1: only the tested terminal (full path) blocks the run; others are listed, never touched; a terminal is
-closed only by the process id this script started.
+closed only by the process id this script started. D6c-3: if that process ends by itself, the driver adopts a
+relaunch only if it has the tested terminal's path and this run's own config file on its command line; otherwise it
+starts MT5 again (an unplanned restart, max 5). Nobody needs to watch the run.
 Output: <MT5 data folder>\MQL5\Files\NNFX\checks\demo_restart_<date-time>\
 Usage:  powershell -ExecutionPolicy Bypass -File tools\run_demo_restarts.ps1
 #>

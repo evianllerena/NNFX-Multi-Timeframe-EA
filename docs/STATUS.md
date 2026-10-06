@@ -2,7 +2,7 @@
 
 Where the project stands. Update this file in every PR.
 
-Last updated: 2026-10-04.
+Last updated: 2026-10-06.
 
 ## Phases
 
@@ -13,7 +13,7 @@ Last updated: 2026-10-04.
 | 3 Python answer key | Merged |
 | 4 MQL5 rules core | Merged (PR #3) |
 | 5 Indicator slots and profiles | Merged: PR #4 (at `58e2994`, before the G1_phase5_1 fixes; see note below) and PR #5 (the reviewed fixes, `0e701dd`) |
-| 6 Orders, risk, recovery, guard, news, EA | Plan: gate G2 **PASS** (`G2_phase6_1`), `docs/PLAN_PHASE6.md`; owner decisions OD-1 to OD-21 in `docs/DECISIONS.md`. **6a sizing + exposure:** merged (PR #6, `G1_phase6a_1` PASS). **6b orders:** draft PR #7 from branch `phase-6b-orders`. Review `G1_phase6b_1`: CHANGES REQUESTED (F1-F5). F1 (ABORT, REFUSE stops level, REFUSE margin, MODIFY exercised in the tester), F4 (evidence never deleted) and F5 (BE via) done: run `20261004_164337` OVERALL PASS, planted bugs 15 of 15 and S4 7 of 7. F2 demo order run done (`demo_20261004_224606`, 5 trades, `check_trades.py` PASS; an earlier attempt failed with Algo Trading off and is kept in `checks\invalid\`). F3 (MT5-offline check) deferred to the 6f G1 gate (D6b-1). Re-run and packet `G1_phase6b_2` next. 6c may start on a branch from `phase-6b-orders`. 6d-6f not started |
+| 6 Orders, risk, recovery, guard, news, EA | Plan: gate G2 **PASS** (`G2_phase6_1`), `docs/PLAN_PHASE6.md`; owner decisions OD-1 to OD-21 (OD-3 updated 2026-10-06) and D6c-1 to D6c-3 in `docs/DECISIONS.md`. **6a sizing + exposure:** merged (PR #6). **6b orders:** merged (PR #7, `G1_phase6b_2` PASS). F3 (MT5-offline check) is deferred to the 6f G1 gate (D6b-1). **6c state and recovery:** branch `phase-6c-state-recovery`, draft PR, packet `G1_phase6c_1` in review. Restart test (a) in the tester PASS (`restart_20261005_225140`), test (b) real restarts on the demo PASS (`demo_restart_20261006_002457`), planted bugs 11 of 11. 6d-6f not started |
 | 7 onward | See `docs/SPEC.md` |
 
 **Note (2026-10-04):** PR #4 was merged at `58e2994` on 2026-10-04 15:47 UTC, 4.5 minutes after review
@@ -32,6 +32,8 @@ Read-only EnvCheck on demo 62316800 (`docs/ENVIRONMENT.md`): hedging, EUR accoun
 - **Phase 8 input:** real ticks on the `.pro` pairs from 2019 (EURUSD.pro from 2018) in the probe.
 
 ## Waiting on the owner
+
+- Two demo test trades were left open on MetaQuotes-Demo 113593254 by invalid runs, each with its stop held at the broker: T0003 (magic 26998, from `demo_restart_20261006_000708`) and T0001 (magic 26997, half 2 at breakeven, from `demo_restart_20261006_001959`). Close them by hand or leave them to their stops; no code depends on them.
 
 - Tick I-1, I-2, I-3, I-7, I-9 in the living rulebook doc; then refresh the `docs/RULEBOOK.md` snapshot.
 - Review D5-1 to D5-5 (`docs/DECISIONS.md`).
