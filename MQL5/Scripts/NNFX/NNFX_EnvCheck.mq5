@@ -8,8 +8,8 @@
 //|  - may download small amounts of price/tick history on demand;   |
 //|  - writes one report file: MQL5\Files\NNFX_EnvCheck.txt          |
 //|                                                                  |
-//| Status: compiled 2026-10-04 (build 6238, 0 errors, 0 warnings;   |
-//| run 20261004_115428, RESULT: VALID).                             |
+//| Status: 6c change (exact symbol names, Login line) not yet       |
+//| compiled.                                                        |
 //| (the runner tools/run_phase5_checks.ps1 keeps the full report).  |
 //|                                                                  |
 //| Waits until MT5 is logged in before reading anything; if it is   |
@@ -70,6 +70,7 @@ void CheckAccount()
 {
    Out("== ACCOUNT ==");
    Out("Server:       " + AccountInfoString(ACCOUNT_SERVER));
+   Out("Login:        " + IntegerToString(AccountInfoInteger(ACCOUNT_LOGIN)));
    Out("Company:      " + AccountInfoString(ACCOUNT_COMPANY));
    Out("Trade mode:   " + TradeModeName(AccountInfoInteger(ACCOUNT_TRADE_MODE)));
    Out("Margin mode:  " + MarginModeName(AccountInfoInteger(ACCOUNT_MARGIN_MODE)));
@@ -152,6 +153,31 @@ void CheckSymbol(const string sym)
    Out("");
 }
 
+// The server's name for a pair: the requested name if it exists, else the first server symbol whose
+// letters (suffix/prefix stripped) start with the same six letters. "" if none.
+string ResolveSymbol(const string want)
+{
+   if(SymbolSelect(want, true))
+      return want;
+   string key = want;
+   StringToUpper(key);
+   for(int i = 0; i < SymbolsTotal(false); i++)
+   {
+      string s = SymbolName(i, false);
+      string letters = "";
+      for(int k = 0; k < StringLen(s); k++)
+      {
+         ushort c = StringGetCharacter(s, k);
+         if((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'))
+            letters += ShortToString(c);
+      }
+      StringToUpper(letters);
+      if(StringFind(letters, key) == 0 && SymbolSelect(s, true))
+         return s;
+   }
+   return "";
+}
+
 void OnStart()
 {
    g_file = FileOpen("NNFX_EnvCheck.txt", FILE_WRITE | FILE_TXT | FILE_ANSI);
@@ -170,9 +196,27 @@ void OnStart()
    }
 
    // Nothing is read before the terminal is logged in: before login, account and symbol
-   // properties hold defaults, not the server's values.
+   // properties hold defaults, not the server's values. First the login alone, then the exact
+   // symbol names on this server (a broker may add a suffix, e.g. EURUSD.pro), then the tick values.
+   string none[];
    string detail;
-   bool connected = NNFXWaitConnected(syms, InpConnectWait, detail);
+   bool connected = NNFXWaitConnected(none, InpConnectWait, detail);
+   if(connected)
+     {
+      Out("== SYMBOL NAMES ==");
+      for(int i = 0; i < count; i++)
+        {
+         if(syms[i] == "")
+            continue;
+         string found = ResolveSymbol(syms[i]);
+         Out("Requested " + syms[i] + ": " + (found == "" ? "NOT FOUND on this server" :
+             (found == syms[i] ? "found, same name" : "found as " + found + " (suffix/prefix)")));
+         if(found != "")
+            syms[i] = found;
+        }
+      Out("");
+      connected = NNFXWaitConnected(syms, InpConnectWait, detail);
+     }
    Out("Connection:   " + detail);
    Out("");
    if(connected)

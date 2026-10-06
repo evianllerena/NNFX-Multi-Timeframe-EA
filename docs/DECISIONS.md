@@ -124,3 +124,10 @@ Label C (owner's choice) unless stated.
 | ID | Decision | Label | Status |
 | --- | --- | --- | --- |
 | D6b-1 | The MT5-offline check (carry-over 1; G1_phase6a_1 note 3; G1_phase6b_1 F3) is **deferred** from the 6b gate to the **6f G1 gate**: it must pass before the real EA (`NNFX_EA.mq5`) is accepted and before any demo forward-test. It covers EnvCheck `RESULT: INVALID (not connected)` and the EA/order path refusing with "not connected" and opening 0 orders, run on a live chart (the tester skips the wait) | C (owner, 2026-10-04) | Approved |
+
+## Phase 6c owner decisions (2026-10-05)
+
+| ID | Decision | Label | Status |
+| --- | --- | --- | --- |
+| D6c-1 | Process safety with another MT5 installed: the "MT5 must be closed" check matches ONLY the terminal being tested, by full path; any other `terminal64.exe` is listed in SUMMARY.txt as "other terminal running (ignored)" and never touched; anything that closes MT5 acts only on the process id it started (source-scan test `test_process_safety.py`, plus one planted bug); the run stops if the tested terminal's data folder (origin.txt) or account (EnvCheck Login/Server vs `-ExpectLogin`/`-ExpectServer`) is not the expected one | C (owner) | Approved |
+| D6c-2 | Candidate live broker: OANDA TMS Brokers S.A. A read-only check on its DEMO account 62316800 (terminal `C:\Program Files\OANDA TMS MT5 Terminal\terminal64.exe`, data folder `...\Terminal\47AEB69EDDAD4D73097816C71FB25856`): only `NNFX_EnvCheck` and its include are copied there and compiled with OANDA's MetaEditor; results go to `docs/ENVIRONMENT.md` "OANDA TMS (candidate live broker)". **No orders on OANDA, demo or live.** The owner closes the OANDA terminal only for the minutes the check runs | C (owner) | Approved |

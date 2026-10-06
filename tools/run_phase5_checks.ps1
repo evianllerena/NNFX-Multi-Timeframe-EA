@@ -32,7 +32,11 @@ Everything (reports, compile logs, MT5 logs, Python output, SUMMARY.txt) is copi
 so it can be read back as-is.
 
 MT5 must be CLOSED before running: what /config does when the terminal is already open is not
-documented, so the script refuses to start rather than guess.
+documented, so the script refuses to start rather than guess. Owner decision D6c-1: only the terminal
+being tested counts, matched by its full path ($Install\terminal64.exe); any other terminal64.exe (another
+broker's MT5) is listed in SUMMARY.txt as "other terminal running (ignored)" and never touched. Anything
+this script closes is closed by the process id it started. The run stops if the data folder does not
+belong to the tested install (origin.txt) or EnvCheck reports another account than -ExpectLogin/-ExpectServer.
 
 If a step cannot be automated on this PC (MT5 starts but no fresh report appears), the step is
 marked "NOT RUN (automation did not engage)" and the manual steps in tests/mql5/README.md apply.
@@ -52,7 +56,9 @@ param(
     [string]$TesterFrom = "2026.06.01",
     [string]$TesterTo   = "2026.10.01",
     [switch]$SkipTester,
-    [switch]$PythonOnly
+    [switch]$PythonOnly,
+    [long]$ExpectLogin = 113593254,          # D6c-1: the account this runner may run against
+    [string]$ExpectServer = "MetaQuotes-Demo"
 )
 
 # "Continue": in Windows PowerShell 5.1, "Stop" turns any text a program writes to stderr
@@ -80,14 +86,29 @@ function ReadText([string]$path) { return (Get-Content -LiteralPath $path -Raw) 
 foreach ($p in @($Repo, $MT5, $Terminal, $ME)) {
     if (-not (Test-Path $p)) { Write-Host "STOP: not found: $p"; exit 2 }
 }
-if (-not $PythonOnly -and (Get-Process -Name terminal64 -ErrorAction SilentlyContinue)) {
-    Write-Host "STOP: MetaTrader 5 is open. Close it (File > Exit) and run this again."
+# D6c-1: only the tested terminal (full path) blocks the run; others are listed and never touched.
+$running = @(Get-Process -Name terminal64 -ErrorAction SilentlyContinue | Where-Object { $_.Path })
+$tested = @($running | Where-Object { $_.Path -ieq $Terminal })
+$others = @($running | Where-Object { $_.Path -ine $Terminal })
+if (-not $PythonOnly -and $tested.Count -gt 0) {
+    Write-Host "STOP: the tested MetaTrader 5 ($Terminal) is open. Close it (File > Exit) and run this again."
     exit 2
+}
+# D6c-1: the data folder must belong to the tested install (MT5 writes the install path to origin.txt).
+$origin = Join-Path $MT5 "origin.txt"
+if (-not $PythonOnly) {
+    $originPath = if (Test-Path $origin) { (Get-Content -LiteralPath $origin -Raw -Encoding Unicode).Trim([char]0, " ", "`r", "`n") } else { "" }
+    if ($originPath -ine $Install) {
+        Write-Host "STOP: data folder $MT5 belongs to '$originPath', not to the tested install '$Install'."
+        exit 2
+    }
 }
 New-Item -ItemType Directory -Force $Out | Out-Null
 Say "NNFX Phase 5 checks  $Stamp"
 Say "Repo:   $Repo  (commit $(& git -C $Repo rev-parse --short HEAD 2>$null))"
 Say "MT5:    $MT5"
+Say "Tested terminal: $Terminal (data folder origin.txt matches); expected account $ExpectLogin on $ExpectServer"
+foreach ($o in $others) { Say ("other terminal running (ignored): pid {0} {1}" -f $o.Id, $o.Path) }
 Say ""
 
 if ($PythonOnly) {
@@ -182,6 +203,18 @@ if ($PythonOnly) {
             Copy-Item $s.Report "$Out\" -Force
             $text = ReadText $s.Report
             $res = ([regex]::Matches($text, "(?m)^RESULT:.*$") | Select-Object -Last 1).Value
+            if ($s.Name -eq "NNFX_EnvCheck") {
+                # D6c-1: stop if the tested terminal is logged in to another account than expected
+                $login = [regex]::Match($text, "(?m)^Login:\s+(\d+)").Groups[1].Value
+                $server = [regex]::Match($text, "(?m)^Server:\s+(\S+)").Groups[1].Value
+                if ($login -ne "$ExpectLogin" -or $server -ne $ExpectServer) {
+                    Step "3 account check" "FAIL" "logged in as '$login' on '$server', expected $ExpectLogin on $ExpectServer"
+                    Say ""; Say "OVERALL: FAIL (wrong account). Nothing after EnvCheck was run. Output: $Out"
+                    $Summary | Set-Content "$Out\SUMMARY.txt" -Encoding ASCII
+                    exit 1
+                }
+                Step "3 account check" "PASS" "$login on $server"
+            }
             if ($text.Contains($s.Pass)) {
                 Step $label $(if ($s.Info) { "INFO" } else { "PASS" }) $(if ($res) { $res.Trim() } else { "finished" })
             } else {
