@@ -57,6 +57,8 @@ $defaults = [ordered]@{ InpRiskPct = "2.0"; InpEveryBars = "6"; InpMaxTrades = "
     InpStoplessTest = "false"; InpLoseReplyOn = "0"; InpAbortOn = "0"; InpStopsRefuseOn = "0"; InpMarginRefuseOn = "0";
     InpModifyOn = "0"; InpStopWhenDone = "false"; InpRestartAt = "none"; InpRestartDeleteState = "false";
     InpRestartIgnoreComments = "false"; InpCloseLeftovers = "false" }
+# the tested terminal (full path, D6c-1) open now, whoever started it
+function Tested-Open { return @(Get-Process -Name terminal64 -ErrorAction SilentlyContinue | Where-Object { $_.Path -ieq $Terminal }) }
 function Run-Tester([string]$name, [string[]]$inputs) {
     $ini = "$Out\run_$name.ini"
     $vals = [ordered]@{}
@@ -78,12 +80,11 @@ function Run-Tester([string]$name, [string[]]$inputs) {
             Copy-Item $Log "$Out\$name.csv" -Force
             return "$Out\$name.csv"
         }
-        $other = @(Get-Process -Name terminal64 -ErrorAction SilentlyContinue | Where-Object { $_.Path -ieq $Terminal })
+        $other = Tested-Open
         Say ("  {0}: try {1} wrote no trade log; tested terminal(s) open, not started by this script: {2}" -f $name, $try,
              $(if ($other.Count) { ($other | ForEach-Object { $_.Id }) -join "," } else { "none" }))
         $until = (Get-Date).AddMinutes(10)
-        while ((Get-Date) -lt $until -and @(Get-Process -Name terminal64 -ErrorAction SilentlyContinue |
-               Where-Object { $_.Path -ieq $Terminal }).Count -gt 0) { Start-Sleep -Seconds 5 }
+        while ((Get-Date) -lt $until -and (Tested-Open).Count -gt 0) { Start-Sleep -Seconds 5 }
     }
     return $null
 }
