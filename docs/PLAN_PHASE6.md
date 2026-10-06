@@ -536,6 +536,17 @@ the real one.
    - The forced-pause row says "N trade(s) open" but prints `TradeCount()` (trades so far). Print the number open.
    - The chart-open row ends "applied; error 4202". Explain it, or clear the error before logging.
 
+**Carried from the G1_phase6e_2 verdict (PASS; notes 1-3):**
+1. **An OANDA-rule case of the news block itself,** once the live broker is settled: a news day in a week where US
+   and EU clocks differ, on the EU rule. The conversion is already covered by the guard fixtures.
+2. **The news block's edge rules are the agent's reading** [C, in D6e-3]: 17:00 New York exactly starts a new day;
+   Monday's previous trading day is Friday; a news day ending on a weekend ends on Monday. All on the safe side; the
+   owner may overrule any of them later.
+3. **Still open for news in 6f:**
+   - feed `News.mqh` into the rules core's `block` and `news` inputs, and re-run the N1/X5 rule fixtures through it;
+   - one tester run that reads the exported event file;
+   - the daily export with the 24-hour age alarm (OD-12), and the recency warning (G1_phase6e_1 F2) run live.
+
 ### Implements
 
 **SPEC, Architecture:**
