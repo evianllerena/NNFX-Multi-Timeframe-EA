@@ -68,6 +68,36 @@ function Close-MT5($p) {
         if (-not $p.WaitForExit(120000)) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue; Say "  (pid $($p.Id) did not close in 120 s: stopped by id)" }
     }
 }
+# MT5 logs "<n> inputs read from expert 'NNFX\NNFX_OrderTest' set file ..." at each start. Returns the n of the
+# first such line at or after $since (same day), or -1 if none appears within 60 s.
+function Inputs-Read([datetime]$since) {
+    $day = Get-Date -Format "yyyyMMdd"
+    $after = Get-Date $since -Format "HH:mm:ss"
+    for ($k = 0; $k -lt 12; $k++) {
+        Start-Sleep -Seconds 5
+        $tmp = "$Out\_termlog.tmp"
+        Copy-Item "$MT5\Logs\$day.log" $tmp -Force -ErrorAction SilentlyContinue
+        if (-not (Test-Path $tmp)) { continue }
+        $hit = @(Get-Content $tmp -Encoding Unicode | ForEach-Object {
+            $m = [regex]::Match($_, "\t(\d\d:\d\d:\d\d)\.\d+\tMQL5\t(\d+) inputs read from expert 'NNFX\\NNFX_OrderTest'")
+            if ($m.Success -and $m.Groups[1].Value -ge $after) { [int]$m.Groups[2].Value } })
+        Remove-Item $tmp -Force
+        if ($hit.Count -gt 0) { return $hit[0] }
+    }
+    return -1
+}
+function Start-EA([string]$ini, [int]$want) {
+    $t0 = Get-Date
+    $proc = Start-MT5 $ini
+    $n = Inputs-Read $t0
+    if ($n -ne $want) {
+        Say ("STOP: MT5 read {0} inputs from the set file, expected {1}; closing pid {2}" -f $n, $want, $proc.Id)
+        Close-MT5 $proc
+        $script:AllPass = $false
+        Done
+    }
+    return $proc
+}
 function Write-Set([string]$name, [string[]]$lines) {
     [System.IO.File]::WriteAllText("$MT5\MQL5\Presets\$name", (($lines -join "`r`n") + "`r`n"), [System.Text.Encoding]::Unicode)
     Copy-Item "$MT5\MQL5\Presets\$name" "$Out\" -Force
@@ -90,12 +120,15 @@ Step "account check" $okAcc "'$login' on '$server'"
 if (-not $okAcc) { Say "STOP: not the expected demo account; nothing was traded."; Done }
 
 # 2. start the EA
-$common = @("InpRiskPct=2.0", "InpEveryBars=2", "InpMinLots=true", "InpMagic=26999", "InpStoplessTest=false", "InpLoseReplyOn=0",
+# NOT "$common": PowerShell names ignore case, and $Common is the [string] Common Files parameter (run
+# demo_restart_20261005_225412, kept in checks\invalid\, squashed this list into one string).
+# Magic 26998: its own deal history, apart from the 6b demo run (26999).
+$eaInputs = @("InpRiskPct=2.0", "InpEveryBars=2", "InpMinLots=true", "InpMagic=26998", "InpStoplessTest=false", "InpLoseReplyOn=0",
             "InpAbortOn=0", "InpStopsRefuseOn=0", "InpMarginRefuseOn=0", "InpModifyOn=0")
-Write-Set "NNFX_OrderTest_restart.set" ($common + @("InpMaxTrades=0", "InpStopWhenDone=false"))
+Write-Set "NNFX_OrderTest_restart.set" ($eaInputs + @("InpMaxTrades=0", "InpStopWhenDone=false"))
 @("[StartUp]", "Expert=NNFX\NNFX_OrderTest", "ExpertParameters=NNFX_OrderTest_restart.set", "Symbol=EURUSD", "Period=M1") |
     Set-Content "$Out\run_demo.ini" -Encoding ASCII
-$p = Start-MT5 "$Out\run_demo.ini"
+$p = Start-EA "$Out\run_demo.ini" ($eaInputs.Count + 2)
 Say ("started pid {0} at {1}" -f $p.Id, (Get-Date -Format "HH:mm:ss"))
 
 function Classify {
@@ -129,7 +162,7 @@ while ($done.Count -lt 4 -and (Get-Date) -lt $deadline) {
     Copy-Item $StateFile $snap -Force -ErrorAction SilentlyContinue
     Say ("{0}: state seen twice at {1}; closing pid {2} and restarting" -f $target, (Get-Date -Format "HH:mm:ss"), $p.Id)
     Close-MT5 $p
-    $p = Start-MT5 "$Out\run_demo.ini"
+    $p = Start-EA "$Out\run_demo.ini" ($eaInputs.Count + 2)
     Say ("  restarted pid {0} at {1}" -f $p.Id, (Get-Date -Format "HH:mm:ss"))
     $done[$target] = (Get-Date -Format "HH:mm:ss")
     $prev = @()
@@ -139,11 +172,11 @@ foreach ($r in "R1", "R2", "R3", "R4") { if (-not $done.ContainsKey($r)) { Say "
 
 # 4. finish: no new trades; the EA manages its open trade to the end and removes itself
 Close-MT5 $p
-Write-Set "NNFX_OrderTest_finish.set" ($common + @("InpMaxTrades=1", "InpStopWhenDone=true"))
+Write-Set "NNFX_OrderTest_finish.set" ($eaInputs + @("InpMaxTrades=1", "InpStopWhenDone=true"))
 @("[StartUp]", "Expert=NNFX\NNFX_OrderTest", "ExpertParameters=NNFX_OrderTest_finish.set", "Symbol=EURUSD", "Period=M1") |
     Set-Content "$Out\run_finish.ini" -Encoding ASCII
 $t0 = Get-Date
-$p = Start-MT5 "$Out\run_finish.ini"
+$p = Start-EA "$Out\run_finish.ini" ($eaInputs.Count + 2)
 $sum = "$Common\NNFX\trades\OrderTest_EURUSD_demo_summary.txt"
 $end = (Get-Date).AddMinutes(60)
 while ((Get-Date) -lt $end -and -not ((Test-Path $sum) -and (Get-Item $sum).LastWriteTime -gt $t0.AddSeconds(30))) { Start-Sleep -Seconds 10 }
