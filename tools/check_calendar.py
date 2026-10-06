@@ -13,6 +13,9 @@ Over an event file written by NNFX_CalendarExport (mode "export") and its _summa
                  Rate Decision 14:00. Releases that really moved (emergency cuts, a rescheduled report) are named with
                  --exception "YYYY.MM.DD|event name" and reported, never silent.
   - format:      every row has 5 fields, a time "YYYY.MM.DD HH:MM", rows in time order, a "generated ... GMT" header
+  - recency:     (G1_phase6e_1 F2) every VP entry with no event in the last --recent-days days of the range (default
+                 120) is named on a WARN line. A warning, not a failure: the calendar may lack a new person's event
+                 (the Fed chair's speeches stop after Powell's of 2026-05-31; nothing for the new chair yet).
 
 Usage:  python tools/check_calendar.py EVENTS.txt _summary.txt --from 2019.01 --to 2026.09 --list news/news_events.txt
                                        [--absent "NZD|GDT"] [--exception "2020.03.03|Fed Interest Rate Decision"] ...
@@ -56,7 +59,12 @@ def months_between(a, b):
     return out
 
 
-def check(events_path, summary_path, frm, to, list_path, absent=(), exceptions=()):
+def end_of_month(ym):
+    y, m = int(ym[:4]), int(ym[5:7])
+    return datetime(y + (m == 12), m % 12 + 1, 1)
+
+
+def check(events_path, summary_path, frm, to, list_path, absent=(), exceptions=(), recent_days=120):
     fails, info = [], []
     with open(events_path, encoding="latin-1") as f:
         lines = [ln.rstrip("\r\n") for ln in f]
@@ -118,6 +126,15 @@ def check(events_path, summary_path, frm, to, list_path, absent=(), exceptions=(
                     info.append("%s: none in %s (listed as absent)" % (tag, y))
                 else:
                     fails.append("%s: none in %s" % (tag, y))
+    # recency (G1_phase6e_1 F2): a VP entry silent for the last recent_days days of the range is named
+    warns = []
+    ref = end_of_month(to)
+    for e in entries:
+        times = [r[0] for r in rows if r[1] == e.currency and r[4] == e.vp]
+        last = max(times) if times else None
+        if last is None or (ref - last).days > recent_days:
+            warns.append("%s|%s: last event %s, none in the last %d days before %s" %
+                         (e.currency, e.vp, n.fmt_time(last) if last else "never", recent_days, ref.strftime("%Y.%m.%d")))
     # time base
     checked, wrong, excused = 0, [], []
     for r in rows:
@@ -144,6 +161,9 @@ def check(events_path, summary_path, frm, to, list_path, absent=(), exceptions=(
     fails += ["time base: " + w for w in wrong]
     for x in info:
         print("  INFO " + x)
+    for x in warns:
+        print("  WARN " + x)
+    print("recency: %d of %d VP entries without an event in the last %d days" % (len(warns), len(entries), recent_days))
     for x in fails[:40]:
         print("  FAIL " + x)
     if len(fails) > 40:
@@ -165,8 +185,9 @@ def main(argv=None):
     ap.add_argument("--absent", action="append", default=[])
     ap.add_argument("--exception", action="append", default=[],
                     help='a release that really moved: "YYYY.MM.DD|event name" (New York date)')
+    ap.add_argument("--recent-days", type=int, default=120)
     a = ap.parse_args(argv)
-    ok = check(a.events, a.summary, a.frm, a.to, a.list, set(a.absent), set(a.exception))
+    ok = check(a.events, a.summary, a.frm, a.to, a.list, set(a.absent), set(a.exception), a.recent_days)
     return 0 if ok else 1
 
 

@@ -29,7 +29,10 @@
 | `tools/run_demo_master_test.ps1` | Phase 6d demo test of the master switch on two charts, and of the chart buttons. Leftovers are closed at the end and the whole account must be flat | See `docs/VERIFICATION.md` |
 | `tools/check_master_test.py` | Phase 6d: both instances saw the master switch go OFF and ON (GUARD `blocks:` rows), no entry while OFF; `--panel`: no entry while the instance is off, the drawdown reset logged at a later candle, close-all leaves nothing open | Tested here (`test_check_master_test.py`) |
 | `MQL5/Scripts/NNFX/NNFX_GvTool.mq5` | D-OPS-1 test-terminal tool: lists, or deletes (`InpDelete`), `NNFX_` terminal global variables only, with a before/after report. Places no orders | Compiled 2026-10-06 (build 6241); deleted `NNFX_MASTER` (run `gv_delete_master_20261006_170258`) |
-| Calendar export (MQL5 script) | Saves VP's news events, month by month, for backtests | Planned (Phase 6) |
+| `MQL5/Scripts/NNFX/NNFX_CalendarExport.mq5` | Phase 6e: the MT5 calendar to a file. Modes `list` (the catalogue), `export` (month by month, approved list only, UTC), `compare` (the live calendar vs the file, one week, 5 pairs) and `depth`. Places no orders | Compiled 2026-10-06; run `calendar_export_20261006_182148` PASS |
+| `tools/run_calendar_export.ps1` | Phase 6e: runs the export, `check_calendar.py`, the compare and the depth steps | PASS (`calendar_export_20261006_182148`) |
+| `tools/check_calendar.py` | Phase 6e: over an export. Months, duplicates, VP's events per year, time base (UTC vs New York release times, exceptions named) | Tested here (`test_check_calendar.py`, 8 tests); planted P1-P3 caught |
+| `MQL5/Scripts/NNFX/NNFX_NewsTest.mq5` | Phase 6e: the shared news cases through `News.mqh` | Compiled 2026-10-06; 47/47; planted bugs 7 of 7 |
 | Result recompute (Python) | Recomputes trades, R and drawdown from raw trade logs (V13) | Planned (Phase 8) |
 
 How to run each MQL5 check: `tests/mql5/README.md`.

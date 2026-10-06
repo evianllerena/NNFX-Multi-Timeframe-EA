@@ -186,3 +186,9 @@ recompiles from the repo.
   in line with the `.pro` real-tick history on OANDA, which starts in 2019.
 - **Names:** event names carry people's names ("Fed Chair Powell Speech"); the approved list (D6e-1) uses role
   patterns. A copy of the catalogue is in `tests/fixtures/news/calendar_catalogue_20261006.csv`.
+
+**Gap in the calendar (G1_phase6e_1 F2, 2026-10-06):** the last "Fed Chair ... Speech" in the calendar is Powell's of
+2026-05-31. News reports say Kevin Warsh is now the Fed chair, but MetaQuotes has no event for him yet, so the EA
+cannot block on his speeches until it does. The role pattern `Fed Chair * Speech` will catch the new event as soon as
+it exists (tested). `check_calendar.py` names every VP entry with no event in the last 120 days on a WARN line; the
+same check is to run live in 6f with the daily news-age alarm (OD-12). The Fed rate decision days are covered.

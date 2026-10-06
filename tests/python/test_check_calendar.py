@@ -104,6 +104,13 @@ class TestCheckCalendar(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("times in UTC", out)
 
+    def test_recency_warns_but_passes(self):
+        # the Fed decision's last event is 2026.03.18: more than 120 days before the end of 2026.08 -> WARN, still PASS
+        ok, out = self.run_check(rows())
+        self.assertTrue(ok, out)
+        self.assertIn("WARN USD|interest rates: last event 2026.03.18 18:00, none in the last 120 days before 2026.09.01", out)
+        self.assertIn("recency: 1 of 2 VP entries", out)
+
     def test_vp_event_missing_in_a_year_fails(self):
         rs = [r for r in rows() if "Fed" not in r]
         ok, out = self.run_check(rs)
