@@ -92,6 +92,19 @@ class TestCheckMasterTest(unittest.TestCase):
         ok, out = self.run_logs(log_a(), b)
         self.assertTrue(ok, out)
 
+    def test_b_first_evaluation_inside_off_window_passes(self):
+        # B started late: its very first evaluation already sees master OFF (run master_20261006_135454)
+        b = [r for r in log_b() if r["note"] != "blocks: master (was none)"]
+        b.insert(1, row("2026.10.06 19:08:01", "GUARD", "blocks: master (was -)"))
+        ok, out = self.run_logs(log_a(), b)
+        self.assertTrue(ok, out)
+
+    def test_b_first_evaluation_after_on_fails(self):
+        b = [r for r in log_b() if not r["note"].startswith("blocks:")]
+        b.insert(1, row("2026.10.06 19:12:01", "GUARD", "blocks: none (was -)"))
+        ok, out = self.run_logs(log_a(), b)
+        self.assertFalse(ok)
+
     def test_b_never_saw_on_fails(self):
         b = [r for r in log_b() if r["note"] != "blocks: none (was master)"]
         ok, out = self.run_logs(log_a(), b)

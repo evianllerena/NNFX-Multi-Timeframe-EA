@@ -10,6 +10,7 @@ open test trades keep being managed."
   3. Instance A (NNFX_OrderTest on EURUSD M1, magic 26993, guard on, InpMasterTestTpl=nnfx_master_b) starts: it sets
      NNFX_MASTER = 1, opens B's chart from the template, switches NNFX_MASTER to 0 after 5 candles and back to 1
      after 5 more (GUARD rows). Every input listed; MT5 must read them all.
+  3b. OFF comes after 10 candles, so instance B (its history loaded) is running (run master_20261006_135454).
   4. After ON, A drives its chart buttons through the panel (instance off, on, drawdown reset, close-all; one
      every two candles); ten candles after ON, MT5 (the driver's own PID; D-OPS-1) is closed.
   5. tools/close_test_leftovers.ps1 closes both magics' leftover test trades and checks the whole account is flat
@@ -116,14 +117,14 @@ $inputsB = @("InpRiskPct=2.0", "InpEveryBars=1", "InpMaxTrades=0", "InpMinLots=t
     "InpRestartAt=none", "InpRestartDeleteState=false", "InpRestartIgnoreComments=false", "InpCloseLeftovers=false",
     "InpGuard=true", "InpInstanceOn=true", "InpServerWinterOffset=2", "InpServerDst=US", "InpWeekendHours=0",
     "InpMaxSpread=0", "InpTesterMaster=-1", "InpTesterPauseAt=none",
-    "InpMasterTestTpl=", "InpMasterTestSymbol=GBPUSD", "InpMasterOffAfter=5", "InpMasterOffFor=5")
+    "InpMasterTestTpl=", "InpMasterTestSymbol=GBPUSD", "InpMasterOffAfter=10", "InpMasterOffFor=5")
 
 $inputsA = @("InpRiskPct=2.0", "InpEveryBars=1", "InpMaxTrades=0", "InpMinLots=true", "InpMagic=26993", "InpStoplessTest=false",
     "InpLoseReplyOn=0", "InpAbortOn=0", "InpStopsRefuseOn=0", "InpMarginRefuseOn=0", "InpModifyOn=0", "InpStopWhenDone=false",
     "InpRestartAt=none", "InpRestartDeleteState=false", "InpRestartIgnoreComments=false", "InpCloseLeftovers=false",
     "InpGuard=true", "InpInstanceOn=true", "InpServerWinterOffset=2", "InpServerDst=US", "InpWeekendHours=0",
     "InpMaxSpread=0", "InpTesterMaster=-1", "InpTesterPauseAt=none",
-    "InpMasterTestTpl=nnfx_master_b", "InpMasterTestSymbol=GBPUSD", "InpMasterOffAfter=5", "InpMasterOffFor=5")
+    "InpMasterTestTpl=nnfx_master_b", "InpMasterTestSymbol=GBPUSD", "InpMasterOffAfter=10", "InpMasterOffFor=5")
 
 $tpl = [System.IO.File]::ReadAllText($probeTpl, [System.Text.Encoding]::Unicode)
 $expertB = "<expert>`r`nname=NNFX_OrderTest`r`npath=Experts\NNFX\NNFX_OrderTest.ex5`r`nexpertmode=1`r`n<inputs>`r`n" +

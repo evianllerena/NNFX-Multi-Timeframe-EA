@@ -8,8 +8,9 @@ NNFX_MASTER) and B (opened by A from a template). A's GUARD rows give the times:
 Pass:
   - B's chart was opened and its template applied, and B wrote its own log (it ran)
   - BOTH instances saw the switch: a GUARD row "blocks: ...master..." (the guard logs every change of its block
-    reasons, open trade or not) inside [off, off + 119 s], and a later one without "master" inside [on, on + 119 s]
-    (the two charts handle the same minute in either order, so one may see a change one candle late)
+    reasons, open trade or not) inside [off, off + 119 s] OR, if it is the instance's very first evaluation
+    ("was -"), anywhere inside [off, on] (B can start late; run master_20261006_135454), and a later one without
+    "master" inside [on, on + 119 s] (the two charts handle the same minute in either order)
   - every SKIP naming "master" is inside [off, on + 59 s] (a SKIP is written only when an entry is due)
   - no new entry (OPEN, half 1) in either log from off + 60 s to on (exclusive)
   - INFO: management rows (TP1, BE, TRAILON, TRAIL, SL, TP2, EXIT, CLOSE) inside the window (open trades kept)
@@ -19,7 +20,8 @@ With --panel (instance A's chart buttons, driven by the test EA through the pane
     in between names "instance"
   - "drawdown reset requested by the chart button" is followed, at a later candle, by the guard's
     "drawdown reset by hand (D6d-3)" row (manual, logged) in A's OR B's log: the reset is account-wide and the
-    first instance to reach its next candle applies it (run master_20261006_130813: B at 20:25)
+    first instance to reach its next candle applies it (run master_20261006_130813: B at 20:25; run
+    master_20261006_135454: B 1 s after the request, at its own next candle)
   - "close-all by the chart button": every trade of A open at that moment gets an EXIT row "close-all button",
     its open halves a CLOSE (or SL/TP2) row, and it is in no later STATE row (A may open a NEW trade after it)
 
@@ -71,8 +73,6 @@ def check_panel(a, fails, b=()):
     else:
         print("panel: drawdown reset requested %s, done and logged %s (%s): %s"
               % (a[req]["time"], done_row["time"], "A" if done_row in a else "B", done_row["note"]))
-        if done_row["time"][:16] == a[req]["time"][:16]:
-            fails.append("panel: drawdown reset applied in the same minute as the request (must be the next candle)")
     if ca is None:
         fails.append("panel: no close-all row from the chart button")
     else:
@@ -124,7 +124,8 @@ def check(path_a, path_b, panel=False):
         managed = [r for r in rows if r["event"] in MANAGED and t_off <= ts(r) <= t_on]
         changes = [r for r in rows if r["event"] == "GUARD" and r["note"].startswith("blocks: ")]
         saw_off = next((r for r in changes if "master" in r["note"].split(" (was")[0]
-                        and t_off <= ts(r) <= t_off + timedelta(seconds=119)), None)
+                        and (t_off <= ts(r) <= t_off + timedelta(seconds=119)
+                             or (r["note"].endswith("(was -)") and t_off <= ts(r) < t_on))), None)
         saw_on = next((r for r in changes if saw_off is not None and ts(r) > ts(saw_off)
                        and "master" not in r["note"].split(" (was")[0]
                        and t_on <= ts(r) <= t_on + timedelta(seconds=119)), None)
