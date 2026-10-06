@@ -18,6 +18,8 @@ Built so far:
 | `Orders.mqh` | 6b, 6c | Compiled 2026-10-04 (6c additions 2026-10-05). The only module that sends orders; every public method checks `NNFXOrdersAllowed` first (tester or DEMO only). Tester order run: 154 trades, `check_trades.py` PASS. 6c: `ExportTrades`, `ImportTrades` and `Reconcile` (the broker's stop wins; unknown positions are logged as RECONCILE) |
 | `TradeLog.mqh` | 6b, 6c | Compiled 2026-10-04. One CSV row per order event in `Common\Files\NNFX\trades\`; 6c: `Open(name, append)` keeps the log across a real restart |
 | `State.mqh` | 6c | Compiled 2026-10-05 (build 6238); RecoveryTest 30/30. State file (version, FNV-1a checksum, atomic write via `.tmp` + `FileMove`) and the pure restart rebuild `NNFXRebuildPure` (port of `recovery.py`). The broker wins for open halves, lots, half 2's stop and TP1 (deal reason); the file adds only the entry ATR and the runner cap. No trading calls |
+| `Guard.mqh` | 6d | Compiled 2026-10-06 (build 6241); GuardTest 56/56; planted bugs 9 of 9. Port of `guard.py`: trading day boundary (17:00 New York, per-broker clock rule), rollover and weekend blocks, daily loss (D6d-2), drawdown pause with a manual, logged reset (D6d-3), master switch (missing = OFF, D6d-1), block string. Never `TimeLocal` (D6d-4). No trading calls |
+| `Panel.mqh` | 6d | Compiled 2026-10-06. Chart buttons: instance on/off, close-all and drawdown reset (each with a confirm step). Never trades: the EA acts and logs. Test path (custom chart events) only under `NNFX_TEST_BUILD` |
 | `Exposure.mqh` | 6a | Compiled 2026-10-04; SizingTest 42/42. Port of `exposure.py`: same-currency exposure over every open position; modes first/split; non-FX ignored (OD-21) |
 
 | Module | Owns | Never does | Phase |

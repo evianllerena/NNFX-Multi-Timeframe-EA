@@ -507,6 +507,22 @@ the real one.
   Nothing in the real EA may key on the original ID. The test EA's schedule needed a fix for exactly this.
 - The real-restart rebuild must wait until MT5 is connected and logged in, as the test EA now does (OnTimer, +3 s).
   Nothing may trade before the rebuild. OnInit can run before MT5 has synchronized its positions.
+- The live server offset (`TimeTradeServer() - TimeGMT()`, used for the trading day boundary) must be read only
+  after login. In `NNFX_GuardTest` run `20261006_102315`, a script started from `/config` read `+0.00 hours` on
+  MetaQuotes-Demo, which is GMT+3.
+
+**Carried from the G1_phase6c_2 verdict (PASS, notes 1-3):**
+1. **A kill between candles is untested.** If MT5 dies after a fill but before the next STATE write, the
+   rebuild follows the broker (by design). In 6f, write the state file right after every trade event (fill, TP1,
+   BE, trail, close), not only at the candle. Then run one demo hard kill mid-candle, after a TP1.
+2. **The account-flat check after a demo run** is shown only by logs. Add a final "whole account 0" step to
+   `tools/run_demo_restarts.ps1` the next time it is touched.
+3. **Still open:**
+   - a second fixture case for M5 (fallback pairing by symbol only);
+   - the +3-second wait after the sync: 6f must do as well or better;
+   - the MT5-offline check (D6b-1);
+   - an Algo Trading pre-check;
+   - the slippage window.
 
 ### Implements
 

@@ -166,3 +166,25 @@ G1_phase6c_1 additions:
 - **Leftover test trades** (D-OPS-1): run
   `powershell -ExecutionPolicy Bypass -Command "& .\tools\close_test_leftovers.ps1 -Magics 26998,26997"`.
   - Pass line: `whole account flat PASS`.
+
+## Phase 6d: guard (`NNFX_GuardTest`, guard runs, master switch)
+
+`NNFX_GuardTest` runs from the runner. It reads the fixtures copied to `$MT5\MQL5\Files\NNFX\guard\`.
+**Pass line:** `RESULT: 56 passed, 0 failed, 56 total`. The INFO lines after it are not counted.
+
+Runner steps 4c and 4d run the test EA in the tester with `InpGuard=true`. They use 0.1% risk, a new entry due at
+every flat candle, the weekend block at 4 hours and the MetaQuotes-Demo clock rule.
+- **4d** also forces the drawdown pause at 2026.06.09 13:00, while T0029 is open (`InpTesterPauseAt`, tester only).
+- **Pass lines:**
+  - `check_guard_log.py`: `RESULT ...guard.csv: PASS`, and for the pause `RESULT ...pause.csv: PASS` with
+    "new entries after it 0".
+  - `check_trades.py` on the guard log: PASS.
+- **Global variables:** the tester does NOT see the terminal's global variables. Tester runs therefore set the
+  master switch with `InpTesterMaster`.
+
+Demo master-switch and chart-button test (weekday, unattended):
+`powershell -ExecutionPolicy Bypass -File tools\run_demo_master_test.ps1`.
+**Pass lines:** `check_master_test PASS`, `whole account flat PASS` and `OVERALL: PASS`.
+
+A real click on a chart button, and its confirm dialog, cannot be automated. The test drives the same handlers
+through custom chart events (test build only). A by-hand click of each button is listed as not done in the packet.

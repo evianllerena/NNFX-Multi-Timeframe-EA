@@ -162,7 +162,9 @@ if (-not $okAcc) { Say "STOP: not the expected demo account; nothing was traded.
 # which left trade T0003 open at the broker (its own SL/TP); 26997 = run demo_restart_20261006_001959 (invalid, T0001 left open).
 $eaInputs = @("InpRiskPct=2.0", "InpEveryBars=2", "InpMinLots=true", "InpMagic=26996", "InpStoplessTest=false", "InpLoseReplyOn=0",
             "InpAbortOn=0", "InpStopsRefuseOn=0", "InpMarginRefuseOn=0", "InpModifyOn=0",
-            "InpRestartAt=none", "InpRestartDeleteState=false", "InpRestartIgnoreComments=false", "InpCloseLeftovers=false")
+            "InpRestartAt=none", "InpRestartDeleteState=false", "InpRestartIgnoreComments=false", "InpCloseLeftovers=false",
+            "InpGuard=false", "InpInstanceOn=true", "InpServerWinterOffset=2", "InpServerDst=US", "InpWeekendHours=0", "InpMaxSpread=0", "InpTesterMaster=-1", "InpTesterPauseAt=none",
+            "InpMasterTestTpl=", "InpMasterTestSymbol=GBPUSD", "InpMasterOffAfter=5", "InpMasterOffFor=5")
 Write-Set "NNFX_OrderTest_restart.set" ($eaInputs + @("InpMaxTrades=0", "InpStopWhenDone=false"))
 @("[StartUp]", "Expert=NNFX\NNFX_OrderTest", "ExpertParameters=NNFX_OrderTest_restart.set", "Symbol=EURUSD", "Period=M1") |
     Set-Content "$Out\run_demo.ini" -Encoding ASCII
@@ -248,7 +250,7 @@ Copy-Item "$MT5\MQL5\Logs\$day.log" "$Out\experts_$day.log" -ErrorAction Silentl
 # 5. checks
 $lg = "$Out\OrderTest_EURUSD_demo.csv"
 foreach ($c in @(@{ N = "rebuilt = before (compare_runs rebuilds)"; A = @("$Repo\tools\compare_runs.py", "rebuilds", $lg, "--min", "$($done.Count)") },
-                 @{ N = "check_trades (whole demo log)"; A = @("$Repo\tools\check_trades.py", $lg, "--require-note", "orders allowed: DEMO") })) {
+                 @{ N = "check_trades (whole demo log)"; A = @("$Repo\tools\check_trades.py", $lg, "--require-note", "orders allowed: DEMO", "--be-lag-seconds", "2") })) {
     $lines = & $Python @($c.A) 2>&1 | ForEach-Object { if ($_ -is [System.Management.Automation.ErrorRecord]) { $_.Exception.Message } else { [string]$_ } }
     $code = $LASTEXITCODE
     $txt = (($lines | Out-String) -replace "`r?`n", "`r`n")

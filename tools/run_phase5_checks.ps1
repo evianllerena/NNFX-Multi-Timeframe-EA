@@ -12,6 +12,7 @@ What it does, in order (each step's result goes in SUMMARY.txt):
        NNFX_SafetyTest  pass line  RESULT: 6 passed, 0 failed, 6 total     (Phase 6b, S1)
        NNFX_OrderMathTest pass line RESULT: 22 passed, 0 failed, 22 total  (Phase 6b)
        NNFX_RecoveryTest pass line RESULT: 30 passed, 0 failed, 30 total   (Phase 6c)
+       NNFX_GuardTest   pass line  RESULT: 56 passed, 0 failed, 56 total   (Phase 6d)
        NNFX_EnvCheck    information only, but must be read after login: "RESULT: VALID ..."
                         ("RESULT: INVALID (not connected)" is a FAIL)
        NNFX_ExportBars  pass line  RESULT: 5 of 5 pairs complete
@@ -118,7 +119,7 @@ if ($PythonOnly) {
     New-Item -ItemType Directory -Force "$MT5\MQL5\Include\NNFX", "$MT5\MQL5\Scripts\NNFX", "$MT5\MQL5\Experts\NNFX",
         "$MT5\MQL5\Files\NNFX\fixtures", "$MT5\MQL5\Files\NNFX\signals", "$MT5\MQL5\Files\NNFX\profiles_bad",
         "$MT5\MQL5\Files\NNFX\export", "$MT5\MQL5\Files\NNFX\sizing", "$MT5\MQL5\Files\NNFX\exposure",
-        "$MT5\MQL5\Files\NNFX\orders", "$MT5\MQL5\Files\NNFX\recovery\state_files", "$Common\NNFX\profiles",
+        "$MT5\MQL5\Files\NNFX\orders", "$MT5\MQL5\Files\NNFX\recovery\state_files", "$MT5\MQL5\Files\NNFX\guard", "$Common\NNFX\profiles",
         "$Common\NNFX\reports", "$Common\NNFX\trades" | Out-Null
     $ErrorActionPreference = "Stop"
     Copy-Item "$Repo\MQL5\Include\NNFX\*.mqh" "$MT5\MQL5\Include\NNFX\" -Force
@@ -132,6 +133,7 @@ if ($PythonOnly) {
     Copy-Item "$Repo\tests\fixtures\orders\order_cases.txt" "$MT5\MQL5\Files\NNFX\orders\" -Force
     Copy-Item "$Repo\tests\fixtures\recovery\recovery_cases.txt" "$MT5\MQL5\Files\NNFX\recovery\" -Force
     Copy-Item "$Repo\tests\fixtures\recovery\state_files\*.txt" "$MT5\MQL5\Files\NNFX\recovery\state_files\" -Force
+    Copy-Item "$Repo\tests\fixtures\guard\guard_cases.txt" "$MT5\MQL5\Files\NNFX\guard\" -Force
     Copy-Item "$Repo\profiles\*.txt" "$Common\NNFX\profiles\" -Force
     $ErrorActionPreference = "Continue"
     Step "1 copy files" "PASS" ""
@@ -140,7 +142,8 @@ if ($PythonOnly) {
     $programs = @("Scripts\NNFX\NNFX_RulesTest", "Scripts\NNFX\NNFX_SignalTest", "Scripts\NNFX\NNFX_ExportBars",
                   "Scripts\NNFX\NNFX_EnvCheck", "Experts\NNFX\NNFX_RepaintCheck", "Scripts\NNFX\NNFX_SizingTest",
                   "Scripts\NNFX\NNFX_SafetyTest", "Scripts\NNFX\NNFX_OrderMathTest", "Experts\NNFX\NNFX_OrderTest",
-                  "Scripts\NNFX\NNFX_RecoveryTest", "Scripts\NNFX\NNFX_DealReport")
+                  "Scripts\NNFX\NNFX_RecoveryTest", "Scripts\NNFX\NNFX_DealReport", "Scripts\NNFX\NNFX_GuardTest",
+                  "Experts\NNFX\NNFX_TemplateProbe")
     $compileOk = $true
     foreach ($f in $programs) {
         $src = "$MT5\MQL5\$f.mq5"; $log = "$MT5\MQL5\$f.log"; $ex5 = "$MT5\MQL5\$f.ex5"
@@ -190,6 +193,7 @@ if ($PythonOnly) {
         @{ Name = "NNFX_SafetyTest"; Report = "$MT5\MQL5\Files\NNFX_SafetyTest.txt";       Pass = "RESULT: 6 passed, 0 failed, 6 total"; Min = 5 },
         @{ Name = "NNFX_OrderMathTest"; Report = "$MT5\MQL5\Files\NNFX_OrderMathTest.txt"; Pass = "RESULT: 22 passed, 0 failed, 22 total"; Min = 5 },
         @{ Name = "NNFX_RecoveryTest"; Report = "$MT5\MQL5\Files\NNFX_RecoveryTest.txt";  Pass = "RESULT: 30 passed, 0 failed, 30 total"; Min = 5 },
+        @{ Name = "NNFX_GuardTest";  Report = "$MT5\MQL5\Files\NNFX_GuardTest.txt";        Pass = "RESULT: 56 passed, 0 failed, 56 total"; Min = 5 },
         @{ Name = "NNFX_EnvCheck";   Report = "$MT5\MQL5\Files\NNFX_EnvCheck.txt";         Pass = "RESULT: VALID";                          Min = 20; Info = $true },
         @{ Name = "NNFX_ExportBars"; Report = "$MT5\MQL5\Files\NNFX\export\_summary.txt";  Pass = "RESULT: 5 of 5 pairs complete";          Min = 30 }
     )
@@ -261,7 +265,9 @@ if ($PythonOnly) {
           "[TesterInputs]", "InpRiskPct=2.0", "InpEveryBars=6", "InpMaxTrades=0", "InpMinLots=false", "InpMagic=26999",
           "InpStoplessTest=true", "InpLoseReplyOn=3", "InpAbortOn=7", "InpStopsRefuseOn=9", "InpMarginRefuseOn=11",
           "InpModifyOn=13", "InpStopWhenDone=false", "InpRestartAt=none", "InpRestartDeleteState=false",
-          "InpRestartIgnoreComments=false", "InpCloseLeftovers=false") |
+          "InpRestartIgnoreComments=false", "InpCloseLeftovers=false",
+          "InpGuard=false", "InpInstanceOn=true", "InpServerWinterOffset=2", "InpServerDst=US", "InpWeekendHours=0", "InpMaxSpread=0", "InpTesterMaster=-1", "InpTesterPauseAt=none",
+          "InpMasterTestTpl=", "InpMasterTestSymbol=GBPUSD", "InpMasterOffAfter=5", "InpMasterOffFor=5") |
             Set-Content -LiteralPath $ini -Encoding ASCII
         $err = Run-Terminal $ini 60
         if ((Fresh $orderSummary $t0) -and (Fresh $orderLog $t0)) {
@@ -277,6 +283,68 @@ if ($PythonOnly) {
             Step "4b order run (tester)" "NOT RUN" "$why (automation did not engage)"
         }
         Get-ChildItem "$MT5\NNFX_OrderTest_tester*" -ErrorAction SilentlyContinue | Copy-Item -Destination $Out -Force
+
+        # 4c. Phase 6d guard run in the tester: the same test EA with InpGuard=true, a new entry due at every flat
+        # candle (InpEveryBars=1), the weekend block at 4 hours, the master switch forced on for the tester
+        # (InpTesterMaster=1), the MetaQuotes-Demo clock rule (GMT+2 winter, US; D6d-4). Risk 0.1%: at 2% the drawdown
+        # pause (reset by hand only) blocked every entry from the 3rd day (run 20261006_114114, kept in invalid). Checked in step 5.
+        $t0 = Get-Date
+        $ini = "$Out\run_NNFX_OrderTest_guard.ini"
+        @("[Tester]", "Expert=NNFX\NNFX_OrderTest", "Symbol=EURUSD", "Period=H1", "Model=1",
+          "FromDate=$TesterFrom", "ToDate=$TesterTo", "ForwardMode=0", "Optimization=0", "Visual=0",
+          "Report=NNFX_OrderTest_guard", "ReplaceReport=1", "ShutdownTerminal=1",
+          "[TesterInputs]", "InpRiskPct=0.1", "InpEveryBars=1", "InpMaxTrades=0", "InpMinLots=false", "InpMagic=26995",
+          "InpStoplessTest=false", "InpLoseReplyOn=0", "InpAbortOn=0", "InpStopsRefuseOn=0", "InpMarginRefuseOn=0",
+          "InpModifyOn=0", "InpStopWhenDone=false", "InpRestartAt=none", "InpRestartDeleteState=false",
+          "InpRestartIgnoreComments=false", "InpCloseLeftovers=false",
+          "InpGuard=true", "InpInstanceOn=true", "InpServerWinterOffset=2", "InpServerDst=US", "InpWeekendHours=4",
+          "InpMaxSpread=0", "InpTesterMaster=1", "InpTesterPauseAt=none",
+          "InpMasterTestTpl=", "InpMasterTestSymbol=GBPUSD", "InpMasterOffAfter=5", "InpMasterOffFor=5") |
+            Set-Content -LiteralPath $ini -Encoding ASCII
+        $err = Run-Terminal $ini 60
+        if ((Fresh $orderSummary $t0) -and (Fresh $orderLog $t0)) {
+            Copy-Item $orderLog "$Out\OrderTest_EURUSD_tester_guard.csv" -Force
+            Copy-Item $orderSummary "$Out\OrderTest_EURUSD_tester_guard_summary.txt" -Force
+            $glog = "$Out\OrderTest_EURUSD_tester_guard.csv"
+            $res = ([regex]::Matches((ReadText $orderSummary), "(?m)^RESULT:.*$") | Select-Object -Last 1).Value
+            Step "4c guard run (tester)" "PASS" $(if ($res) { $res.Trim() + "; checked in step 5" } else { "summary has no RESULT line" })
+            $probe = @(Get-Content -LiteralPath $glog | Where-Object { $_ -match "tester global variables:" } | ForEach-Object { ($_ -split ",", 25)[24] })
+            Step "4c global variables in the tester" "INFO" $(if ($probe.Count) { $probe[0] } else { "no probe row" })
+            $script:GuardLogThisRun = $glog
+        } else {
+            $why = if ($err) { $err } else { "tester ran but wrote no new trade log" }
+            Step "4c guard run (tester)" "NOT RUN" "$why (automation did not engage)"
+        }
+        Get-ChildItem "$MT5\NNFX_OrderTest_guard*" -ErrorAction SilentlyContinue | Copy-Item -Destination $Out -Force
+
+        # 4d. Drawdown pause while a trade is open: the 4c run again, with the pause forced (tester only) at
+        # 2026.06.09 13:00, when T0029 is open after TP1 at breakeven (run 20261006_114423). The real pause (run
+        # 6d_drawdown_pause_20261006_114114) tripped from a closed loss with the account flat. Checked in step 5.
+        $t0 = Get-Date
+        $ini = "$Out\run_NNFX_OrderTest_pause.ini"
+        @("[Tester]", "Expert=NNFX\NNFX_OrderTest", "Symbol=EURUSD", "Period=H1", "Model=1",
+          "FromDate=$TesterFrom", "ToDate=$TesterTo", "ForwardMode=0", "Optimization=0", "Visual=0",
+          "Report=NNFX_OrderTest_pause", "ReplaceReport=1", "ShutdownTerminal=1",
+          "[TesterInputs]", "InpRiskPct=0.1", "InpEveryBars=1", "InpMaxTrades=0", "InpMinLots=false", "InpMagic=26995",
+          "InpStoplessTest=false", "InpLoseReplyOn=0", "InpAbortOn=0", "InpStopsRefuseOn=0", "InpMarginRefuseOn=0",
+          "InpModifyOn=0", "InpStopWhenDone=false", "InpRestartAt=none", "InpRestartDeleteState=false",
+          "InpRestartIgnoreComments=false", "InpCloseLeftovers=false",
+          "InpGuard=true", "InpInstanceOn=true", "InpServerWinterOffset=2", "InpServerDst=US", "InpWeekendHours=4",
+          "InpMaxSpread=0", "InpTesterMaster=1", "InpTesterPauseAt=2026.06.09 13:00",
+          "InpMasterTestTpl=", "InpMasterTestSymbol=GBPUSD", "InpMasterOffAfter=5", "InpMasterOffFor=5") |
+            Set-Content -LiteralPath $ini -Encoding ASCII
+        $err = Run-Terminal $ini 60
+        if ((Fresh $orderSummary $t0) -and (Fresh $orderLog $t0)) {
+            Copy-Item $orderLog "$Out\OrderTest_EURUSD_tester_pause.csv" -Force
+            Copy-Item $orderSummary "$Out\OrderTest_EURUSD_tester_pause_summary.txt" -Force
+            $res = ([regex]::Matches((ReadText $orderSummary), "(?m)^RESULT:.*$") | Select-Object -Last 1).Value
+            Step "4d pause run (tester)" "PASS" $(if ($res) { $res.Trim() + "; checked in step 5" } else { "summary has no RESULT line" })
+            $script:PauseLogThisRun = "$Out\OrderTest_EURUSD_tester_pause.csv"
+        } else {
+            $why = if ($err) { $err } else { "tester ran but wrote no new trade log" }
+            Step "4d pause run (tester)" "NOT RUN" "$why (automation did not engage)"
+        }
+        Get-ChildItem "$MT5\NNFX_OrderTest_pause*" -ErrorAction SilentlyContinue | Copy-Item -Destination $Out -Force
     }
 }
 
@@ -363,6 +431,33 @@ if (-not $script:PyExe) {
         $o | Set-Content "$Out\check_trades.txt" -Encoding ASCII
         $res = ([regex]::Matches($o, "(?m)^RESULT .*$") | Select-Object -Last 1).Value
         Step "5 check_trades.py" $(if ($code -eq 0) { "PASS" } else { "FAIL" }) $(if ($res) { $res.Trim() } else { "" })
+    }
+    # 6d guard run: the windows recomputed by the answer key; the trades still pass Check 1c
+    if (-not $script:GuardLogThisRun) {
+        Step "5 check_guard_log.py" "NOT RUN" "no guard-run trade log written in this run"
+    } else {
+        $o = Run-Py @("$Repo\tools\check_guard_log.py", $script:GuardLogThisRun, "--winter-offset", "2", "--dst", "US",
+                      "--weekend-hours", "4", "--min-skips", "5", "--require-managed")
+        $code = $LASTEXITCODE
+        $o | Set-Content "$Out\check_guard_log.txt" -Encoding ASCII
+        $res = ([regex]::Matches($o, "(?m)^RESULT.*$") | Select-Object -Last 1).Value
+        Step "5 check_guard_log.py" $(if ($code -eq 0) { "PASS" } else { "FAIL" }) $(if ($res) { $res.Trim() } else { "" })
+        $o = Run-Py @("$Repo\tools\check_trades.py", $script:GuardLogThisRun, "--min-trades", "20")
+        $code = $LASTEXITCODE
+        $o | Set-Content "$Out\check_trades_guard.txt" -Encoding ASCII
+        $res = ([regex]::Matches($o, "(?m)^RESULT.*$") | Select-Object -Last 1).Value
+        Step "5 check_trades.py (guard run)" $(if ($code -eq 0) { "PASS" } else { "FAIL" }) $(if ($res) { $res.Trim() } else { "" })
+    }
+    if (-not $script:PauseLogThisRun) {
+        Step "5 check_guard_log.py (pause)" "NOT RUN" "no pause-run trade log written in this run"
+    } else {
+        $o = Run-Py @("$Repo\tools\check_guard_log.py", $script:PauseLogThisRun, "--winter-offset", "2", "--dst", "US",
+                      "--weekend-hours", "4", "--min-skips", "1", "--managed-during-pause")
+        $code = $LASTEXITCODE
+        $o | Set-Content "$Out\check_guard_log_pause.txt" -Encoding ASCII
+        $res = ([regex]::Matches($o, "(?m)^RESULT.*$") | Select-Object -Last 1).Value
+        $pl = ([regex]::Matches($o, "(?m)^pause from .*$") | Select-Object -First 1).Value
+        Step "5 check_guard_log.py (pause)" $(if ($code -eq 0) { "PASS" } else { "FAIL" }) $(if ($res) { $res.Trim() + $(if ($pl) { "; " + $pl.Trim() }) } else { "" })
     }
 }
 

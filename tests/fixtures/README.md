@@ -42,3 +42,14 @@ Format: see `tests/python/nnfx_ref/fixtures.py`. Rebuild with
   since Phase 5, because MQL5 reads them without a JSON parser.
 - G1_phase6c_1 F3: `fallback_pairing_after_abort` now expects the logged fallback IDs
   (`fallback id R31 = positions 31+32`, `fallback id R21 = position 21`).
+
+## Phase 6d additions
+
+- `guard/guard_cases.txt`: 56 cases.
+  - 20 trading-day boundaries (17:00 New York in server time, OD-3 update) for two broker clock rules (EU, US).
+    They include days in the weeks where US and EU daylight saving differ, in 2026 and 2027, and each change day.
+  - 14 rollover windows, 7 weekend blocks, 6 daily-loss days (D6d-2), 3 drawdown series (manual reset, D6d-3) and
+    6 block strings (D6d-1: a missing master switch counts as OFF).
+  - Every expected value is worked out by hand in the file's comments.
+  - Run by `test_guard.py` (answer key `nnfx_ref/guard.py`) and `NNFX_GuardTest.mq5`.
+- The broker clock rules in the file are settings, not verified facts (D6d-4: to be checked after 25 Oct and 1 Nov).

@@ -102,7 +102,8 @@ public:
       Close();
       m_path = "NNFX\\trades\\" + name;
       bool cont = append && FileIsExist(m_path, FILE_COMMON);
-      int flags = FILE_WRITE | FILE_TXT | FILE_ANSI | FILE_COMMON | (cont ? FILE_READ : 0);
+      // FILE_SHARE_READ: a test driver may read the log while the EA writes it (run master_20261006_130813)
+      int flags = FILE_WRITE | FILE_TXT | FILE_ANSI | FILE_COMMON | FILE_SHARE_READ | (cont ? FILE_READ : 0);
       m_handle = FileOpen(m_path, flags);
       if(m_handle == INVALID_HANDLE)
         {

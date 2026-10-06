@@ -1,0 +1,116 @@
+# Guard cases (Phase 6d; docs/PLAN_PHASE6.md section 5). Shared by tests/python/test_guard.py (answer key
+# nnfx_ref/guard.py) and MQL5/Scripts/NNFX/NNFX_GuardTest.mq5. Every expected value is worked out by hand below.
+#
+# The trading day boundary = 17:00 New York (OD-3 update, owner 2026-10-06), in the broker's server time.
+#   New York: 17:00 EDT = 21:00 UTC during US daylight saving, 17:00 EST = 22:00 UTC otherwise.
+#   US daylight saving 2026: Sun 8 Mar - Sun 1 Nov;  2027: Sun 14 Mar - Sun 7 Nov.
+#   EU daylight saving 2026: Sun 29 Mar 01:00 UTC - Sun 25 Oct 01:00 UTC;  2027: Sun 28 Mar - Sun 31 Oct.
+#   Weeks where they differ: 2026-03-08..03-28, 2026-10-25..10-31, 2027-03-14..03-27, 2027-10-31..11-06.
+#
+# Brokers (BROKER|name|winter offset hours|daylight-saving rule). The rules below are SETTINGS, not verified facts:
+#   OANDA  GMT+1 in winter, EU rule -> GMT+2 now (2026-10-06: matches EnvCheck "+2.00 hours"; the EU rule itself is
+#          not yet observed). Boundary = 21:00 UTC + 2 = 23:00 server (both in DST) or 22:00 UTC + 1 = 23:00 (neither);
+#          in the weeks where they differ: 21:00 UTC + 1 = 22:00 server.
+#   MQDEMO GMT+2 in winter, US rule -> GMT+3 now (matches EnvCheck). Boundary always 00:00 server.
+BROKER|OANDA|1|EU
+BROKER|MQDEMO|2|US
+
+# TDB|id|broker|server time|expected trading day start (the latest 17:00 New York at or before it, server time)
+# OANDA, normal summer week (both in DST): boundary 23:00
+TDB|oanda_summer_midday|OANDA|2026.10.06 12:00|2026.10.05 23:00
+TDB|oanda_at_boundary|OANDA|2026.10.06 23:00|2026.10.06 23:00
+TDB|oanda_minute_before|OANDA|2026.10.06 22:59|2026.10.05 23:00
+# OANDA, EU winter but US summer (2026-10-25..10-31): Mon 26 Oct 17:00 EDT = 21:00 UTC, +1 = 22:00 server
+TDB|oanda_eu_ended_us_not|OANDA|2026.10.27 12:00|2026.10.26 22:00
+TDB|oanda_eu_ended_late|OANDA|2026.10.27 22:30|2026.10.27 22:00
+# OANDA, both in winter: Mon 2 Nov 17:00 EST = 22:00 UTC, +1 = 23:00
+TDB|oanda_winter|OANDA|2026.11.03 12:00|2026.11.02 23:00
+# OANDA, US summer but EU winter (2026-03-08..03-28): Mon 9 Mar 21:00 UTC + 1 = 22:00
+TDB|oanda_us_started_eu_not|OANDA|2026.03.10 12:00|2026.03.09 22:00
+TDB|oanda_spring_both|OANDA|2026.03.31 12:00|2026.03.30 23:00
+# change days. Mon 26 Oct 01:00 server = 00:00 UTC Mon; latest close Sun 25 Oct 17:00 EDT = 21:00 UTC (EU ended
+# 01:00 UTC that day, so +1) = 22:00 server on the 25th
+TDB|oanda_eu_end_day|OANDA|2026.10.26 01:00|2026.10.25 22:00
+# Mon 2 Nov 01:00 server = 00:00 UTC; Sun 1 Nov 17:00 EST (US ended that morning) = 22:00 UTC, +1 = 23:00 on the 1st
+TDB|oanda_us_end_day|OANDA|2026.11.02 01:00|2026.11.01 23:00
+# Mon 9 Mar 01:00 server = 00:00 UTC; Sun 8 Mar 17:00 EDT (US started that morning) = 21:00 UTC, +1 = 22:00 on the 8th
+TDB|oanda_us_start_day|OANDA|2026.03.09 01:00|2026.03.08 22:00
+# Mon 30 Mar 01:00 server (+2) = Sun 29 Mar 23:00 UTC; Sun 29 Mar 17:00 EDT = 21:00 UTC, +2 (EU started 01:00 UTC) = 23:00
+TDB|oanda_eu_start_day|OANDA|2026.03.30 01:00|2026.03.29 23:00
+# 2027
+TDB|oanda_2027_spring_gap|OANDA|2027.03.16 12:00|2027.03.15 22:00
+TDB|oanda_2027_autumn_gap|OANDA|2027.11.03 12:00|2027.11.02 22:00
+TDB|oanda_2027_winter|OANDA|2027.11.09 12:00|2027.11.08 23:00
+# MetaQuotes-Demo: always 00:00 server (21:00 UTC + 3 or 22:00 UTC + 2)
+TDB|mq_summer|MQDEMO|2026.10.06 12:00|2026.10.06 00:00
+TDB|mq_eu_gap_week|MQDEMO|2026.10.27 12:00|2026.10.27 00:00
+TDB|mq_spring_gap_week|MQDEMO|2026.03.10 12:00|2026.03.10 00:00
+TDB|mq_winter_at_boundary|MQDEMO|2026.11.03 00:00|2026.11.03 00:00
+# Sun 8 Mar 17:00 EDT = 21:00 UTC, +3 (US rule changed 07:00 UTC that day) = Mon 9 Mar 00:00
+TDB|mq_us_start_day|MQDEMO|2026.03.09 00:30|2026.03.09 00:00
+
+# ROLL|id|broker|server time|1 = in the rollover block: [boundary - 15 min, boundary + 60 min)
+# OANDA 6 Oct, boundary 23:00 -> [22:45, 00:00)
+ROLL|oanda_before_window|OANDA|2026.10.06 22:44|0
+ROLL|oanda_window_opens|OANDA|2026.10.06 22:45|1
+ROLL|oanda_at_boundary|OANDA|2026.10.06 23:00|1
+ROLL|oanda_last_minute|OANDA|2026.10.06 23:59|1
+ROLL|oanda_window_end_exclusive|OANDA|2026.10.07 00:00|0
+ROLL|oanda_midday|OANDA|2026.10.06 12:00|0
+# OANDA 27 Oct (EU winter, US summer), boundary 22:00 -> [21:45, 23:00)
+ROLL|oanda_gap_before|OANDA|2026.10.27 21:44|0
+ROLL|oanda_gap_opens|OANDA|2026.10.27 21:45|1
+ROLL|oanda_gap_last|OANDA|2026.10.27 22:59|1
+ROLL|oanda_gap_closed|OANDA|2026.10.27 23:00|0
+# MetaQuotes-Demo, boundary 00:00 -> [23:45, 01:00)
+ROLL|mq_before|MQDEMO|2026.10.06 23:44|0
+ROLL|mq_opens|MQDEMO|2026.10.06 23:45|1
+ROLL|mq_after_midnight|MQDEMO|2026.10.07 00:59|1
+ROLL|mq_closed|MQDEMO|2026.10.07 01:00|0
+
+# WEEK|id|broker|server time|hours (0 = off, the default)|1 = blocked: the last N hours before the Friday boundary
+# Fri 9 Oct, OANDA boundary 23:00
+WEEK|off_by_default|OANDA|2026.10.09 20:00|0|0
+WEEK|friday_inside|OANDA|2026.10.09 20:00|4|1
+WEEK|friday_just_before|OANDA|2026.10.09 18:59|4|0
+WEEK|friday_after_close|OANDA|2026.10.09 23:00|4|0
+WEEK|thursday_not|OANDA|2026.10.08 20:00|4|0
+# Fri 30 Oct (EU winter, US summer): boundary 22:00 -> blocked from 18:00
+WEEK|gap_week_inside|OANDA|2026.10.30 18:30|4|1
+WEEK|gap_week_before|OANDA|2026.10.30 17:59|4|0
+
+# DLOSS|id|broker|now|balance now|risk %|closed trades "time=profit;..." ("-" none)|today's P/L|limit|blocked
+# The day starts at the trading day boundary; closed trades only; limit = -3 x risk % x (balance now - today's P/L).
+# Tue 6 Oct 12:00 OANDA: the day started Mon 5 Oct 23:00. The 22:30 trade is the day before.
+# Today -3000 - 2800 = -5800; day start balance 94200 + 5800 = 100000; limit -6000; -5800 > -6000: not blocked
+DLOSS|under_limit|OANDA|2026.10.06 12:00|94200|2|2026.10.05 22:30=-3000;2026.10.06 01:00=-3000;2026.10.06 10:00=-2800|-5800|-6000|0
+# one more -300: -6100 <= -6000: blocked (start balance 93900 + 6100 = 100000)
+DLOSS|over_limit|OANDA|2026.10.06 12:00|93900|2|2026.10.05 22:30=-3000;2026.10.06 01:00=-3000;2026.10.06 10:00=-2800;2026.10.06 11:00=-300|-6100|-6000|1
+# exactly the limit is blocked
+DLOSS|exactly_limit|OANDA|2026.10.06 12:00|94000|2|2026.10.06 02:00=-6000|-6000|-6000|1
+# the next trading day starts at 23:00 (not server midnight): nothing closed since, limit -3 x 2% x 93900 = -5634
+DLOSS|new_day_at_boundary|OANDA|2026.10.06 23:00|93900|2|2026.10.06 01:00=-3000;2026.10.06 10:00=-2800;2026.10.06 11:00=-300|0|-5634|0
+# EU winter, US summer: the day started Tue 27 Oct 22:00, so the 21:30 loss is the day before; limit -0.06 x 93500
+DLOSS|gap_week_boundary|OANDA|2026.10.27 22:30|93500|2|2026.10.27 21:30=-6500|0|-5610|0
+# net: -7000 + 2000 = -5000; start balance 95000 + 5000 = 100000; limit -6000: not blocked
+DLOSS|net_of_wins|OANDA|2026.10.06 12:00|95000|2|2026.10.06 01:00=-7000;2026.10.06 05:00=2000|-5000|-6000|0
+
+# DD|id|tokens|expected "paused:peak" after each token. Tokens: E:<equity>/<balance> = a candle-close sample, R = reset
+# by hand. Pause at equity <= 90% of the peak equity (OD-2: equity, not balance); never resets itself (S-6); a reset
+# restarts the peak from the last equity.
+# 94500 = 0.9 x 105000 exactly: paused. 99000 stays paused. Reset: peak 99000; 90000 > 89100: not paused.
+DD|pause_and_manual_reset|E:100000/100000,E:105000/105000,E:95000/105000,E:94500/105000,E:99000/105000,R,E:90000/99000|0:100000,0:105000,0:105000,1:105000,1:105000,0:99000,0:99000
+# equity falls 11% with the balance unchanged (open trades): paused
+DD|equity_not_balance|E:100000/100000,E:89000/100000|0:100000,1:100000
+# recovering to the peak does not end the pause
+DD|no_auto_reset|E:100000/100000,E:89000/100000,E:100000/100000|0:100000,1:100000,1:100000
+
+# BLK|id|master (1 on, 0 off, - missing)|instance on|drawdown paused|daily loss blocked|broker|server time|weekend
+#     hours|spread|max spread (0 off)|indicator ok|expected block string ("-" = none). Order: master, instance,
+#     drawdown, dailyloss, rollover, weekend, spread, indicator.
+BLK|all_clear|1|1|0|0|OANDA|2026.10.06 12:00|0|10|0|1|-
+BLK|master_missing_is_off|-|1|0|0|OANDA|2026.10.06 12:00|0|10|0|1|master
+BLK|master_off_rollover_spread|0|1|0|0|OANDA|2026.10.06 23:10|0|25|20|1|master,rollover,spread
+BLK|instance_dd_dl_indicator|1|0|1|1|OANDA|2026.10.06 12:00|0|10|0|0|instance,drawdown,dailyloss,indicator
+BLK|weekend_on|1|1|0|0|OANDA|2026.10.09 20:00|4|10|0|1|weekend
+BLK|spread_equal_max_ok|1|1|0|0|OANDA|2026.10.06 12:00|0|20|20|1|-
