@@ -7,13 +7,22 @@ RULEBOOK [A]:
       I-10: checked at the FIRST candle close inside the 24-hour window.
 Owner: D6e-1 (the approved event list, news/news_events.txt), D6e-2 (N1 and X5 unchanged).
 
-Definitions used here (all times are the broker's server time, as the calendar export writes them):
-  an event at time e is "within 24 hours" of a candle close at t when  t < e <= t + 24 h
-  N1 blocks a pair at t when either of its currencies has such an event, or is inside an N2 blackout
-     [from, to] (whole days, from 00:00 to 23:59 of 'to')
-  X5's flag is true at the candle close t when, for some event e of either currency, t is inside e's window and
-     the previous candle close (t - period) was not inside THAT event's window: the first close inside it. Two
-     events close together give two flags, one at the first close inside each window.
+The news block (owner rule D6e-3, 2026-10-06; replaces the first build's "t < e <= t + 24 h", review G1_phase6e_1
+F1). For each event e:
+  news day   the trading day e falls in: 17:00 New York to 17:00 New York (OD-3 update). An event at exactly
+             17:00 New York starts a new day. A news day that would end on a Saturday or Sunday ends on Monday.
+  start      the EARLIER of (a) 15:00 New York on the previous trading day (the weekday before the news day's close
+             date: Monday's is Friday) and (b) 24 hours before e (VP's "24 hours")
+  end        the 17:00 New York close that ends the news day; trading resumes at that close
+  N1 blocks a pair at the candle close t when either of its currencies has an event with start <= t < end (so an
+     event exactly at a candle close is inside its own block), or t is inside an N2 blackout [from, to] (whole days,
+     00:00 to 23:59 of 'to', server time).
+  X5's flag is true at the first candle close inside an event's block: t inside it and the previous ACTUAL close
+     not inside THAT event's block. Two events with different blocks give two flags.
+Owner's examples: a Friday 08:30 NFP blocks EUR/USD from Thursday 08:30 New York (24 h before) to the Friday 17:00
+close; Australian jobs at 20:30 Wednesday New York block from Tuesday 20:30 to Thursday 17:00.
+Candle closes and event times are server times; the block is worked out in New York time and converted with the
+broker's clock rule (guard.py).
 
 Event matching (D6e-1, R-15 roles not names): an event of currency C matches a list entry of C when its id is one
 of the entry's ids OR its name matches the entry's pattern ("*" = any text, e.g. "Fed Chair * Speech"), so a new
@@ -107,16 +116,56 @@ def parse_blackouts(text: str) -> List[Blackout]:
     return out
 
 
-def in_window(t: datetime, e: datetime) -> bool:
-    return t < e <= t + WINDOW
+def utc_to_ny(u: datetime) -> datetime:
+    s, e = guard.us_dst_dates(u.year)
+    edt = datetime(s.year, s.month, s.day, 7) <= u < datetime(e.year, e.month, e.day, 6)
+    return u - timedelta(hours=4 if edt else 5)
 
 
-def blocked(sym: str, t: datetime, events: Sequence[Event], blackouts: Sequence[Blackout] = ()) -> List[str]:
+def ny_to_utc(ny: datetime) -> datetime:
+    """A New York wall-clock time (15:00 or 17:00 here, never in the changeover hour) to UTC."""
+    s, e = guard.us_dst_dates(ny.year)
+    return ny + timedelta(hours=4 if s <= ny.date() < e else 5)
+
+
+def _weekday_on_or_after(d):
+    while d.weekday() >= 5:
+        d += timedelta(days=1)
+    return d
+
+
+def _weekday_before(d):
+    d -= timedelta(days=1)
+    while d.weekday() >= 5:
+        d -= timedelta(days=1)
+    return d
+
+
+def block_window(e_server: datetime, broker: "guard.Broker") -> Tuple[datetime, datetime]:
+    """D6e-3: the block of one event, as (start, end) in SERVER time; a close t is blocked when start <= t < end."""
+    u = guard.server_to_utc(broker, e_server)
+    ny = utc_to_ny(u)
+    close_date = ny.date() + timedelta(days=1) if ny.hour >= 17 else ny.date()
+    close_date = _weekday_on_or_after(close_date)
+    prev = _weekday_before(close_date)
+    a = ny_to_utc(datetime(prev.year, prev.month, prev.day, 15))
+    b = u - WINDOW
+    end = ny_to_utc(datetime(close_date.year, close_date.month, close_date.day, 17))
+    return guard.utc_to_server(broker, min(a, b)), guard.utc_to_server(broker, end)
+
+
+def in_block(t: datetime, e: datetime, broker: "guard.Broker") -> bool:
+    start, end = block_window(e, broker)
+    return start <= t < end
+
+
+def blocked(sym: str, t: datetime, events: Sequence[Event], broker: "guard.Broker",
+            blackouts: Sequence[Blackout] = ()) -> List[str]:
     """N1 and N2 reasons at the candle close t, e.g. ["N1 USD Nonfarm Payrolls 2026.06.05 15:30", "N2 GBP"]."""
     curs = currencies(sym)
     why = []
     for ev in events:
-        if ev.currency in curs and in_window(t, ev.time):
+        if ev.currency in curs and in_block(t, ev.time, broker):
             why.append("N1 %s %s %s" % (ev.currency, ev.name, fmt_time(ev.time)))
     for b in blackouts:
         if b.currency in curs and b.start <= t <= b.end:
@@ -124,9 +173,10 @@ def blocked(sym: str, t: datetime, events: Sequence[Event], blackouts: Sequence[
     return why
 
 
-def first_close(sym: str, t: datetime, prev_t: Optional[datetime], events: Sequence[Event]) -> bool:
-    """X5 / I-10: true at the first candle close inside some event's 24-hour window. prev_t is the previous ACTUAL
-    candle close (across a weekend that is Friday's last close, not t - period); None = the first candle seen."""
+def first_close(sym: str, t: datetime, prev_t: Optional[datetime], events: Sequence[Event],
+                broker: "guard.Broker") -> bool:
+    """X5 / I-10 with D6e-3: true at the first candle close inside some event's block. prev_t is the previous ACTUAL
+    candle close (across a weekend that is Friday's last close); None = the first candle seen."""
     curs = currencies(sym)
-    return any(ev.currency in curs and in_window(t, ev.time) and (prev_t is None or not in_window(prev_t, ev.time))
-               for ev in events)
+    return any(ev.currency in curs and in_block(t, ev.time, broker)
+               and (prev_t is None or not in_block(prev_t, ev.time, broker)) for ev in events)

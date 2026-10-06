@@ -27,6 +27,9 @@ class TestNewsFixtures(unittest.TestCase):
         cls.rows = r
         cls.events = [n.Event(n.parse_time(x[1]), x[2], x[3], x[4]) for x in r if x[0] == "EV"]
         cls.blackouts = n.parse_blackouts(";".join(x[1] for x in r if x[0] == "BLACKOUT"))
+        from nnfx_ref import guard as g
+        b = [x for x in r if x[0] == "BROKER"][0]
+        cls.broker = g.Broker(b[1], int(b[2]), b[3])
 
     def kind(self, k):
         return [r for r in self.rows if r[0] == k]
@@ -38,7 +41,7 @@ class TestNewsFixtures(unittest.TestCase):
 
     def test_counts(self):
         self.assertEqual({k: len(self.kind(k)) for k in ("MATCH", "EV", "BLACKOUT", "N1", "X5", "UTC")},
-                         {"MATCH": 13, "EV": 6, "BLACKOUT": 1, "N1": 13, "X5": 14, "UTC": 4})
+                         {"MATCH": 13, "EV": 6, "BLACKOUT": 1, "N1": 25, "X5": 16, "UTC": 4})
 
     def test_match(self):
         for r in self.kind("MATCH"):
@@ -57,14 +60,14 @@ class TestNewsFixtures(unittest.TestCase):
     def test_n1(self):
         for r in self.kind("N1"):
             with self.subTest(case=r[1]):
-                got = n.blocked(r[2], n.parse_time(r[3]), self.events, self.blackouts)
+                got = n.blocked(r[2], n.parse_time(r[3]), self.events, self.broker, self.blackouts)
                 self.assertEqual(";".join(got) or "-", r[4])
 
     def test_x5(self):
         for r in self.kind("X5"):
             with self.subTest(case=r[1]):
                 prev = None if r[3] == "-" else n.parse_time(r[3])
-                got = n.first_close(r[2], n.parse_time(r[4]), prev, self.events)
+                got = n.first_close(r[2], n.parse_time(r[4]), prev, self.events, self.broker)
                 self.assertEqual(int(got), int(r[5]))
 
 

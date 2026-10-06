@@ -62,6 +62,10 @@ void OnStart()
    // first pass: events and blackouts
    NNFXNewsEvent ev[];
    string boText = "";
+   NNFXBroker broker;   // the BROKER line of the cases (D6e-3 blocks are worked out in New York time)
+   broker.name = "";
+   broker.winter_offset = 2;
+   broker.dst = "US";
    for(int i = 0; i < ArraySize(caseLines); i++)
      {
       string p[];
@@ -79,6 +83,12 @@ void OnStart()
         }
       else if(p[0] == "BLACKOUT")
          boText += (boText == "" ? "" : ";") + p[1];
+      else if(p[0] == "BROKER")
+        {
+         broker.name = p[1];
+         broker.winter_offset = (int)StringToInteger(p[2]);
+         broker.dst = p[3];
+        }
      }
    NNFXBlackout bo[];
    NNFXParseBlackouts(boText, bo);
@@ -106,7 +116,7 @@ void OnStart()
       else if(p[0] == "N1")
         {
          string why;
-         NNFXNewsBlocked(p[2], StringToTime(p[3]), ev, bo, why);
+         NNFXNewsBlocked(p[2], StringToTime(p[3]), ev, broker, bo, why);
          if(why == "")
             why = "-";
          Check("N1", p[1], why == p[4], "expected " + p[4] + " got " + why);
@@ -134,7 +144,7 @@ void OnStart()
       else if(p[0] == "X5")
         {
          datetime prev = (p[3] == "-") ? 0 : StringToTime(p[3]);
-         int got = NNFXNewsFirstClose(p[2], StringToTime(p[4]), prev, ev) ? 1 : 0;
+         int got = NNFXNewsFirstClose(p[2], StringToTime(p[4]), prev, ev, broker) ? 1 : 0;
          Check("X5", p[1], got == (int)StringToInteger(p[5]), StringFormat("expected %s got %d", p[5], got));
         }
      }

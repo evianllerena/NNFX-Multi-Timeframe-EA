@@ -313,10 +313,10 @@ void CompareWeek(string &cur[])
          if(s.day_of_week == 0 || s.day_of_week == 6)
             continue;   // no candle opens on the weekend
          string wf, wl;
-         bool bf = NNFXNewsBlocked(pairs[k], tc, fromFile, none, wf);
-         bool bl = NNFXNewsBlocked(pairs[k], tc, live, none, wl);
-         bool xf = NNFXNewsFirstClose(pairs[k], tc, prev, fromFile);
-         bool xl = NNFXNewsFirstClose(pairs[k], tc, prev, live);
+         bool bf = NNFXNewsBlocked(pairs[k], tc, fromFile, b, none, wf);
+         bool bl = NNFXNewsBlocked(pairs[k], tc, live, b, none, wl);
+         bool xf = NNFXNewsFirstClose(pairs[k], tc, prev, fromFile, b);
+         bool xl = NNFXNewsFirstClose(pairs[k], tc, prev, live, b);
          compared++;
          blocks += bf ? 1 : 0;
          flags += xf ? 1 : 0;

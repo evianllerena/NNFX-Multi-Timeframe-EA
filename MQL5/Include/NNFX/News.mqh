@@ -7,9 +7,13 @@
 //| functions are not allowed in the tester). Live, the file is      |
 //| refreshed daily; older than 24 h -> alarm (OD-12).               |
 //|                                                                  |
-//|  N1  t < e <= t + 24 h on either currency of the pair -> blocked |
+//|  N1  (owner rule D6e-3) per event: from the EARLIER of 24 h      |
+//|      before it and 15:00 New York on the previous trading day,   |
+//|      until the 17:00 New York close that ends its trading day;   |
+//|      a close t is blocked when start <= t < end (an event at a   |
+//|      candle close is inside; trading resumes AT the 17:00 close) |
 //|  N2  owner's blackout list from the preset (OD-19) -> blocked    |
-//|  X5  flag at the FIRST candle close inside an event's window     |
+//|  X5  flag at the FIRST candle close inside an event's block      |
 //|      (I-10), using the actual previous close (weekends)          |
 //| Matching (D6e-1, R-15): id in the entry's ids OR the name fits   |
 //| its role pattern ("*" = any text): a new chair is still caught.  |
@@ -189,7 +193,52 @@ int NNFXParseBlackouts(const string text, NNFXBlackout &out[])
    return ArraySize(out);
   }
 
-bool NNFXNewsInWindow(const datetime t, const datetime e) { return t < e && e <= t + NNFX_NEWS_WINDOW; }
+// New York wall clock <-> UTC (US daylight saving: EDT from the 2nd Sunday of March 07:00 UTC to the 1st Sunday of
+// November 06:00 UTC). nyToUtc is used for 15:00 and 17:00 only, never in the changeover hour.
+datetime NNFXUtcToNy(const datetime u)
+  {
+   datetime s, e;
+   NNFXUsDstDates(NNFXYear(u), s, e);
+   bool edt = (u >= s + 7 * 3600 && u < e + 6 * 3600);
+   return u - (edt ? 4 : 5) * 3600;
+  }
+
+datetime NNFXNyToUtc(const datetime ny)
+  {
+   datetime s, e;
+   NNFXUsDstDates(NNFXYear(ny), s, e);
+   datetime d = NNFXDayOf(ny);
+   return ny + ((d >= s && d < e) ? 4 : 5) * 3600;
+  }
+
+// D6e-3: the block of one event (server time): [start, end). The news day is the trading day the event falls in
+// (17:00-17:00 New York; an event at exactly 17:00 starts a new day; a day ending on a weekend ends on Monday).
+// start = the EARLIER of 15:00 New York on the previous trading day (the weekday before the close date) and 24 h
+// before the event; end = the 17:00 New York close of the news day.
+void NNFXNewsBlockWindow(const datetime eServer, const NNFXBroker &b, datetime &start, datetime &end)
+  {
+   datetime u = NNFXServerToUtc(b, eServer);
+   datetime ny = NNFXUtcToNy(u);
+   datetime closeDate = NNFXDayOf(ny);
+   if(ny - closeDate >= 17 * 3600)
+      closeDate += 86400;
+   while(NNFXDow(closeDate) == 0 || NNFXDow(closeDate) == 6)
+      closeDate += 86400;
+   datetime prev = closeDate - 86400;
+   while(NNFXDow(prev) == 0 || NNFXDow(prev) == 6)
+      prev -= 86400;
+   datetime a = NNFXNyToUtc(prev + 15 * 3600);
+   datetime c = u - NNFX_NEWS_WINDOW;
+   start = NNFXUtcToServer(b, MathMin(a, c));
+   end = NNFXUtcToServer(b, NNFXNyToUtc(closeDate + 17 * 3600));
+  }
+
+bool NNFXNewsInBlock(const datetime t, const datetime eServer, const NNFXBroker &b)
+  {
+   datetime s, e;
+   NNFXNewsBlockWindow(eServer, b, s, e);
+   return t >= s && t < e;
+  }
 
 bool NNFXPairHas(const string sym, const string cur)
   {
@@ -199,11 +248,12 @@ bool NNFXPairHas(const string sym, const string cur)
   }
 
 // N1 + N2 at the candle close t; why = the reasons, ";"-separated (same text as news.py)
-bool NNFXNewsBlocked(const string sym, const datetime t, const NNFXNewsEvent &ev[], const NNFXBlackout &bo[], string &why)
+bool NNFXNewsBlocked(const string sym, const datetime t, const NNFXNewsEvent &ev[], const NNFXBroker &b,
+                     const NNFXBlackout &bo[], string &why)
   {
    why = "";
    for(int i = 0; i < ArraySize(ev); i++)
-      if(NNFXPairHas(sym, ev[i].cur) && NNFXNewsInWindow(t, ev[i].time))
+      if(NNFXPairHas(sym, ev[i].cur) && NNFXNewsInBlock(t, ev[i].time, b))
          why += (why == "" ? "" : ";") + "N1 " + ev[i].cur + " " + ev[i].name + " " + TimeToString(ev[i].time, TIME_DATE | TIME_MINUTES);
    for(int i = 0; i < ArraySize(bo); i++)
       if(NNFXPairHas(sym, bo[i].cur) && t >= bo[i].start && t <= bo[i].end)
@@ -211,11 +261,12 @@ bool NNFXNewsBlocked(const string sym, const datetime t, const NNFXNewsEvent &ev
    return why != "";
   }
 
-// X5 / I-10: the first candle close inside some event's window. prevT = the previous ACTUAL close (0 = none seen)
-bool NNFXNewsFirstClose(const string sym, const datetime t, const datetime prevT, const NNFXNewsEvent &ev[])
+// X5 / I-10 with D6e-3: the first candle close inside some event's block. prevT = the previous ACTUAL close (0 = none)
+bool NNFXNewsFirstClose(const string sym, const datetime t, const datetime prevT, const NNFXNewsEvent &ev[],
+                        const NNFXBroker &b)
   {
    for(int i = 0; i < ArraySize(ev); i++)
-      if(NNFXPairHas(sym, ev[i].cur) && NNFXNewsInWindow(t, ev[i].time) && (prevT == 0 || !NNFXNewsInWindow(prevT, ev[i].time)))
+      if(NNFXPairHas(sym, ev[i].cur) && NNFXNewsInBlock(t, ev[i].time, b) && (prevT == 0 || !NNFXNewsInBlock(prevT, ev[i].time, b)))
          return true;
    return false;
   }
