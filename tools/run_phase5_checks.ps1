@@ -284,13 +284,14 @@ if ($PythonOnly) {
 
         # 4c. Phase 6d guard run in the tester: the same test EA with InpGuard=true, a new entry due at every flat
         # candle (InpEveryBars=1), the weekend block at 4 hours, the master switch forced on for the tester
-        # (InpTesterMaster=1), the MetaQuotes-Demo clock rule (GMT+2 winter, US; D6d-4). Checked in step 5.
+        # (InpTesterMaster=1), the MetaQuotes-Demo clock rule (GMT+2 winter, US; D6d-4). Risk 0.1%: at 2% the drawdown
+        # pause (reset by hand only) blocked every entry from the 3rd day (run 20261006_114114, kept in invalid). Checked in step 5.
         $t0 = Get-Date
         $ini = "$Out\run_NNFX_OrderTest_guard.ini"
         @("[Tester]", "Expert=NNFX\NNFX_OrderTest", "Symbol=EURUSD", "Period=H1", "Model=1",
           "FromDate=$TesterFrom", "ToDate=$TesterTo", "ForwardMode=0", "Optimization=0", "Visual=0",
           "Report=NNFX_OrderTest_guard", "ReplaceReport=1", "ShutdownTerminal=1",
-          "[TesterInputs]", "InpRiskPct=2.0", "InpEveryBars=1", "InpMaxTrades=0", "InpMinLots=false", "InpMagic=26995",
+          "[TesterInputs]", "InpRiskPct=0.1", "InpEveryBars=1", "InpMaxTrades=0", "InpMinLots=false", "InpMagic=26995",
           "InpStoplessTest=false", "InpLoseReplyOn=0", "InpAbortOn=0", "InpStopsRefuseOn=0", "InpMarginRefuseOn=0",
           "InpModifyOn=0", "InpStopWhenDone=false", "InpRestartAt=none", "InpRestartDeleteState=false",
           "InpRestartIgnoreComments=false", "InpCloseLeftovers=false",
