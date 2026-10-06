@@ -769,6 +769,77 @@ public:
       return k >= 0 && (m_trades[k].open1 || m_trades[k].open2);
      }
 
+   // Phase 6c: the trades this object manages, for the state file (State.mqh).
+   int               ExportTrades(NNFXTrade &out[])
+     {
+      if(!NNFXOrdersAllowed(m_why))
+         return 0;
+      ArrayResize(out, 0);
+      for(int i = 0; i < ArraySize(m_trades); i++)
+         if(m_trades[i].open1 || m_trades[i].open2)
+           {
+            int n = ArraySize(out);
+            ArrayResize(out, n + 1);
+            out[n] = m_trades[i];
+           }
+      return ArraySize(out);
+     }
+
+   // Phase 6c: replaces this object's memory with the trades rebuilt after a restart (State.mqh NNFXRebuildPure).
+   void              ImportTrades(const NNFXTrade &in[])
+     {
+      if(!NNFXOrdersAllowed(m_why))
+         return;
+      ArrayResize(m_trades, ArraySize(in));
+      for(int i = 0; i < ArraySize(in); i++)
+         m_trades[i] = in[i];
+      Note("INFO", "", "", "memory rebuilt: " + IntegerToString(ArraySize(in)) + " open trades imported");
+     }
+
+   // Phase 6c, each new candle: our memory against the broker. A mismatch is logged and the broker wins (SPEC).
+   // Returns the number of mismatches.
+   int               Reconcile(void)
+     {
+      if(!NNFXOrdersAllowed(m_why))
+         return 0;
+      int found = 0;
+      for(int i = 0; i < ArraySize(m_trades); i++)
+        {
+         if(m_trades[i].open2 && SelectPosition(m_trades[i].pos2))
+           {
+            double brokerSl = PositionGetDouble(POSITION_SL);
+            double tick = SymbolInfoDouble(m_trades[i].sym, SYMBOL_TRADE_TICK_SIZE);
+            if(MathAbs(brokerSl - m_trades[i].sl2) > tick * 0.5)
+              {
+               Note("RECONCILE", m_trades[i].id, m_trades[i].sym,
+                    StringFormat("half 2 stop: memory %s, broker %s; broker used", DoubleToString(m_trades[i].sl2, 10),
+                                 DoubleToString(brokerSl, 10)), m_trades[i].pos2);
+               m_trades[i].sl2 = brokerSl;
+               found++;
+              }
+           }
+        }
+      for(int p = PositionsTotal() - 1; p >= 0; p--)
+        {
+         ulong ticket = PositionGetTicket(p);
+         if(ticket == 0 || PositionGetInteger(POSITION_MAGIC) != m_magic)
+            continue;
+         ulong posId = (ulong)PositionGetInteger(POSITION_IDENTIFIER);
+         bool known = false;
+         for(int i = 0; i < ArraySize(m_trades); i++)
+            if((m_trades[i].open1 && m_trades[i].pos1 == posId) || (m_trades[i].open2 && m_trades[i].pos2 == posId))
+               known = true;
+         string comment = PositionGetString(POSITION_COMMENT);
+         if(!known && StringFind(comment, " h0") < 0)
+           {
+            Note("RECONCILE", "", PositionGetString(POSITION_SYMBOL),
+                 "position with our magic not in memory: " + comment + "; a rebuild is needed", posId);
+            found++;
+           }
+        }
+      return found;
+     }
+
 #ifdef NNFX_TEST_BUILD
    // TEST BUILD ONLY (G2 verdict F3): opens a position with NO stop, to prove EnforceStops closes it.
    // Refuses outside the Strategy Tester.

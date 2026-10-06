@@ -95,18 +95,24 @@ public:
                      CNNFXTradeLog(void) : m_handle(INVALID_HANDLE), m_path("") {}
                     ~CNNFXTradeLog(void) { Close(); }
 
-   // name: file name inside Common\Files\NNFX\trades\ (a new file each run).
-   bool              Open(const string name)
+   // name: file name inside Common\Files\NNFX\trades\. A new file each run, or (append, Phase 6c real
+   // restart) the same file continued, so one log covers the run before and after the restart.
+   bool              Open(const string name, const bool append = false)
      {
       Close();
       m_path = "NNFX\\trades\\" + name;
-      m_handle = FileOpen(m_path, FILE_WRITE | FILE_TXT | FILE_ANSI | FILE_COMMON);
+      bool cont = append && FileIsExist(m_path, FILE_COMMON);
+      int flags = FILE_WRITE | FILE_TXT | FILE_ANSI | FILE_COMMON | (cont ? FILE_READ : 0);
+      m_handle = FileOpen(m_path, flags);
       if(m_handle == INVALID_HANDLE)
         {
          Print("NNFX trade log: cannot open Common\\Files\\", m_path, " error ", GetLastError());
          return false;
         }
-      FileWriteString(m_handle, NNFX_TRADELOG_HEADER + "\r\n");
+      if(cont)
+         FileSeek(m_handle, 0, SEEK_END);
+      else
+         FileWriteString(m_handle, NNFX_TRADELOG_HEADER + "\r\n");
       FileFlush(m_handle);
       return true;
      }

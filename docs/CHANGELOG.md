@@ -2,6 +2,47 @@
 
 Newest first.
 
+## 2026-10-06 — Phase 6c: review G1_phase6c_1 fixes (F1-F4)
+
+- F3: the fallback trade ID of a "deal history only" rebuild is documented. It is `R` + half 1's position ticket,
+  in both `State.mqh` and `recovery.py`. Each mapping is logged in the REBUILD note as
+  `fallback id R54 = positions 54+55`.
+  - `compare_runs.py --fallback-ids` accepts an ID difference only when it is exactly that, and logged.
+  - Restart test (a) gains `R2_history_only` (state file deleted AND comments ignored).
+  - The test EA's schedule follows its trade under the fallback ID (an INFO row).
+- F2: `run_demo_restarts.ps1 -HardKill R2` kills its own PID right after a candle. `compare_runs.py rebuilds`
+  compares a REBUILD with no PRESTOP against the last STATE row.
+- F1: demo test (b) was re-run on the head code, with every input listed.
+- F4b (D-OPS-1): `NNFX_OrderTest InpCloseLeftovers` (demo only, magics 26990-26999 only) and
+  `tools/close_test_leftovers.ps1`. The account is flat.
+- Test EA: the real-restart rebuild and the cleanup wait until MT5 is connected and logged in (+3 s). Nothing trades
+  before that.
+- The tester driver waits and retries if MT5 was opened by someone else. `test_compare_runs.py` gains 5 tests (102 in all).
+- Owner: D6c-3 confirmed; standing approvals D-OPS-1; `REVIEW_PROTOCOL.md`: keep every PR page current.
+
+## 2026-10-06 — Phase 6c: state and recovery
+
+- `MQL5/Include/NNFX/State.mqh`: the state file (`NNFXSTATE|1`, FNV-1a checksum, atomic write via `.tmp` and
+  `FileMove`, per instance in `MQL5\Files\NNFX\state\`, OD-9) and the pure restart rebuild `NNFXRebuildPure`. The
+  broker wins for open halves, lots, half 2's stop and TP1 (deal reason TP). The file adds only the entry ATR and the
+  runner cap, with fallbacks from the candles. Pairing: order comment, then the file's position map, then
+  same-second fallback. No trading calls.
+- `Orders.mqh`: `ExportTrades`, `ImportTrades`, `Reconcile` (guard first). `TradeLog.mqh`: append mode.
+- Answer key `nnfx_ref/recovery.py` with `tests/fixtures/recovery/` (22 cases, 5 state files; `.txt`, not the
+  plan's JSON) and `test_recovery.py`; `NNFX_RecoveryTest.mq5` (30 checks).
+- `NNFX_OrderTest`: STATE rows, the state file, simulated restarts in the tester (`InpRestartAt`, delete state,
+  ignore comments) and real restarts (PRESTOP/REBUILD rows).
+- `tools/compare_runs.py`, `pick_restart_times.py`, `run_restart_tests.ps1` (test a, tester) and
+  `run_demo_restarts.ps1` (test b, real restarts on the demo). Tester runs list every input.
+- Runner: RecoveryTest, the DealReport compile, D6c-1 (only the tested terminal by full path; account check).
+  `test_process_safety.py` checks that nothing closes MT5 by name.
+- Owner decisions: D6c-1, D6c-2 (OANDA TMS read-only; `.pro` symbols settled), D6c-3 (the demo driver handles its
+  own MT5 relaunch or restart), OD-3 update (one trading day boundary at 17:00 New York; PLAN 6d).
+- `InpRestartAt=none` means no restart: the tester reuses the last value for an input listed EMPTY, so two runs
+  restarted unintentionally (kept in `invalid\`). The base run and the runner's order run must have 0 REBUILD rows.
+- Results: restart test (a) PASS (`restart_20261006_004837`); restart test (b) on the demo PASS (`demo_restart_20261006_002457`, REBUILDS
+  MATCH 5 of 5); planted bugs 11 of 11. Eight failed or invalid runs are kept in `invalid\` with `REASON.txt`, plus one planted-bug run.
+
 ## 2026-10-04 — Phase 6b: review G1_phase6b_1 fixes (F1, F4, F5)
 
 - F1: test-only hooks in `Orders.mqh` (inside `#ifdef NNFX_TEST_BUILD`, refusing outside the tester):

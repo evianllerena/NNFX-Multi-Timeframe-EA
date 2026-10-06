@@ -384,8 +384,9 @@ At least 8:
 | --- | --- | --- |
 | `MQL5/Include/NNFX/Guard.mqh` (new) | `NNFXGuardBlocks(sym, candleTime, NNFXGuardState &g, string &blocks)` | Builds the core's `block` string for one pair and candle: master off, instance off, drawdown pause, daily loss, rollover, weekend, max spread, indicator failure (exposure comes from 6a, news from 6e) |
 | | `NNFXDrawdownUpdate(g)` / `NNFXDrawdownReset()` | Tracks the peak of equity, sampled at each candle close (OD-2 (c)), and pauses at −10%. Reset by hand only (S-6), through a chart button with a confirm step or a global variable the owner sets |
-| | `NNFXDailyLossUpdate(g)` | Day's loss from closed trades only vs 3 × risk; the day starts at server midnight, i.e. the daily close at 00:00 server (OD-3) |
-| | `NNFXInRollover(t, dailyClose)` | 15 min before to 60 min after the daily close. Daily close = 00:00 server time per ENVIRONMENT.md ("EURUSD D1 candle opened 2026.10.02 00:00"; D1 candles open 00:00 server). A setting, not assumed |
+| | `NNFXTradingDayStart(serverTime, broker)` | **The one shared trading day boundary (OD-3 update, owner 2026-10-06):** the latest 17:00 New York at or before `serverTime`, in server time. New York's offset follows US daylight saving (UTC-4 / UTC-5); the server's offset follows the broker's own rule (read live as `TimeTradeServer() - TimeGMT()`; for the tester and for history a per-broker rule set in the preset, since what `TimeGMT()` returns in the tester is **unverified**). Used by the rollover block, the daily-loss reset and every log's trading day. Never "server midnight" |
+| | `NNFXDailyLossUpdate(g)` | Day's loss from closed trades only vs 3 × risk; the day = the trading day from `NNFXTradingDayStart` (OD-3 update; was "server midnight") |
+| | `NNFXInRollover(t, broker)` | 15 min before to 60 min after the **real rollover** = the trading day boundary from `NNFXTradingDayStart` (decision R-10, based on M9 [A]: "Spreads are very wide for about an hour after the daily close"). Owner, 2026-10-05/06: keyed to 17:00 New York per broker, never to server midnight. On MetaQuotes-Demo (GMT+3 in October) 17:00 New York (EDT) = 00:00 server; on OANDA TMS (GMT+2) = 23:00 server, while its D1 candle opens at 00:00 server = 18:00 New York (`docs/ENVIRONMENT.md`) |
 | | `NNFXInWeekendBlock(t, hours)` | Off by default |
 | | `NNFXMasterOn()` | Reads the terminal global variable (name fixed in code) |
 | | `NNFXNotify(text)` | Log + Alert + optional `SendNotification` (push needs a MetaQuotes ID set in MT5; **unverified** on this PC) |
@@ -399,7 +400,7 @@ At least 8:
 | Test | Pass line |
 | --- | --- |
 | `NNFX_GuardTest` (script) | `RESULT: <n> passed, 0 failed, <n> total` |
-| Rollover sample (V12) | `NNFX_GuardTest` prints the computed block window for 5 sample days on both sides of a daylight-saving change. Each one must equal the window derived by hand from the server's D1 candle open times (`docs/VERIFICATION.md` row) |
+| Trading day boundary (V12; OD-3 update) | Shared fixtures (Python `guard.py` and `NNFX_GuardTest`): for each broker (MetaQuotes-Demo, OANDA TMS) and each test day, the boundary (17:00 New York in server time), the rollover window and the daily-loss day. Test days in normal weeks AND in the weeks where US and EU daylight saving differ (2026-03-08..03-28 and 2026-10-25..10-31; 2027-03-14..03-27 and 2027-10-31..11-06), plus each change day. Every expected time is worked out by hand from 17:00 New York; pass: all equal |
 | Master switch | Demo: two charts with the test EA. Set the global variable off → both log `blocked:master` on their next candle; open test trades keep being managed (their trailing/BE log lines continue) |
 | Global variables in the tester | Strategy Tester: confirm whether the terminal global variable is visible. **Unverified**: MT5 may keep tester global variables separate (section 13). Pass line is whatever is found, recorded |
 | Close-all button | Manual, demo: confirm dialog appears; only this instance's magic is closed; manual trades untouched |
@@ -408,10 +409,12 @@ At least 8:
 
 At least 8:
 - rollover window off by one hour
+- trading day boundary keyed to server midnight instead of 17:00 New York
+- US and EU daylight saving treated as one date (fails only in the weeks where they differ)
 - window end exclusive vs inclusive swapped
 - drawdown from balance instead of the chosen base
 - pause auto-resets
-- daily loss resets at local midnight instead of the trading day
+- daily loss resets at server midnight or local midnight instead of the shared trading day boundary
 - master switch ignored when the global variable is missing
 - weekend block on when it should be off
 - the indicator-failure block dropped
@@ -498,6 +501,12 @@ At least 8:
 
 **Branch** `phase-6f-ea`, draft PR. Depends on 6a–6e. The test EA (`NNFX_OrderTest`) serves 6b–6e; this step builds
 the real one.
+
+**Carried from 6c (G1_phase6c_1, lessons of the restart tests):**
+- After a "deal history only" rebuild, a trade's ID is the fallback `R<half 1 ticket>`, not its original `T####`.
+  Nothing in the real EA may key on the original ID. The test EA's schedule needed a fix for exactly this.
+- The real-restart rebuild must wait until MT5 is connected and logged in, as the test EA now does (OnTimer, +3 s).
+  Nothing may trade before the rebuild. OnInit can run before MT5 has synchronized its positions.
 
 ### Implements
 

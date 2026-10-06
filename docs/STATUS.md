@@ -2,7 +2,7 @@
 
 Where the project stands. Update this file in every PR.
 
-Last updated: 2026-10-04.
+Last updated: 2026-10-06.
 
 ## Phases
 
@@ -13,13 +13,23 @@ Last updated: 2026-10-04.
 | 3 Python answer key | Merged |
 | 4 MQL5 rules core | Merged (PR #3) |
 | 5 Indicator slots and profiles | Merged: PR #4 (at `58e2994`, before the G1_phase5_1 fixes; see note below) and PR #5 (the reviewed fixes, `0e701dd`) |
-| 6 Orders, risk, recovery, guard, news, EA | Plan: gate G2 **PASS** (`G2_phase6_1`), `docs/PLAN_PHASE6.md`; owner decisions OD-1 to OD-21 in `docs/DECISIONS.md`. **6a sizing + exposure:** merged (PR #6, `G1_phase6a_1` PASS). **6b orders:** draft PR #7 from branch `phase-6b-orders`. Review `G1_phase6b_1`: CHANGES REQUESTED (F1-F5). F1 (ABORT, REFUSE stops level, REFUSE margin, MODIFY exercised in the tester), F4 (evidence never deleted) and F5 (BE via) done: run `20261004_164337` OVERALL PASS, planted bugs 15 of 15 and S4 7 of 7. F2 demo order run done (`demo_20261004_224606`, 5 trades, `check_trades.py` PASS; an earlier attempt failed with Algo Trading off and is kept in `checks\invalid\`). F3 (MT5-offline check) deferred to the 6f G1 gate (D6b-1). Re-run and packet `G1_phase6b_2` next. 6c may start on a branch from `phase-6b-orders`. 6d-6f not started |
+| 6 Orders, risk, recovery, guard, news, EA | Plan: gate G2 **PASS** (`G2_phase6_1`), `docs/PLAN_PHASE6.md`; owner decisions OD-1 to OD-21 (OD-3 updated 2026-10-06) and D6c-1 to D6c-3 in `docs/DECISIONS.md`. **6a sizing + exposure:** merged (PR #6). **6b orders:** merged (PR #7, `G1_phase6b_2` PASS). F3 (MT5-offline check) is deferred to the 6f G1 gate (D6b-1). **6c state and recovery:** draft PR #8 (branch `phase-6c-state-recovery`). Review `G1_phase6c_1`: CHANGES REQUESTED (F1-F4). F1+F2: demo re-run with an R2 hard kill PASS (`demo_restart_20261006_093509`). F3: deal-history-only variant PASS (`restart_20261006_093111`, fallback ID T0014 -> R54), planted bugs 2 of 2. F4: D6c-3 confirmed and the leftover demo trades resolved; the account is flat (`cleanup_20261006_092410`). Packet `G1_phase6c_2` in review. 6d-6f not started |
 | 7 onward | See `docs/SPEC.md` |
 
 **Note (2026-10-04):** PR #4 was merged at `58e2994` on 2026-10-04 15:47 UTC, 4.5 minutes after review
 G1_phase5_1 returned CHANGES REQUESTED and before its fixes. The fix commits `521013b`, `bb4c381` and `6c80511`
 were pushed to the merged branch afterwards, so they did not reach `main`. This PR (branch `phase-5-fixes`)
 brings them to `main` (merged 2026-10-04 as `0e701dd`). Guards against a repeat: `docs/REVIEW_PROTOCOL.md`, "Merge safety".
+
+## OANDA TMS (candidate live broker, D6c-2)
+
+Read-only EnvCheck on demo 62316800 (`docs/ENVIRONMENT.md`): hedging, EUR account, server GMT+2. Open points:
+- **Symbol class: settled. The EA uses the `.pro` symbols on OANDA TMS.** Plain EURUSD/EURGBP are trade mode
+  DISABLED (server path `Forex\...`, fixed 2400-point spread, no swaps). `EURUSD.pro` / `EURGBP.pro` are trade mode
+  FULL (`PRO\FX\Major\...`, spread 8 at 06:32 server). Re-run `oanda_envcheck_pro_20261006_003214`, read-only.
+- **Rollover:** 17:00 New York = 23:00 server on OANDA (D1 opens 00:00 server = 18:00 New York); the 6d rollover block
+  is keyed to the real rollover per broker, never to server midnight (`docs/PLAN_PHASE6.md` 6d).
+- **Phase 8 input:** real ticks on the `.pro` pairs from 2019 (EURUSD.pro from 2018) in the probe.
 
 ## Waiting on the owner
 

@@ -11,6 +11,7 @@ What it does, in order (each step's result goes in SUMMARY.txt):
                         are information only)
        NNFX_SafetyTest  pass line  RESULT: 6 passed, 0 failed, 6 total     (Phase 6b, S1)
        NNFX_OrderMathTest pass line RESULT: 22 passed, 0 failed, 22 total  (Phase 6b)
+       NNFX_RecoveryTest pass line RESULT: 30 passed, 0 failed, 30 total   (Phase 6c)
        NNFX_EnvCheck    information only, but must be read after login: "RESULT: VALID ..."
                         ("RESULT: INVALID (not connected)" is a FAIL)
        NNFX_ExportBars  pass line  RESULT: 5 of 5 pairs complete
@@ -31,7 +32,11 @@ Everything (reports, compile logs, MT5 logs, Python output, SUMMARY.txt) is copi
 so it can be read back as-is.
 
 MT5 must be CLOSED before running: what /config does when the terminal is already open is not
-documented, so the script refuses to start rather than guess.
+documented, so the script refuses to start rather than guess. Owner decision D6c-1: only the terminal
+being tested counts, matched by its full path ($Install\terminal64.exe); any other terminal64.exe (another
+broker's MT5) is listed in SUMMARY.txt as "other terminal running (ignored)" and never touched. Anything
+this script closes is closed by the process id it started. The run stops if the data folder does not
+belong to the tested install (origin.txt) or EnvCheck reports another account than -ExpectLogin/-ExpectServer.
 
 If a step cannot be automated on this PC (MT5 starts but no fresh report appears), the step is
 marked "NOT RUN (automation did not engage)" and the manual steps in tests/mql5/README.md apply.
@@ -51,7 +56,9 @@ param(
     [string]$TesterFrom = "2026.06.01",
     [string]$TesterTo   = "2026.10.01",
     [switch]$SkipTester,
-    [switch]$PythonOnly
+    [switch]$PythonOnly,
+    [long]$ExpectLogin = 113593254,          # D6c-1: the account this runner may run against
+    [string]$ExpectServer = "MetaQuotes-Demo"
 )
 
 # "Continue": in Windows PowerShell 5.1, "Stop" turns any text a program writes to stderr
@@ -79,14 +86,29 @@ function ReadText([string]$path) { return (Get-Content -LiteralPath $path -Raw) 
 foreach ($p in @($Repo, $MT5, $Terminal, $ME)) {
     if (-not (Test-Path $p)) { Write-Host "STOP: not found: $p"; exit 2 }
 }
-if (-not $PythonOnly -and (Get-Process -Name terminal64 -ErrorAction SilentlyContinue)) {
-    Write-Host "STOP: MetaTrader 5 is open. Close it (File > Exit) and run this again."
+# D6c-1: only the tested terminal (full path) blocks the run; others are listed and never touched.
+$running = @(Get-Process -Name terminal64 -ErrorAction SilentlyContinue | Where-Object { $_.Path })
+$tested = @($running | Where-Object { $_.Path -ieq $Terminal })
+$others = @($running | Where-Object { $_.Path -ine $Terminal })
+if (-not $PythonOnly -and $tested.Count -gt 0) {
+    Write-Host "STOP: the tested MetaTrader 5 ($Terminal) is open. Close it (File > Exit) and run this again."
     exit 2
+}
+# D6c-1: the data folder must belong to the tested install (MT5 writes the install path to origin.txt).
+$origin = Join-Path $MT5 "origin.txt"
+if (-not $PythonOnly) {
+    $originPath = if (Test-Path $origin) { (Get-Content -LiteralPath $origin -Raw -Encoding Unicode).Trim([char]0, " ", "`r", "`n") } else { "" }
+    if ($originPath -ine $Install) {
+        Write-Host "STOP: data folder $MT5 belongs to '$originPath', not to the tested install '$Install'."
+        exit 2
+    }
 }
 New-Item -ItemType Directory -Force $Out | Out-Null
 Say "NNFX Phase 5 checks  $Stamp"
 Say "Repo:   $Repo  (commit $(& git -C $Repo rev-parse --short HEAD 2>$null))"
 Say "MT5:    $MT5"
+Say "Tested terminal: $Terminal (data folder origin.txt matches); expected account $ExpectLogin on $ExpectServer"
+foreach ($o in $others) { Say ("other terminal running (ignored): pid {0} {1}" -f $o.Id, $o.Path) }
 Say ""
 
 if ($PythonOnly) {
@@ -96,7 +118,8 @@ if ($PythonOnly) {
     New-Item -ItemType Directory -Force "$MT5\MQL5\Include\NNFX", "$MT5\MQL5\Scripts\NNFX", "$MT5\MQL5\Experts\NNFX",
         "$MT5\MQL5\Files\NNFX\fixtures", "$MT5\MQL5\Files\NNFX\signals", "$MT5\MQL5\Files\NNFX\profiles_bad",
         "$MT5\MQL5\Files\NNFX\export", "$MT5\MQL5\Files\NNFX\sizing", "$MT5\MQL5\Files\NNFX\exposure",
-        "$MT5\MQL5\Files\NNFX\orders", "$Common\NNFX\profiles", "$Common\NNFX\reports", "$Common\NNFX\trades" | Out-Null
+        "$MT5\MQL5\Files\NNFX\orders", "$MT5\MQL5\Files\NNFX\recovery\state_files", "$Common\NNFX\profiles",
+        "$Common\NNFX\reports", "$Common\NNFX\trades" | Out-Null
     $ErrorActionPreference = "Stop"
     Copy-Item "$Repo\MQL5\Include\NNFX\*.mqh" "$MT5\MQL5\Include\NNFX\" -Force
     Copy-Item "$Repo\MQL5\Scripts\NNFX\*.mq5" "$MT5\MQL5\Scripts\NNFX\" -Force
@@ -107,6 +130,8 @@ if ($PythonOnly) {
     Copy-Item "$Repo\tests\fixtures\sizing\sizing_cases.txt" "$MT5\MQL5\Files\NNFX\sizing\" -Force
     Copy-Item "$Repo\tests\fixtures\exposure\exposure_cases.txt" "$MT5\MQL5\Files\NNFX\exposure\" -Force
     Copy-Item "$Repo\tests\fixtures\orders\order_cases.txt" "$MT5\MQL5\Files\NNFX\orders\" -Force
+    Copy-Item "$Repo\tests\fixtures\recovery\recovery_cases.txt" "$MT5\MQL5\Files\NNFX\recovery\" -Force
+    Copy-Item "$Repo\tests\fixtures\recovery\state_files\*.txt" "$MT5\MQL5\Files\NNFX\recovery\state_files\" -Force
     Copy-Item "$Repo\profiles\*.txt" "$Common\NNFX\profiles\" -Force
     $ErrorActionPreference = "Continue"
     Step "1 copy files" "PASS" ""
@@ -114,7 +139,8 @@ if ($PythonOnly) {
     # ---------------------------------------------------------------- 2. compile
     $programs = @("Scripts\NNFX\NNFX_RulesTest", "Scripts\NNFX\NNFX_SignalTest", "Scripts\NNFX\NNFX_ExportBars",
                   "Scripts\NNFX\NNFX_EnvCheck", "Experts\NNFX\NNFX_RepaintCheck", "Scripts\NNFX\NNFX_SizingTest",
-                  "Scripts\NNFX\NNFX_SafetyTest", "Scripts\NNFX\NNFX_OrderMathTest", "Experts\NNFX\NNFX_OrderTest")
+                  "Scripts\NNFX\NNFX_SafetyTest", "Scripts\NNFX\NNFX_OrderMathTest", "Experts\NNFX\NNFX_OrderTest",
+                  "Scripts\NNFX\NNFX_RecoveryTest", "Scripts\NNFX\NNFX_DealReport")
     $compileOk = $true
     foreach ($f in $programs) {
         $src = "$MT5\MQL5\$f.mq5"; $log = "$MT5\MQL5\$f.log"; $ex5 = "$MT5\MQL5\$f.ex5"
@@ -163,6 +189,7 @@ if ($PythonOnly) {
         @{ Name = "NNFX_SizingTest"; Report = "$MT5\MQL5\Files\NNFX_SizingTest.txt";       Pass = "RESULT: 46 passed, 0 failed, 46 total"; Min = 5 },
         @{ Name = "NNFX_SafetyTest"; Report = "$MT5\MQL5\Files\NNFX_SafetyTest.txt";       Pass = "RESULT: 6 passed, 0 failed, 6 total"; Min = 5 },
         @{ Name = "NNFX_OrderMathTest"; Report = "$MT5\MQL5\Files\NNFX_OrderMathTest.txt"; Pass = "RESULT: 22 passed, 0 failed, 22 total"; Min = 5 },
+        @{ Name = "NNFX_RecoveryTest"; Report = "$MT5\MQL5\Files\NNFX_RecoveryTest.txt";  Pass = "RESULT: 30 passed, 0 failed, 30 total"; Min = 5 },
         @{ Name = "NNFX_EnvCheck";   Report = "$MT5\MQL5\Files\NNFX_EnvCheck.txt";         Pass = "RESULT: VALID";                          Min = 20; Info = $true },
         @{ Name = "NNFX_ExportBars"; Report = "$MT5\MQL5\Files\NNFX\export\_summary.txt";  Pass = "RESULT: 5 of 5 pairs complete";          Min = 30 }
     )
@@ -176,6 +203,18 @@ if ($PythonOnly) {
             Copy-Item $s.Report "$Out\" -Force
             $text = ReadText $s.Report
             $res = ([regex]::Matches($text, "(?m)^RESULT:.*$") | Select-Object -Last 1).Value
+            if ($s.Name -eq "NNFX_EnvCheck") {
+                # D6c-1: stop if the tested terminal is logged in to another account than expected
+                $login = [regex]::Match($text, "(?m)^Login:\s+(\d+)").Groups[1].Value
+                $server = [regex]::Match($text, "(?m)^Server:\s+(\S+)").Groups[1].Value
+                if ($login -ne "$ExpectLogin" -or $server -ne $ExpectServer) {
+                    Step "3 account check" "FAIL" "logged in as '$login' on '$server', expected $ExpectLogin on $ExpectServer"
+                    Say ""; Say "OVERALL: FAIL (wrong account). Nothing after EnvCheck was run. Output: $Out"
+                    $Summary | Set-Content "$Out\SUMMARY.txt" -Encoding ASCII
+                    exit 1
+                }
+                Step "3 account check" "PASS" "$login on $server"
+            }
             if ($text.Contains($s.Pass)) {
                 Step $label $(if ($s.Info) { "INFO" } else { "PASS" }) $(if ($res) { $res.Trim() } else { "finished" })
             } else {
@@ -217,13 +256,21 @@ if ($PythonOnly) {
         $ini = "$Out\run_NNFX_OrderTest.ini"
         @("[Tester]", "Expert=NNFX\NNFX_OrderTest", "Symbol=EURUSD", "Period=H1", "Model=1",
           "FromDate=$TesterFrom", "ToDate=$TesterTo", "ForwardMode=0", "Optimization=0", "Visual=0",
-          "Report=NNFX_OrderTest_tester", "ReplaceReport=1", "ShutdownTerminal=1") |
+          "Report=NNFX_OrderTest_tester", "ReplaceReport=1", "ShutdownTerminal=1",
+          # EVERY input listed: the tester reuses an EA's last-used value for any input left out
+          "[TesterInputs]", "InpRiskPct=2.0", "InpEveryBars=6", "InpMaxTrades=0", "InpMinLots=false", "InpMagic=26999",
+          "InpStoplessTest=true", "InpLoseReplyOn=3", "InpAbortOn=7", "InpStopsRefuseOn=9", "InpMarginRefuseOn=11",
+          "InpModifyOn=13", "InpStopWhenDone=false", "InpRestartAt=none", "InpRestartDeleteState=false",
+          "InpRestartIgnoreComments=false", "InpCloseLeftovers=false") |
             Set-Content -LiteralPath $ini -Encoding ASCII
         $err = Run-Terminal $ini 60
         if ((Fresh $orderSummary $t0) -and (Fresh $orderLog $t0)) {
             Copy-Item $orderSummary, $orderLog "$Out\" -Force
             $res = ([regex]::Matches((ReadText $orderSummary), "(?m)^RESULT:.*$") | Select-Object -Last 1).Value
             Step "4b order run (tester)" "PASS" $(if ($res) { $res.Trim() + "; checked in step 5" } else { "summary has no RESULT line" })
+            # no simulated restart in this run: "InpRestartAt=" (empty) was reused from an earlier run in 20261006_004127
+            $nr = @(Get-Content -LiteralPath $orderLog | Where-Object { $_ -match "^[^,]*,REBUILD," }).Count
+            Step "4b no restart in order run" $(if ($nr -eq 0) { "PASS" } else { "FAIL" }) "$nr REBUILD rows (must be 0)"
             $script:OrderLogThisRun = "$Out\OrderTest_EURUSD_tester.csv"
         } else {
             $why = if ($err) { $err } else { "tester ran but wrote no new trade log" }
