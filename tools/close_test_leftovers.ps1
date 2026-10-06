@@ -94,7 +94,7 @@ foreach ($m in $Magics) {
     while ((Get-Date) -lt $end -and -not $row) {
         Start-Sleep -Seconds 5
         if (Test-Path $Log) {
-            $hit = @(Get-Content -LiteralPath $Log | Where-Object { $_ -match ",INFO,.*cleanup magic $m\b" })
+            $hit = @(Get-Content -LiteralPath $Log -ErrorAction SilentlyContinue | Where-Object { $_ -match ",INFO,.*cleanup magic $m\b" })
             if ($hit.Count -gt 0 -and (Get-Item $Log).LastWriteTime -ge $t0) { $row = $hit[-1] }
         }
     }
