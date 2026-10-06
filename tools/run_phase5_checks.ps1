@@ -256,7 +256,12 @@ if ($PythonOnly) {
         $ini = "$Out\run_NNFX_OrderTest.ini"
         @("[Tester]", "Expert=NNFX\NNFX_OrderTest", "Symbol=EURUSD", "Period=H1", "Model=1",
           "FromDate=$TesterFrom", "ToDate=$TesterTo", "ForwardMode=0", "Optimization=0", "Visual=0",
-          "Report=NNFX_OrderTest_tester", "ReplaceReport=1", "ShutdownTerminal=1") |
+          "Report=NNFX_OrderTest_tester", "ReplaceReport=1", "ShutdownTerminal=1",
+          # EVERY input listed: the tester reuses an EA's last-used value for any input left out
+          "[TesterInputs]", "InpRiskPct=2.0", "InpEveryBars=6", "InpMaxTrades=0", "InpMinLots=false", "InpMagic=26999",
+          "InpStoplessTest=true", "InpLoseReplyOn=3", "InpAbortOn=7", "InpStopsRefuseOn=9", "InpMarginRefuseOn=11",
+          "InpModifyOn=13", "InpStopWhenDone=false", "InpRestartAt=", "InpRestartDeleteState=false",
+          "InpRestartIgnoreComments=false") |
             Set-Content -LiteralPath $ini -Encoding ASCII
         $err = Run-Terminal $ini 60
         if ((Fresh $orderSummary $t0) -and (Fresh $orderLog $t0)) {

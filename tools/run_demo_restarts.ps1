@@ -1,0 +1,168 @@
+<#
+run_demo_restarts.ps1 - Phase 6c restart test (b): REAL restarts on the demo account
+(docs/PLAN_PHASE6.md section 9; SPEC "Rebuilding after a restart"). Orders: MetaQuotes-Demo only.
+
+  1. D6c-1 account check: NNFX_EnvCheck (tick probe off) must report Login -ExpectLogin on -ExpectServer.
+  2. Starts MT5 with NNFX_OrderTest on EURUSD M1 (minimum lots, a trade every 2 candles; test hooks are
+     tester-only and refused on demo anyway).
+  3. Polls the EA's state file (MQL5\Files\NNFX\state\OrderTest_EURUSD.txt). When a state not yet tested is
+     seen in two polls in a row - R1 both halves open before TP1, R2 after TP1 at breakeven, R3 trailing,
+     R4 flat with the continuation armed - the terminal THIS script started is closed by its process id
+     (OnDeinit writes PRESTOP with the memory) and started again (OnInit rebuilds from the broker, the state
+     file and the candles, and writes REBUILD).
+  4. When all four states were tested, or after -Minutes, the EA is restarted with no new trades allowed
+     (InpMaxTrades=1, InpStopWhenDone): it manages its open trade to the end and removes itself.
+  5. tools/compare_runs.py rebuilds (every REBUILD = the PRESTOP before it, field for field) and
+     tools/check_trades.py on the whole demo log.
+
+D6c-1: only the tested terminal (full path) blocks the run; others are listed, never touched; a terminal is
+closed only by the process id this script started.
+Output: <MT5 data folder>\MQL5\Files\NNFX\checks\demo_restart_<date-time>\
+Usage:  powershell -ExecutionPolicy Bypass -File tools\run_demo_restarts.ps1
+#>
+param(
+    [string]$Repo    = "C:\Users\Evision\NNFX-Multi-Timeframe-EA",
+    [string]$MT5     = "C:\Users\Evision\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075",
+    [string]$Common  = "C:\Users\Evision\AppData\Roaming\MetaQuotes\Terminal\Common\Files",
+    [string]$Install = "C:\Program Files\MetaTrader 5",
+    [string]$Python  = "C:\Users\Evision\AppData\Local\Programs\Python\Python312\python.exe",
+    [long]$ExpectLogin = 113593254,
+    [string]$ExpectServer = "MetaQuotes-Demo",
+    [int]$Minutes = 120
+)
+$ErrorActionPreference = "Continue"
+$Terminal = Join-Path $Install "terminal64.exe"
+$Stamp = Get-Date -Format "yyyyMMdd_HHmmss"
+$Out = Join-Path $MT5 "MQL5\Files\NNFX\checks\demo_restart_$Stamp"
+$StateFile = Join-Path $MT5 "MQL5\Files\NNFX\state\OrderTest_EURUSD.txt"
+$Schedule = Join-Path $MT5 "MQL5\Files\NNFX\state\OrderTest_EURUSD_schedule.txt"
+$Log = "$Common\NNFX\trades\OrderTest_EURUSD_demo.csv"
+$Summary = New-Object System.Collections.Generic.List[string]
+$AllPass = $true
+function Say([string]$t) { Write-Host $t; $script:Summary.Add($t) }
+function Step([string]$name, [bool]$ok, [string]$detail) {
+    if (-not $ok) { $script:AllPass = $false }
+    Say (("{0,-40} {1}" -f $name, $(if ($ok) { "PASS" } else { "FAIL" })) + $(if ($detail) { "  - $detail" } else { "" }))
+}
+function Done { Say ""; Say $(if ($script:AllPass) { "OVERALL: PASS" } else { "OVERALL: NOT ALL PASSED (see the lines above)" })
+    Say "Everything from this run: $Out"; $script:Summary | Set-Content "$Out\SUMMARY.txt" -Encoding ASCII
+    if ($script:AllPass) { exit 0 } else { exit 1 } }
+
+$running = @(Get-Process -Name terminal64 -ErrorAction SilentlyContinue | Where-Object { $_.Path })
+if (@($running | Where-Object { $_.Path -ieq $Terminal }).Count -gt 0) {
+    Write-Host "STOP: the tested MetaTrader 5 ($Terminal) is open. Close it (File > Exit) and run this again."; exit 2
+}
+New-Item -ItemType Directory -Force "$Out", "$MT5\MQL5\Presets" | Out-Null
+Say "NNFX restart tests (real, demo)  $Stamp"
+Say "Repo: $Repo  (commit $(& git -C $Repo rev-parse --short HEAD 2>$null))"
+foreach ($o in @($running | Where-Object { $_.Path -ine $Terminal })) { Say ("other terminal running (ignored): pid {0} {1}" -f $o.Id, $o.Path) }
+Say ""
+foreach ($f in @($StateFile, $Schedule, $Log)) {
+    if (Test-Path $f) { Move-Item $f "$Out\before_this_run_$(Split-Path $f -Leaf)" -Force }   # kept, never deleted
+}
+
+function Start-MT5([string]$ini) { return Start-Process -FilePath $Terminal -ArgumentList "/config:`"$ini`"" -PassThru }
+function Close-MT5($p) {
+    if ($p -and -not $p.HasExited) {
+        $null = $p.CloseMainWindow()
+        if (-not $p.WaitForExit(120000)) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue; Say "  (pid $($p.Id) did not close in 120 s: stopped by id)" }
+    }
+}
+function Write-Set([string]$name, [string[]]$lines) {
+    [System.IO.File]::WriteAllText("$MT5\MQL5\Presets\$name", (($lines -join "`r`n") + "`r`n"), [System.Text.Encoding]::Unicode)
+    Copy-Item "$MT5\MQL5\Presets\$name" "$Out\" -Force
+}
+
+# 1. account check (D6c-1)
+Write-Set "NNFX_EnvCheck_quick.set" @("InpCheckTicks=false")
+@("[StartUp]", "Script=NNFX\NNFX_EnvCheck", "ScriptParameters=NNFX_EnvCheck_quick.set", "Symbol=EURUSD", "Period=H1", "ShutdownTerminal=1") |
+    Set-Content "$Out\run_envcheck.ini" -Encoding ASCII
+$t0 = Get-Date
+$p = Start-MT5 "$Out\run_envcheck.ini"
+if (-not $p.WaitForExit(600000)) { Close-MT5 $p }
+$env = "$MT5\MQL5\Files\NNFX_EnvCheck.txt"
+$text = if ((Test-Path $env) -and (Get-Item $env).LastWriteTime -ge $t0) { Get-Content $env -Raw } else { "" }
+Copy-Item $env "$Out\" -ErrorAction SilentlyContinue
+$login = [regex]::Match($text, "(?m)^Login:\s+(\d+)").Groups[1].Value
+$server = [regex]::Match($text, "(?m)^Server:\s+(\S+)").Groups[1].Value
+$okAcc = ($login -eq "$ExpectLogin" -and $server -eq $ExpectServer -and $text.Contains("Trade mode:   DEMO"))
+Step "account check" $okAcc "'$login' on '$server'"
+if (-not $okAcc) { Say "STOP: not the expected demo account; nothing was traded."; Done }
+
+# 2. start the EA
+$common = @("InpRiskPct=2.0", "InpEveryBars=2", "InpMinLots=true", "InpMagic=26999", "InpStoplessTest=false", "InpLoseReplyOn=0",
+            "InpAbortOn=0", "InpStopsRefuseOn=0", "InpMarginRefuseOn=0", "InpModifyOn=0")
+Write-Set "NNFX_OrderTest_restart.set" ($common + @("InpMaxTrades=0", "InpStopWhenDone=false"))
+@("[StartUp]", "Expert=NNFX\NNFX_OrderTest", "ExpertParameters=NNFX_OrderTest_restart.set", "Symbol=EURUSD", "Period=M1") |
+    Set-Content "$Out\run_demo.ini" -Encoding ASCII
+$p = Start-MT5 "$Out\run_demo.ini"
+Say ("started pid {0} at {1}" -f $p.Id, (Get-Date -Format "HH:mm:ss"))
+
+function Classify {
+    if (-not (Test-Path $StateFile)) { return @() }
+    try { $lines = Get-Content -LiteralPath $StateFile -ErrorAction Stop } catch { return @() }
+    $found = @()
+    $trades = @($lines | Where-Object { $_ -like "TRADE|*" })
+    foreach ($t in $trades) {
+        $f = $t -split "\|"
+        if ($f[6] -eq "1" -and $f[7] -eq "1" -and $f[14] -eq "0") { $found += "R1" }
+        if ($f[14] -eq "1" -and $f[7] -eq "1" -and $f[15] -eq "0") { $found += "R2" }
+        if ($f[14] -eq "1" -and $f[7] -eq "1" -and $f[15] -eq "1") { $found += "R3" }
+    }
+    $cont = @($lines | Where-Object { $_ -like "CONT|*" })
+    if ($trades.Count -eq 0 -and $cont.Count -gt 0 -and ($cont[0] -split "\|")[3] -eq "1") { $found += "R4" }
+    return $found
+}
+
+# 3. restarts
+$done = @{}
+$deadline = (Get-Date).AddMinutes($Minutes)
+$prev = @()
+while ($done.Count -lt 4 -and (Get-Date) -lt $deadline) {
+    Start-Sleep -Seconds 5
+    if ($p.HasExited) { Say "terminal exited on its own at $(Get-Date -Format HH:mm:ss)"; break }
+    $now = @(Classify)
+    $target = @($now | Where-Object { -not $done.ContainsKey($_) -and $prev -contains $_ }) | Select-Object -First 1
+    $prev = $now
+    if (-not $target) { continue }
+    $snap = "$Out\state_before_$target.txt"
+    Copy-Item $StateFile $snap -Force -ErrorAction SilentlyContinue
+    Say ("{0}: state seen twice at {1}; closing pid {2} and restarting" -f $target, (Get-Date -Format "HH:mm:ss"), $p.Id)
+    Close-MT5 $p
+    $p = Start-MT5 "$Out\run_demo.ini"
+    Say ("  restarted pid {0} at {1}" -f $p.Id, (Get-Date -Format "HH:mm:ss"))
+    $done[$target] = (Get-Date -Format "HH:mm:ss")
+    $prev = @()
+    Start-Sleep -Seconds 20
+}
+foreach ($r in "R1", "R2", "R3", "R4") { if (-not $done.ContainsKey($r)) { Say "$r NOT RUN (state not seen within $Minutes minutes)"; $script:AllPass = $false } }
+
+# 4. finish: no new trades; the EA manages its open trade to the end and removes itself
+Close-MT5 $p
+Write-Set "NNFX_OrderTest_finish.set" ($common + @("InpMaxTrades=1", "InpStopWhenDone=true"))
+@("[StartUp]", "Expert=NNFX\NNFX_OrderTest", "ExpertParameters=NNFX_OrderTest_finish.set", "Symbol=EURUSD", "Period=M1") |
+    Set-Content "$Out\run_finish.ini" -Encoding ASCII
+$t0 = Get-Date
+$p = Start-MT5 "$Out\run_finish.ini"
+$sum = "$Common\NNFX\trades\OrderTest_EURUSD_demo_summary.txt"
+$end = (Get-Date).AddMinutes(60)
+while ((Get-Date) -lt $end -and -not ((Test-Path $sum) -and (Get-Item $sum).LastWriteTime -gt $t0.AddSeconds(30))) { Start-Sleep -Seconds 10 }
+Close-MT5 $p
+Start-Sleep -Seconds 3
+foreach ($f in @($Log, $sum, $StateFile, $Schedule)) { if (Test-Path $f) { Copy-Item $f "$Out\" -Force } }
+$day = Get-Date -Format "yyyyMMdd"
+Copy-Item "$MT5\Logs\$day.log" "$Out\terminal_$day.log" -ErrorAction SilentlyContinue
+Copy-Item "$MT5\MQL5\Logs\$day.log" "$Out\experts_$day.log" -ErrorAction SilentlyContinue
+
+# 5. checks
+$lg = "$Out\OrderTest_EURUSD_demo.csv"
+foreach ($c in @(@{ N = "rebuilt = before (compare_runs rebuilds)"; A = @("$Repo\tools\compare_runs.py", "rebuilds", $lg, "--min", "$($done.Count)") },
+                 @{ N = "check_trades (whole demo log)"; A = @("$Repo\tools\check_trades.py", $lg, "--require-note", "orders allowed: DEMO") })) {
+    $lines = & $Python @($c.A) 2>&1 | ForEach-Object { if ($_ -is [System.Management.Automation.ErrorRecord]) { $_.Exception.Message } else { [string]$_ } }
+    $code = $LASTEXITCODE
+    $txt = (($lines | Out-String) -replace "`r?`n", "`r`n")
+    $txt | Set-Content ("$Out\" + ($c.N -replace "[^A-Za-z0-9]+", "_") + ".txt") -Encoding ASCII
+    $res = ([regex]::Matches($txt, "(?m)^RESULT.*$") | Select-Object -Last 1).Value
+    Step $c.N ($code -eq 0) $res.Trim()
+}
+Done

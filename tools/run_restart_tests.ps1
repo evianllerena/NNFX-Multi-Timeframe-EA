@@ -47,13 +47,21 @@ Say "Repo: $Repo  (commit $(& git -C $Repo rev-parse --short HEAD 2>$null))"
 foreach ($o in @($running | Where-Object { $_.Path -ine $Terminal })) { Say ("other terminal running (ignored): pid {0} {1}" -f $o.Id, $o.Path) }
 Say ""
 
-# Restart scenario: no test hooks, no stopless test.
-$base = @("InpStoplessTest=false", "InpLoseReplyOn=0", "InpAbortOn=0", "InpStopsRefuseOn=0", "InpMarginRefuseOn=0", "InpModifyOn=0")
+# Restart scenario: no test hooks, no stopless test. EVERY input is listed in every run: the Strategy Tester
+# reuses an EA's last-used value for any input left out (found in run restart_20261005_224233, kept in invalid\).
+$defaults = [ordered]@{ InpRiskPct = "2.0"; InpEveryBars = "6"; InpMaxTrades = "0"; InpMinLots = "false"; InpMagic = "26999";
+    InpStoplessTest = "false"; InpLoseReplyOn = "0"; InpAbortOn = "0"; InpStopsRefuseOn = "0"; InpMarginRefuseOn = "0";
+    InpModifyOn = "0"; InpStopWhenDone = "false"; InpRestartAt = ""; InpRestartDeleteState = "false";
+    InpRestartIgnoreComments = "false" }
 function Run-Tester([string]$name, [string[]]$inputs) {
     $ini = "$Out\run_$name.ini"
+    $vals = [ordered]@{}
+    foreach ($k in $defaults.Keys) { $vals[$k] = $defaults[$k] }
+    foreach ($kv in $inputs) { $i = $kv.IndexOf("="); $vals[$kv.Substring(0, $i)] = $kv.Substring($i + 1) }
+    $lines = @($vals.Keys | ForEach-Object { "$_=$($vals[$_])" })
     @("[Tester]", "Expert=NNFX\NNFX_OrderTest", "Symbol=EURUSD", "Period=H1", "Model=1", "FromDate=$From", "ToDate=$To",
       "ForwardMode=0", "Optimization=0", "Visual=0", "Report=NNFX_RestartTest_$name", "ReplaceReport=1", "ShutdownTerminal=1",
-      "[TesterInputs]") + $base + $inputs | Set-Content -LiteralPath $ini -Encoding ASCII
+      "[TesterInputs]") + $lines | Set-Content -LiteralPath $ini -Encoding ASCII
     $t0 = Get-Date
     $p = Start-Process -FilePath $Terminal -ArgumentList "/config:`"$ini`"" -PassThru
     if (-not $p.WaitForExit(3600000)) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue; return $null }
