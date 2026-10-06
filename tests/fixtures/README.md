@@ -53,3 +53,12 @@ Format: see `tests/python/nnfx_ref/fixtures.py`. Rebuild with
   - Every expected value is worked out by hand in the file's comments.
   - Run by `test_guard.py` (answer key `nnfx_ref/guard.py`) and `NNFX_GuardTest.mq5`.
 - The broker clock rules in the file are settings, not verified facts (D6d-4: to be checked after 25 Oct and 1 Nov).
+
+## Phase 6e additions
+
+- `news/news_cases.txt`: 13 event-matching cases (incl. a new Fed chair and a new ECB president caught by the role
+  pattern only), 13 N1 cases (window edges, quote currency, two events close together, N2 blackout), 14 X5 cases (the
+  first close inside each window, 30M/1H/4H, two events close together, the weekend), and 4 UTC-to-server cases.
+  Every expected value is worked out by hand in the comments. Run by `test_news.py` and `NNFX_NewsTest.mq5`. The
+  event list is the approved `news/news_events.txt` (D6e-1).
+- `news/calendar_catalogue_20261006.csv`: the calendar's own event list (1051 events) the mapping was made from.

@@ -24,7 +24,8 @@
 //|   the mismatches.                                                |
 //| InpMode = "depth": the earliest January with USD events, 2000 to |
 //|   2019 (recorded, not pass/fail).                                |
-//| Status: not yet compiled.                                        |
+//| Status: compiled 2026-10-06 (build 6241, 0 errors, 0 warnings);  |
+//| run calendar_export_20261006_182148 PASS.                        |
 //+------------------------------------------------------------------+
 // Inputs keep their defaults when run automatically (no input dialog, so unattended runs never wait for a click).
 #property strict

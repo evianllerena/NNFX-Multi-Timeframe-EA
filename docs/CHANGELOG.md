@@ -2,6 +2,34 @@
 
 Newest first.
 
+## 2026-10-06 — Phase 6e: news (calendar export + N1 / X5 / N2)
+
+- Owner: D6d-5 (the daily loss counts the whole account), D6e-1 (the approved event list: VP's own words, 21
+  entries), D6e-2 (N1 and X5 unchanged). G1_phase6d_1 verdict items 1-4 added to the 6f carry-overs.
+  `NNFX_GvTool.mq5`: `NNFX_MASTER` deleted from the demo terminal.
+- `news/news_events.txt`: VP's events mapped to MT5 calendar names. People's names are matched by role pattern
+  (`Fed Chair * Speech`, R-15), so a new chair or president is still caught.
+- `tests/python/nnfx_ref/news.py` (the answer key) and `tests/fixtures/news/news_cases.txt` (13 match, 13 N1, 14 X5,
+  4 UTC cases):
+  - N1 window (t, t+24h];
+  - X5 at the first close inside each event's window, from the actual previous close;
+  - the N2 blackout from the preset;
+  - two events close together.
+- `MQL5/Include/NNFX/News.mqh` (the port) and `NNFX_NewsTest.mq5`: 47/47 in MT5.
+- `NNFX_CalendarExport.mq5` modes:
+  - `list`: the catalogue, 1051 events;
+  - `export`: month by month, approved list only, **times in UTC**;
+  - `compare`: live calendar vs the file;
+  - `depth`.
+- `tools/run_calendar_export.ps1` runs them; `tools/check_calendar.py` checks the export (months, duplicates, VP's
+  events per year, time base against New York release times with named exceptions).
+- Findings:
+  - MT5's calendar gives ALL history in today's server offset. The file therefore stores UTC and the EA converts per
+    date with the broker's clock rule.
+  - The calendar reaches back to 2007.
+  - The live calendar and the exported file agree on 600 H1 closes of one week.
+- Planted bugs: 10 of 10.
+
 ## 2026-10-06 — Phase 6d: guard (switches and limits)
 
 - `tests/python/nnfx_ref/guard.py` (the answer key) and `tests/fixtures/guard/guard_cases.txt` (56 hand-worked

@@ -22,7 +22,8 @@
 //| date with its clock rule (Guard.mqh, D6d-4): the calendar gives  |
 //| history in TODAY's offset, so the file cannot hold server time.  |
 //| Never TimeLocal (D6d-4). No trading calls.                       |
-//| Status: not yet compiled.                                        |
+//| Status: compiled 2026-10-06 (build 6241, 0 errors, 0 warnings);  |
+//| NewsTest 47/47; planted bugs 7 of 7 (N1-N7).                     |
 //+------------------------------------------------------------------+
 #ifndef NNFX_NEWS_MQH
 #define NNFX_NEWS_MQH

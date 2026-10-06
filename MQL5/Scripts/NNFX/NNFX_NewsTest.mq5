@@ -8,7 +8,8 @@
 //| a new Fed chair / ECB president caught by the role pattern only),|
 //| N1 and N2 blocks, the X5 first-close flag.                       |
 //| Places NO orders. Writes MQL5\Files\NNFX_NewsTest.txt            |
-//| Status: not yet compiled.                                        |
+//| Status: compiled 2026-10-06 (build 6241, 0 errors, 0 warnings);  |
+//| 47/47.                                                           |
 //+------------------------------------------------------------------+
 // Inputs keep their defaults when run automatically (no input dialog, so unattended runs never wait for a click).
 #property strict

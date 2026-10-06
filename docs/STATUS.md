@@ -13,7 +13,7 @@ Last updated: 2026-10-06.
 | 3 Python answer key | Merged |
 | 4 MQL5 rules core | Merged (PR #3) |
 | 5 Indicator slots and profiles | Merged: PR #4 (at `58e2994`, before the G1_phase5_1 fixes; see note below) and PR #5 (the reviewed fixes, `0e701dd`) |
-| 6 Orders, risk, recovery, guard, news, EA | Plan: gate G2 **PASS** (`G2_phase6_1`), `docs/PLAN_PHASE6.md`; owner decisions OD-1 to OD-21 (OD-3 updated), D6c-1 to D6c-3, D6d-1 to D6d-4 and D-OPS-1 in `docs/DECISIONS.md`. **6a** merged (PR #6). **6b** merged (PR #7). **6c state and recovery** merged (PR #8, `G1_phase6c_2` PASS, merge `016bc3f`). **6d guard:** merged (PR #9, `G1_phase6d_1` PASS, merge `0e542f2`); daily loss account-wide (D6d-5). **6e news:** branch `phase-6e-news` from `main`, started. The MT5-offline check is deferred to the 6f G1 gate (D6b-1). 6f not started |
+| 6 Orders, risk, recovery, guard, news, EA | Plan: gate G2 **PASS** (`G2_phase6_1`), `docs/PLAN_PHASE6.md`; owner decisions OD-1 to OD-21 (OD-3 updated), D6c-1 to D6c-3, D6d-1 to D6d-4 and D-OPS-1 in `docs/DECISIONS.md`. **6a** merged (PR #6). **6b** merged (PR #7). **6c state and recovery** merged (PR #8, `G1_phase6c_2` PASS, merge `016bc3f`). **6d guard:** merged (PR #9, `G1_phase6d_1` PASS, merge `0e542f2`); daily loss account-wide (D6d-5). **6e news:** draft PR #10 (branch `phase-6e-news`), packet `G1_phase6e_1` in review. NewsTest 47/47; planted bugs 10 of 10; calendar export 2019.01-2026.09 PASS (times in UTC); live vs file identical. The MT5-offline check is deferred to the 6f G1 gate (D6b-1). 6f not started |
 | 7 onward | See `docs/SPEC.md` |
 
 **Note (2026-10-04):** PR #4 was merged at `58e2994` on 2026-10-04 15:47 UTC, 4.5 minutes after review
