@@ -254,6 +254,25 @@ int LiveEvents(string &cur[], const NNFXNewsEntry &entries[], const NNFXBroker &
    return ArraySize(out);
   }
 
+// The reasons are a set: the file is in time order, the live path currency by currency (run
+// calendar_export_20261006_182051, kept in invalid\)
+string SortedReasons(const string why)
+  {
+   string p[];
+   int n = StringSplit(why, ';', p);
+   for(int i = 1; i < n; i++)
+      for(int j = i; j > 0 && StringCompare(p[j - 1], p[j]) > 0; j--)
+        {
+         string x = p[j];
+         p[j] = p[j - 1];
+         p[j - 1] = x;
+        }
+   string s = "";
+   for(int i = 0; i < n; i++)
+      s += (i > 0 ? ";" : "") + p[i];
+   return s;
+  }
+
 void CompareWeek(string &cur[])
   {
    string listLines[];
@@ -300,7 +319,7 @@ void CompareWeek(string &cur[])
          compared++;
          blocks += bf ? 1 : 0;
          flags += xf ? 1 : 0;
-         if(wf != wl || xf != xl)
+         if(bf != bl || SortedReasons(wf) != SortedReasons(wl) || xf != xl)
            {
             mismatches++;
             if(mismatches <= 10)
