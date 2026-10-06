@@ -112,6 +112,9 @@ void CheckSymbol(const string sym)
    }
    int    digits = (int)SymbolInfoInteger(sym, SYMBOL_DIGITS);
    double point  = SymbolInfoDouble(sym, SYMBOL_POINT);
+   Out("Path on server:            " + SymbolInfoString(sym, SYMBOL_PATH));
+   Out("Trade mode:                " + EnumToString((ENUM_SYMBOL_TRADE_MODE)SymbolInfoInteger(sym, SYMBOL_TRADE_MODE)) +
+       ", calc mode " + EnumToString((ENUM_SYMBOL_CALC_MODE)SymbolInfoInteger(sym, SYMBOL_TRADE_CALC_MODE)));
    Out("Digits / point:            " + IntegerToString(digits) + " / " + DoubleToString(point, digits));
    Out("Spread now (points):       " + IntegerToString(SymbolInfoInteger(sym, SYMBOL_SPREAD))
        + (SymbolInfoInteger(sym, SYMBOL_SPREAD_FLOAT) != 0 ? " (floating)" : " (fixed)"));
@@ -211,8 +214,7 @@ void OnStart()
          string found = ResolveSymbol(syms[i]);
          Out("Requested " + syms[i] + ": " + (found == "" ? "NOT FOUND on this server" :
              (found == syms[i] ? "found, same name" : "found as " + found + " (suffix/prefix)")));
-         if(found != "")
-            syms[i] = found;
+         syms[i] = found;   // "" = not on this server: reported above, skipped below
         }
       Out("");
       connected = NNFXWaitConnected(syms, InpConnectWait, detail);

@@ -113,6 +113,21 @@ Monday 2026-10-05 22:24 EDT = **Tuesday 04:24 server time (Asian session)**. `RE
 | AUDCAD.pro | 5 | 21 (floating) | 0 / 0 | 0.01 / 0.01 / 50 | 0.00001 / 0.62516 | 1.25 / -3.14 (mode 5) | 1993.04.26 | 2016 error 4401; 2017, 2018 no; 2019-2026 yes |
 | CHFJPY.pro | 3 | 45 (floating) | 0 / 0 | 0.01 / 0.01 / **25** | 0.001 / 0.56468 | -2.28 / 0.26 (mode 5) | 1992.02.18 | 2016 error 4401; 2017, 2018 no; 2019-2026 yes |
 
+**Symbol class (owner, 2026-10-05): do NOT use plain EURUSD / EURGBP on OANDA TMS until this is settled.**
+Plain EURUSD and EURGBP show a FIXED 2400-point spread and swap mode 0 (no swaps); AUDNZD, AUDCAD and CHFJPY exist only
+as `.pro`. A read-only re-run of `NNFX_EnvCheck` for `EURUSD.pro` and `EURGBP.pro` (with each symbol's path on the
+server and trade mode) is to decide which symbol class the EA uses; result below when run.
+
+**Daily close and rollover on OANDA TMS (server GMT+2, read 2026-10-06):** the D1 candle opens at 00:00 server
+= 22:00 GMT = **18:00 New York** (EDT, UTC-4). The 17:00 New York rollover is **23:00 server**. (On MetaQuotes-Demo,
+GMT+3, both are 00:00 server.) The rollover block must use 23:00 server here, not server midnight (PLAN_PHASE6 6d).
+Both offsets change at daylight-saving changes (US and the broker's own); to re-read after each change.
+
+**Real ticks, Phase 8 input:** on the three `.pro` pairs the mid-January probe found real ticks from **2019** on
+(2017 and 2018 "no", 2016 error 4401). The probe reads one 3-day window per year, so "no" means none in that window,
+not proven none all year. A backtest on OANDA "every tick based on real ticks" would start in 2019 at the earliest
+(SPEC: "at least 3 years if the broker's history allows").
+
 **Warning, not verified: the plain-name EURUSD and EURGBP readings are probably not the tradable instruments.**
 Both show a fixed 2400-point spread and zero swaps (swap mode 0), unlike the three `.pro` pairs. EnvCheck takes the
 requested name first if it exists, so it never looked for `EURUSD.pro` / `EURGBP.pro`. To re-check with those names

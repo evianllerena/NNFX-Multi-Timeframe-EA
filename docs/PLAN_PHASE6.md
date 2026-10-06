@@ -385,7 +385,7 @@ At least 8:
 | `MQL5/Include/NNFX/Guard.mqh` (new) | `NNFXGuardBlocks(sym, candleTime, NNFXGuardState &g, string &blocks)` | Builds the core's `block` string for one pair and candle: master off, instance off, drawdown pause, daily loss, rollover, weekend, max spread, indicator failure (exposure comes from 6a, news from 6e) |
 | | `NNFXDrawdownUpdate(g)` / `NNFXDrawdownReset()` | Tracks the peak of equity, sampled at each candle close (OD-2 (c)), and pauses at −10%. Reset by hand only (S-6), through a chart button with a confirm step or a global variable the owner sets |
 | | `NNFXDailyLossUpdate(g)` | Day's loss from closed trades only vs 3 × risk; the day starts at server midnight, i.e. the daily close at 00:00 server (OD-3) |
-| | `NNFXInRollover(t, dailyClose)` | 15 min before to 60 min after the daily close. Daily close = 00:00 server time per ENVIRONMENT.md ("EURUSD D1 candle opened 2026.10.02 00:00"; D1 candles open 00:00 server). A setting, not assumed |
+| | `NNFXInRollover(t, rolloverTime)` | 15 min before to 60 min after the **real rollover** (decision R-10, based on M9 [A]: "Spreads are very wide for about an hour after the daily close"). **Owner, 2026-10-05: the block is keyed to the real rollover time (17:00 New York), set per broker in server time, NEVER to "server midnight".** On MetaQuotes-Demo (GMT+3) 17:00 New York (EDT) = 00:00 server, the D1 candle open; on OANDA TMS (GMT+2) it is **23:00 server**, while the D1 candle opens at 00:00 server = 18:00 New York (`docs/ENVIRONMENT.md`). The setting moves with each broker's daylight-saving offset; the V12 rollover sample checks it |
 | | `NNFXInWeekendBlock(t, hours)` | Off by default |
 | | `NNFXMasterOn()` | Reads the terminal global variable (name fixed in code) |
 | | `NNFXNotify(text)` | Log + Alert + optional `SendNotification` (push needs a MetaQuotes ID set in MT5; **unverified** on this PC) |
@@ -399,7 +399,7 @@ At least 8:
 | Test | Pass line |
 | --- | --- |
 | `NNFX_GuardTest` (script) | `RESULT: <n> passed, 0 failed, <n> total` |
-| Rollover sample (V12) | `NNFX_GuardTest` prints the computed block window for 5 sample days on both sides of a daylight-saving change. Each one must equal the window derived by hand from the server's D1 candle open times (`docs/VERIFICATION.md` row) |
+| Rollover sample (V12) | `NNFX_GuardTest` prints the computed block window for 5 sample days on both sides of a daylight-saving change, for each broker (MetaQuotes-Demo and OANDA TMS). Each one must equal the window derived by hand from 17:00 New York converted to that server's time on that day (not from the D1 candle open) (`docs/VERIFICATION.md` row) |
 | Master switch | Demo: two charts with the test EA. Set the global variable off → both log `blocked:master` on their next candle; open test trades keep being managed (their trailing/BE log lines continue) |
 | Global variables in the tester | Strategy Tester: confirm whether the terminal global variable is visible. **Unverified**: MT5 may keep tester global variables separate (section 13). Pass line is whatever is found, recorded |
 | Close-all button | Manual, demo: confirm dialog appears; only this instance's magic is closed; manual trades untouched |

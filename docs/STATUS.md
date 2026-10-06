@@ -21,6 +21,16 @@ G1_phase5_1 returned CHANGES REQUESTED and before its fixes. The fix commits `52
 were pushed to the merged branch afterwards, so they did not reach `main`. This PR (branch `phase-5-fixes`)
 brings them to `main` (merged 2026-10-04 as `0e701dd`). Guards against a repeat: `docs/REVIEW_PROTOCOL.md`, "Merge safety".
 
+## OANDA TMS (candidate live broker, D6c-2)
+
+Read-only EnvCheck on demo 62316800 (`docs/ENVIRONMENT.md`): hedging, EUR account, server GMT+2. Open points:
+- **Symbol class:** plain EURUSD/EURGBP show a fixed 2400-point spread and no swaps; AUDNZD/AUDCAD/CHFJPY exist only
+  as `.pro`. Plain EURUSD/EURGBP are NOT to be used until a re-run with `EURUSD.pro` / `EURGBP.pro` settles which class
+  the EA uses (pending; needs the OANDA terminal closed for a few minutes).
+- **Rollover:** 17:00 New York = 23:00 server on OANDA (D1 opens 00:00 server = 18:00 New York); the 6d rollover block
+  is keyed to the real rollover per broker, never to server midnight (`docs/PLAN_PHASE6.md` 6d).
+- **Phase 8 input:** real ticks on the `.pro` pairs from 2019 only (2017/2018 "no" in the probe).
+
 ## Waiting on the owner
 
 - Tick I-1, I-2, I-3, I-7, I-9 in the living rulebook doc; then refresh the `docs/RULEBOOK.md` snapshot.
