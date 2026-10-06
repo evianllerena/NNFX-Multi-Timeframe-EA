@@ -77,6 +77,10 @@ input string InpServerDst      = "US";   // broker clock: daylight-saving rule "
 input double InpWeekendHours   = 0;      // S-7: block the last N hours before the Friday boundary (0 = off)
 input double InpMaxSpread      = 0;      // points; 0 = off (not set until spreads are measured)
 input int    InpTesterMaster   = -1;     // TESTER ONLY: -1 = read NNFX_MASTER, 1 = on, 0 = off (refused outside it)
+// TESTER ONLY: at the first candle at/after this time the drawdown pause is switched on as if equity had fallen 10%,
+// so a pause can start while a trade is open ("none" = off; refused outside the tester). The limits otherwise trip
+// from closed losses only, with the account flat (run 6d_drawdown_pause_20261006_114114).
+input string InpTesterPauseAt  = "none";
 input string InpBaseline      = "ref_baseline_sma20.txt";  // Profiles (Common\Files\NNFX\profiles) for the tracker
 input string InpC1            = "ref_c1_rvi10.txt";
 input string InpC2            = "ref_c2_macd_main.txt";
@@ -105,6 +109,7 @@ bool             g_cleanup = false;     // InpCloseLeftovers run: no trading at 
 NNFXBroker       g_broker;
 NNFXDrawdown     g_dd;
 bool             g_dl_was = false;      // daily loss blocked at the last candle (to log the change once)
+bool             g_pause_forced = false;
 bool             g_pending_rebuild = false;  // a real restart: no trading until the rebuild has run (OnTimer)
 uint             g_ready_since = 0;     // GetTickCount() when MT5 was first seen connected and logged in
 string           g_last_saved = "";
@@ -337,6 +342,17 @@ string GuardAtCandle(const bool indicatorOk)
       Row("GUARD", resetText);
    bool was = g_dd.paused;
    NNFXDrawdownSample(g_dd, equity);
+   if(g_mode == "tester" && InpTesterPauseAt != "none" && !g_pause_forced && t >= StringToTime(InpTesterPauseAt))
+     {
+      g_pause_forced = true;
+      if(!g_dd.paused)
+        {
+         g_dd.paused = true;
+         was = true;   // logged here, not as a real pause
+         Row("GUARD", StringFormat("TEST: drawdown pause forced (InpTesterPauseAt %s, tester only); %d trade(s) open",
+                                   InpTesterPauseAt, g_orders.TradeCount()));
+        }
+     }
    NNFXDrawdownSave(g_dd);
    if(g_dd.paused && !was)
      {
@@ -393,6 +409,11 @@ int OnInit()
    if(InpGuard && InpServerDst != "none" && InpServerDst != "EU" && InpServerDst != "US")
      {
       Print("NNFX_OrderTest: InpServerDst must be none, EU or US");
+      return INIT_PARAMETERS_INCORRECT;
+     }
+   if(InpTesterPauseAt != "none" && MQLInfoInteger(MQL_TESTER) == 0)
+     {
+      Print("NNFX_OrderTest: InpTesterPauseAt is for the Strategy Tester only");
       return INIT_PARAMETERS_INCORRECT;
      }
    if(InpTesterMaster >= 0 && MQLInfoInteger(MQL_TESTER) == 0)

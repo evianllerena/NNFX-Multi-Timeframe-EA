@@ -9,11 +9,14 @@ key (tests/python/nnfx_ref/guard.py) from each row's server time and the broker'
   - open trades keep being managed while new entries are blocked (S-2): with --require-managed, at least one
     management row (TP1, BE, TRAILON, TRAIL, SL, TP2, EXIT, CLOSE) inside a rollover window
   - at least --min-skips SKIP rows naming rollover (the window really was exercised)
+  - with --managed-during-pause: from the first GUARD row starting a drawdown pause (real or "TEST: ... forced"),
+    no new entry at all (the pause is reset by hand only, S-6) and at least one management row of a trade that was
+    open when the pause started (S-2)
 
 Times in the log are the EA's TimeCurrent() (server time) to the second; the windows are evaluated at that second.
 
 Usage:  python tools/check_guard_log.py LOG.csv --winter-offset 2 --dst US [--weekend-hours H] [--min-skips N]
-                                        [--require-managed]
+                                        [--require-managed] [--managed-during-pause]
 Exit code 0 = PASS.
 """
 import argparse
@@ -28,7 +31,7 @@ from nnfx_ref import guard as g  # noqa: E402
 MANAGED = ("TP1", "BE", "TRAILON", "TRAIL", "SL", "TP2", "EXIT", "CLOSE")
 
 
-def check(path, broker, weekend_hours, min_skips, require_managed):
+def check(path, broker, weekend_hours, min_skips, require_managed, during_pause=False):
     with open(path, encoding="ascii", newline="") as f:
         rows = list(csv.DictReader(f))
     fails, counts = [], {"open": 0, "skip": 0, "skip_rollover": 0, "skip_weekend": 0, "managed_in_rollover": 0}
@@ -54,6 +57,24 @@ def check(path, broker, weekend_hours, min_skips, require_managed):
             counts["skip_weekend"] += "weekend" in reasons
         elif ev in MANAGED and roll:
             counts["managed_in_rollover"] += 1
+    if during_pause:
+        start = next((i for i, r in enumerate(rows) if r["event"] == "GUARD" and "drawdown pause" in r["note"]), None)
+        if start is None:
+            fails.append("no GUARD row starting a drawdown pause")
+        else:
+            opened = {r["trade_id"] for r in rows[:start] if r["event"] == "OPEN"}
+            closed_before = {r["trade_id"] for r in rows[:start] if r["event"] in ("SL", "TP2", "EXIT", "CLOSE") and r["half"] == "2"}
+            open_then = opened - closed_before
+            after = rows[start + 1:]
+            new = [r for r in after if r["event"] == "OPEN"]
+            managed = [r for r in after if r["event"] in MANAGED and r["trade_id"] in open_then]
+            print("pause from %s (%s): trades open then %s; management rows after it %d (%s); new entries after it %d"
+                  % (rows[start]["time"], rows[start]["note"][:60], sorted(open_then), len(managed),
+                     ", ".join("%s %s" % (r["time"][5:16], r["event"]) for r in managed[:8]), len(new)))
+            if new:
+                fails.append("%d new entries after the drawdown pause started (first %s)" % (len(new), new[0]["time"]))
+            if not managed:
+                fails.append("no management row of an open trade after the drawdown pause started")
     print("%s: %d rows; new entries %d; SKIP %d (rollover %d, weekend %d); management rows inside rollover %d"
           % (os.path.basename(path), len(rows), counts["open"], counts["skip"], counts["skip_rollover"],
              counts["skip_weekend"], counts["managed_in_rollover"]))
@@ -78,8 +99,10 @@ def main(argv=None):
     ap.add_argument("--weekend-hours", type=float, default=0.0)
     ap.add_argument("--min-skips", type=int, default=1)
     ap.add_argument("--require-managed", action="store_true")
+    ap.add_argument("--managed-during-pause", action="store_true")
     a = ap.parse_args(argv)
-    ok = check(a.log, g.Broker("log", a.winter_offset, a.dst), a.weekend_hours, a.min_skips, a.require_managed)
+    ok = check(a.log, g.Broker("log", a.winter_offset, a.dst), a.weekend_hours, a.min_skips, a.require_managed,
+               a.managed_during_pause)
     return 0 if ok else 1
 
 

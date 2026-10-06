@@ -265,7 +265,7 @@ if ($PythonOnly) {
           "InpStoplessTest=true", "InpLoseReplyOn=3", "InpAbortOn=7", "InpStopsRefuseOn=9", "InpMarginRefuseOn=11",
           "InpModifyOn=13", "InpStopWhenDone=false", "InpRestartAt=none", "InpRestartDeleteState=false",
           "InpRestartIgnoreComments=false", "InpCloseLeftovers=false",
-          "InpGuard=false", "InpInstanceOn=true", "InpServerWinterOffset=2", "InpServerDst=US", "InpWeekendHours=0", "InpMaxSpread=0", "InpTesterMaster=-1") |
+          "InpGuard=false", "InpInstanceOn=true", "InpServerWinterOffset=2", "InpServerDst=US", "InpWeekendHours=0", "InpMaxSpread=0", "InpTesterMaster=-1", "InpTesterPauseAt=none") |
             Set-Content -LiteralPath $ini -Encoding ASCII
         $err = Run-Terminal $ini 60
         if ((Fresh $orderSummary $t0) -and (Fresh $orderLog $t0)) {
@@ -296,7 +296,7 @@ if ($PythonOnly) {
           "InpModifyOn=0", "InpStopWhenDone=false", "InpRestartAt=none", "InpRestartDeleteState=false",
           "InpRestartIgnoreComments=false", "InpCloseLeftovers=false",
           "InpGuard=true", "InpInstanceOn=true", "InpServerWinterOffset=2", "InpServerDst=US", "InpWeekendHours=4",
-          "InpMaxSpread=0", "InpTesterMaster=1") |
+          "InpMaxSpread=0", "InpTesterMaster=1", "InpTesterPauseAt=none") |
             Set-Content -LiteralPath $ini -Encoding ASCII
         $err = Run-Terminal $ini 60
         if ((Fresh $orderSummary $t0) -and (Fresh $orderLog $t0)) {
@@ -313,6 +313,34 @@ if ($PythonOnly) {
             Step "4c guard run (tester)" "NOT RUN" "$why (automation did not engage)"
         }
         Get-ChildItem "$MT5\NNFX_OrderTest_guard*" -ErrorAction SilentlyContinue | Copy-Item -Destination $Out -Force
+
+        # 4d. Drawdown pause while a trade is open: the 4c run again, with the pause forced (tester only) at
+        # 2026.06.09 13:00, when T0029 is open after TP1 at breakeven (run 20261006_114423). The real pause (run
+        # 6d_drawdown_pause_20261006_114114) tripped from a closed loss with the account flat. Checked in step 5.
+        $t0 = Get-Date
+        $ini = "$Out\run_NNFX_OrderTest_pause.ini"
+        @("[Tester]", "Expert=NNFX\NNFX_OrderTest", "Symbol=EURUSD", "Period=H1", "Model=1",
+          "FromDate=$TesterFrom", "ToDate=$TesterTo", "ForwardMode=0", "Optimization=0", "Visual=0",
+          "Report=NNFX_OrderTest_pause", "ReplaceReport=1", "ShutdownTerminal=1",
+          "[TesterInputs]", "InpRiskPct=0.1", "InpEveryBars=1", "InpMaxTrades=0", "InpMinLots=false", "InpMagic=26995",
+          "InpStoplessTest=false", "InpLoseReplyOn=0", "InpAbortOn=0", "InpStopsRefuseOn=0", "InpMarginRefuseOn=0",
+          "InpModifyOn=0", "InpStopWhenDone=false", "InpRestartAt=none", "InpRestartDeleteState=false",
+          "InpRestartIgnoreComments=false", "InpCloseLeftovers=false",
+          "InpGuard=true", "InpInstanceOn=true", "InpServerWinterOffset=2", "InpServerDst=US", "InpWeekendHours=4",
+          "InpMaxSpread=0", "InpTesterMaster=1", "InpTesterPauseAt=2026.06.09 13:00") |
+            Set-Content -LiteralPath $ini -Encoding ASCII
+        $err = Run-Terminal $ini 60
+        if ((Fresh $orderSummary $t0) -and (Fresh $orderLog $t0)) {
+            Copy-Item $orderLog "$Out\OrderTest_EURUSD_tester_pause.csv" -Force
+            Copy-Item $orderSummary "$Out\OrderTest_EURUSD_tester_pause_summary.txt" -Force
+            $res = ([regex]::Matches((ReadText $orderSummary), "(?m)^RESULT:.*$") | Select-Object -Last 1).Value
+            Step "4d pause run (tester)" "PASS" $(if ($res) { $res.Trim() + "; checked in step 5" } else { "summary has no RESULT line" })
+            $script:PauseLogThisRun = "$Out\OrderTest_EURUSD_tester_pause.csv"
+        } else {
+            $why = if ($err) { $err } else { "tester ran but wrote no new trade log" }
+            Step "4d pause run (tester)" "NOT RUN" "$why (automation did not engage)"
+        }
+        Get-ChildItem "$MT5\NNFX_OrderTest_pause*" -ErrorAction SilentlyContinue | Copy-Item -Destination $Out -Force
     }
 }
 
@@ -415,6 +443,17 @@ if (-not $script:PyExe) {
         $o | Set-Content "$Out\check_trades_guard.txt" -Encoding ASCII
         $res = ([regex]::Matches($o, "(?m)^RESULT.*$") | Select-Object -Last 1).Value
         Step "5 check_trades.py (guard run)" $(if ($code -eq 0) { "PASS" } else { "FAIL" }) $(if ($res) { $res.Trim() } else { "" })
+    }
+    if (-not $script:PauseLogThisRun) {
+        Step "5 check_guard_log.py (pause)" "NOT RUN" "no pause-run trade log written in this run"
+    } else {
+        $o = Run-Py @("$Repo\tools\check_guard_log.py", $script:PauseLogThisRun, "--winter-offset", "2", "--dst", "US",
+                      "--weekend-hours", "4", "--min-skips", "1", "--managed-during-pause")
+        $code = $LASTEXITCODE
+        $o | Set-Content "$Out\check_guard_log_pause.txt" -Encoding ASCII
+        $res = ([regex]::Matches($o, "(?m)^RESULT.*$") | Select-Object -Last 1).Value
+        $pl = ([regex]::Matches($o, "(?m)^pause from .*$") | Select-Object -First 1).Value
+        Step "5 check_guard_log.py (pause)" $(if ($code -eq 0) { "PASS" } else { "FAIL" }) $(if ($res) { $res.Trim() + $(if ($pl) { "; " + $pl.Trim() }) } else { "" })
     }
 }
 

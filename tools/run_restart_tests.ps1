@@ -57,7 +57,7 @@ $defaults = [ordered]@{ InpRiskPct = "2.0"; InpEveryBars = "6"; InpMaxTrades = "
     InpStoplessTest = "false"; InpLoseReplyOn = "0"; InpAbortOn = "0"; InpStopsRefuseOn = "0"; InpMarginRefuseOn = "0";
     InpModifyOn = "0"; InpStopWhenDone = "false"; InpRestartAt = "none"; InpRestartDeleteState = "false";
     InpRestartIgnoreComments = "false"; InpCloseLeftovers = "false";
-    InpGuard = "false"; InpInstanceOn = "true"; InpServerWinterOffset = "2"; InpServerDst = "US"; InpWeekendHours = "0"; InpMaxSpread = "0"; InpTesterMaster = "-1" }
+    InpGuard = "false"; InpInstanceOn = "true"; InpServerWinterOffset = "2"; InpServerDst = "US"; InpWeekendHours = "0"; InpMaxSpread = "0"; InpTesterMaster = "-1"; InpTesterPauseAt = "none" }
 # the tested terminal (full path, D6c-1) open now, whoever started it
 function Tested-Open { return @(Get-Process -Name terminal64 -ErrorAction SilentlyContinue | Where-Object { $_.Path -ieq $Terminal }) }
 function Run-Tester([string]$name, [string[]]$inputs) {

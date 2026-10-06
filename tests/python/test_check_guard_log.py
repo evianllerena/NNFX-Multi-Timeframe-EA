@@ -94,6 +94,60 @@ class TestCheckGuardLog(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("no management row inside a rollover window", out)
 
+    # --managed-during-pause: the drawdown pause starts while a trade is open
+    def pause_rows(self):
+        return [
+            row("2026.06.09 12:00:01", "OPEN", tid="T0029", half=1),
+            row("2026.06.09 12:00:01", "OPEN", tid="T0029", half=2),
+            row("2026.06.09 12:22:40", "TP1", tid="T0029", half=1),
+            row("2026.06.09 13:00:00", "GUARD", "TEST: drawdown pause forced (InpTesterPauseAt ...)"),
+            row("2026.06.09 15:00:00", "TRAILON", tid="T0029", half=2),
+            row("2026.06.09 15:00:00", "TRAIL", tid="T0029", half=2),
+            row("2026.06.09 17:17:40", "SL", tid="T0029", half=2),
+            row("2026.06.09 18:00:01", "SKIP", "blocked:drawdown"),
+            row("2026.06.10 00:00:01", "SKIP", "blocked:drawdown;rollover"),
+        ]
+
+    def run_pause(self, rows):
+        return self.run_rows_flag(rows)
+
+    def run_rows_flag(self, rows):
+        tmp = tempfile.NamedTemporaryFile("w", suffix=".csv", delete=False, newline="", encoding="ascii")
+        w = csv.DictWriter(tmp, fieldnames=COLS, lineterminator="\r\n")
+        w.writeheader()
+        w.writerows(rows)
+        tmp.close()
+        buf = io.StringIO()
+        try:
+            with redirect_stdout(buf):
+                ok = c.check(tmp.name, MQ, 0.0, 0, False, True)
+        finally:
+            os.remove(tmp.name)
+        return ok, buf.getvalue()
+
+    def test_managed_during_pause_passes(self):
+        ok, out = self.run_pause(self.pause_rows())
+        self.assertTrue(ok, out)
+        self.assertIn("trades open then ['T0029']; management rows after it 3", out)
+
+    def test_entry_after_pause_fails(self):
+        ok, out = self.run_pause(self.pause_rows() + [row("2026.06.11 10:00:00", "OPEN", tid="T0030", half=1)])
+        self.assertFalse(ok)
+        self.assertIn("new entries after the drawdown pause started", out)
+
+    def test_no_management_after_pause_fails(self):
+        rs = [r for r in self.pause_rows() if r["event"] not in ("TRAILON", "TRAIL", "SL")]
+        ok, out = self.run_pause(rs)
+        self.assertFalse(ok)
+        self.assertIn("no management row of an open trade", out)
+
+    def test_flat_at_pause_fails(self):
+        rs = self.pause_rows()
+        rs.insert(3, row("2026.06.09 12:50:00", "SL", tid="T0029", half=2))
+        ok, out = self.run_pause(rs)
+        self.assertFalse(ok)
+        self.assertIn("trades open then []", out)
+
     def test_min_skips(self):
         ok, out = self.run_rows(good(), min_skips=3)
         self.assertFalse(ok)
