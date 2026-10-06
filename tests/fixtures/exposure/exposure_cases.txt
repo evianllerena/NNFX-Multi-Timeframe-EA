@@ -22,6 +22,9 @@ EX|split_halves|split|2|-|EURUSD:1;EURGBP:1|1;1
 EX|split_respects_open|split|2|EURJPY:1|EURUSD:1;EURGBP:1|0;0
 # split: three signals all long EUR -> all skipped (OD-4)
 EX|split_three_on_leg_skip|split|2|-|EURUSD:1;EURGBP:1;EURJPY:1|0;0;0
+# G1_phase6a_1 verdict note 2: second OD-4 case. Three signals long EUR are all skipped; AUDNZD long shares no leg
+# with anything -> keeps 2%
+EX|split_three_on_leg_plus_unrelated|split|2|-|EURUSD:1;EURGBP:1;EURJPY:1;AUDNZD:1|0;0;0;2
 # split: EURUSD (+EUR -USD), EURGBP (+EUR -GBP), GBPJPY short (-GBP +JPY): +EUR twice, -GBP twice -> 1% each
 EX|split_two_shared_legs|split|2|-|EURUSD:1;EURGBP:1;GBPJPY:-1|1;1;1
 # OD-21: an open XAUUSD short (would be long USD) is ignored; EURUSD short = long USD -> allowed

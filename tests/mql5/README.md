@@ -122,5 +122,19 @@ Runs the shared cases `tests/fixtures/sizing/sizing_cases.txt` and `tests/fixtur
 **Pass line:** `RESULT: 42 passed, 0 failed, 42 total`. The `LIVE` lines after it (tick values, the OD-6 choice,
 the sizing for a 1.5 x ATR(14) H1 stop) are information only and never counted.
 
+## Phase 6b: orders (`NNFX_SafetyTest`, `NNFX_OrderMathTest`, `NNFX_OrderTest`)
+
+All three run from the runner. **Pass lines:** `RESULT: 6 passed, 0 failed, 6 total` (SafetyTest),
+`RESULT: 22 passed, 0 failed, 22 total` (OrderMathTest); step 4b runs the test EA `NNFX_OrderTest` in the Strategy
+Tester (EURUSD H1, 1 minute OHLC) and step 5 checks its trade log with `tools/check_trades.py --min-trades 20
+--require SL,TP1,BE,TRAILON,TRAIL,TP2,EXIT,RETRY,TESTSTOPLESS,ABORT,REFUSE,MODIFY --require-note "free margin"
+--require-note "minimum distance" --require-note "via="`: `RESULT OrderTest_EURUSD_tester.csv: PASS (0 failures)`.
+The test EA forces, in the tester only, an ABORT (trade 7), a REFUSE for the stops level (9) and for free margin
+(11, OD-5), and a MODIFY (13, SL/TP planned off the fill) through `#ifdef NNFX_TEST_BUILD` hooks in `Orders.mqh`.
+
+Demo order run (weekday, by hand): attach `NNFX\NNFX_OrderTest` to a EURUSD H1 chart on the demo account with
+`InpMinLots=true`, `InpMaxTrades=5`; the stopless and lost-reply tests are tester-only and are refused on demo.
+Then `python tools\check_trades.py "...\Common\Files\NNFX\trades\OrderTest_EURUSD_demo.csv"`.
+
 Offline checks (carry-over 1): `tools/run_offline_check.ps1 -NoPython` (no owner action) and `-Mt5Offline`
 (needs the firewall rule described in that script's header, added and removed by the owner).

@@ -20,3 +20,11 @@ Format: see `tests/python/nnfx_ref/fixtures.py`. Rebuild with
 - `exposure/exposure_cases.txt`: 22 cases (15 allocations in modes first/split, 7 symbol readings incl. non-FX).
 - Every answer is worked out by hand in the file's comments. Run by `test_sizing_exposure_fixtures.py` and
   `NNFX_SizingTest.mq5`.
+
+## Phase 6b additions
+
+- `orders/order_cases.txt`: 28 cases: 8 price plans (OP), 3 rejected inputs (OE), 8 trail steps (TR), 3 stop
+  distances (SD), 6 safety decisions (SF). Run by `test_orders.py`, `NNFX_OrderMathTest.mq5` (OP/OE/TR/SD) and
+  `NNFX_SafetyTest.mq5` (SF).
+- G1_phase6a_1 verdict note 2: `sizing_cases.txt` gains 3 cases (minimum lot and volume cap with lot step 0.1),
+  `exposure_cases.txt` 1 (a second OD-4 case); now 23 + 23 cases.

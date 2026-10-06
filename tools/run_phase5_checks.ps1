@@ -7,14 +7,20 @@ What it does, in order (each step's result goes in SUMMARY.txt):
   3. Starts MT5 once per script with a /config file ([StartUp] Script=..., ShutdownTerminal=1):
        NNFX_RulesTest   pass line  RESULT: 47 passed, 0 failed, 47 total
        NNFX_SignalTest  pass line  RESULT: 56 passed, 0 failed, 56 total
-       NNFX_SizingTest  pass line  RESULT: 42 passed, 0 failed, 42 total   (Phase 6a; its LIVE lines
+       NNFX_SizingTest  pass line  RESULT: 46 passed, 0 failed, 46 total   (Phase 6a; its LIVE lines
                         are information only)
+       NNFX_SafetyTest  pass line  RESULT: 6 passed, 0 failed, 6 total     (Phase 6b, S1)
+       NNFX_OrderMathTest pass line RESULT: 22 passed, 0 failed, 22 total  (Phase 6b)
        NNFX_EnvCheck    information only, but must be read after login: "RESULT: VALID ..."
                         ("RESULT: INVALID (not connected)" is a FAIL)
        NNFX_ExportBars  pass line  RESULT: 5 of 5 pairs complete
      A report only counts if it was written during this run.
   4. Starts the Strategy Tester with a /config file ([Tester] Expert=NNFX\NNFX_RepaintCheck ...)
        pass line  RESULT: NO REPAINTING FOUND
+     4b. The Phase 6b order run: Expert=NNFX\NNFX_OrderTest on EURUSD H1 (orders in the tester only);
+       its trade log is checked in step 5 by tools/check_trades.py (at least 20 trades and every
+       order path: SL, TP1, BE, TRAILON, TRAIL, TP2, EXIT, RETRY, TESTSTOPLESS, ABORT, REFUSE for the
+       stops level and for free margin, MODIFY; BE rows note which poll moved the stop, "via=")
   5. Runs the Python tests, tools/check_export.py --replay and tools/check_indicators.py on the
      exports written in step 3. Python is found automatically (-Python if given, then `py -3`,
      then `python`, then the newest %LOCALAPPDATA%\Programs\Python\Python3*\python.exe); each
@@ -57,6 +63,7 @@ $Stamp    = Get-Date -Format "yyyyMMdd_HHmmss"
 $Out      = Join-Path $MT5 "MQL5\Files\NNFX\checks\$Stamp"
 $Summary  = New-Object System.Collections.Generic.List[string]
 $AllPass  = $true
+$script:OrderLogThisRun = $null
 
 function Say([string]$text) { Write-Host $text; $script:Summary.Add($text) }
 function Step([string]$name, [string]$status, [string]$detail) {
@@ -89,7 +96,7 @@ if ($PythonOnly) {
     New-Item -ItemType Directory -Force "$MT5\MQL5\Include\NNFX", "$MT5\MQL5\Scripts\NNFX", "$MT5\MQL5\Experts\NNFX",
         "$MT5\MQL5\Files\NNFX\fixtures", "$MT5\MQL5\Files\NNFX\signals", "$MT5\MQL5\Files\NNFX\profiles_bad",
         "$MT5\MQL5\Files\NNFX\export", "$MT5\MQL5\Files\NNFX\sizing", "$MT5\MQL5\Files\NNFX\exposure",
-        "$Common\NNFX\profiles", "$Common\NNFX\reports" | Out-Null
+        "$MT5\MQL5\Files\NNFX\orders", "$Common\NNFX\profiles", "$Common\NNFX\reports", "$Common\NNFX\trades" | Out-Null
     $ErrorActionPreference = "Stop"
     Copy-Item "$Repo\MQL5\Include\NNFX\*.mqh" "$MT5\MQL5\Include\NNFX\" -Force
     Copy-Item "$Repo\MQL5\Scripts\NNFX\*.mq5" "$MT5\MQL5\Scripts\NNFX\" -Force
@@ -99,13 +106,15 @@ if ($PythonOnly) {
     Copy-Item "$Repo\tests\fixtures\profiles_bad\*.txt" "$MT5\MQL5\Files\NNFX\profiles_bad\" -Force
     Copy-Item "$Repo\tests\fixtures\sizing\sizing_cases.txt" "$MT5\MQL5\Files\NNFX\sizing\" -Force
     Copy-Item "$Repo\tests\fixtures\exposure\exposure_cases.txt" "$MT5\MQL5\Files\NNFX\exposure\" -Force
+    Copy-Item "$Repo\tests\fixtures\orders\order_cases.txt" "$MT5\MQL5\Files\NNFX\orders\" -Force
     Copy-Item "$Repo\profiles\*.txt" "$Common\NNFX\profiles\" -Force
     $ErrorActionPreference = "Continue"
     Step "1 copy files" "PASS" ""
 
     # ---------------------------------------------------------------- 2. compile
     $programs = @("Scripts\NNFX\NNFX_RulesTest", "Scripts\NNFX\NNFX_SignalTest", "Scripts\NNFX\NNFX_ExportBars",
-                  "Scripts\NNFX\NNFX_EnvCheck", "Experts\NNFX\NNFX_RepaintCheck", "Scripts\NNFX\NNFX_SizingTest")
+                  "Scripts\NNFX\NNFX_EnvCheck", "Experts\NNFX\NNFX_RepaintCheck", "Scripts\NNFX\NNFX_SizingTest",
+                  "Scripts\NNFX\NNFX_SafetyTest", "Scripts\NNFX\NNFX_OrderMathTest", "Experts\NNFX\NNFX_OrderTest")
     $compileOk = $true
     foreach ($f in $programs) {
         $src = "$MT5\MQL5\$f.mq5"; $log = "$MT5\MQL5\$f.log"; $ex5 = "$MT5\MQL5\$f.ex5"
@@ -151,7 +160,9 @@ if ($PythonOnly) {
     $scripts = @(
         @{ Name = "NNFX_RulesTest";  Report = "$MT5\MQL5\Files\NNFX_RulesTest.txt";        Pass = "RESULT: 47 passed, 0 failed, 47 total"; Min = 5 },
         @{ Name = "NNFX_SignalTest"; Report = "$MT5\MQL5\Files\NNFX_SignalTest.txt";       Pass = "RESULT: 56 passed, 0 failed, 56 total"; Min = 5 },
-        @{ Name = "NNFX_SizingTest"; Report = "$MT5\MQL5\Files\NNFX_SizingTest.txt";       Pass = "RESULT: 42 passed, 0 failed, 42 total"; Min = 5 },
+        @{ Name = "NNFX_SizingTest"; Report = "$MT5\MQL5\Files\NNFX_SizingTest.txt";       Pass = "RESULT: 46 passed, 0 failed, 46 total"; Min = 5 },
+        @{ Name = "NNFX_SafetyTest"; Report = "$MT5\MQL5\Files\NNFX_SafetyTest.txt";       Pass = "RESULT: 6 passed, 0 failed, 6 total"; Min = 5 },
+        @{ Name = "NNFX_OrderMathTest"; Report = "$MT5\MQL5\Files\NNFX_OrderMathTest.txt"; Pass = "RESULT: 22 passed, 0 failed, 22 total"; Min = 5 },
         @{ Name = "NNFX_EnvCheck";   Report = "$MT5\MQL5\Files\NNFX_EnvCheck.txt";         Pass = "RESULT: VALID";                          Min = 20; Info = $true },
         @{ Name = "NNFX_ExportBars"; Report = "$MT5\MQL5\Files\NNFX\export\_summary.txt";  Pass = "RESULT: 5 of 5 pairs complete";          Min = 30 }
     )
@@ -198,6 +209,27 @@ if ($PythonOnly) {
             Step "4 repaint check (tester)" "NOT RUN" "$why (automation did not engage; see tests/mql5/README.md)"
         }
         Get-ChildItem "$MT5\NNFX_RepaintCheck_tester*" -ErrorAction SilentlyContinue | Copy-Item -Destination $Out -Force
+
+        # 4b. Phase 6b order run in the tester (orders are allowed only in the tester or on DEMO)
+        $orderSummary = "$Common\NNFX\trades\OrderTest_EURUSD_tester_summary.txt"
+        $orderLog = "$Common\NNFX\trades\OrderTest_EURUSD_tester.csv"
+        $t0 = Get-Date
+        $ini = "$Out\run_NNFX_OrderTest.ini"
+        @("[Tester]", "Expert=NNFX\NNFX_OrderTest", "Symbol=EURUSD", "Period=H1", "Model=1",
+          "FromDate=$TesterFrom", "ToDate=$TesterTo", "ForwardMode=0", "Optimization=0", "Visual=0",
+          "Report=NNFX_OrderTest_tester", "ReplaceReport=1", "ShutdownTerminal=1") |
+            Set-Content -LiteralPath $ini -Encoding ASCII
+        $err = Run-Terminal $ini 60
+        if ((Fresh $orderSummary $t0) -and (Fresh $orderLog $t0)) {
+            Copy-Item $orderSummary, $orderLog "$Out\" -Force
+            $res = ([regex]::Matches((ReadText $orderSummary), "(?m)^RESULT:.*$") | Select-Object -Last 1).Value
+            Step "4b order run (tester)" "PASS" $(if ($res) { $res.Trim() + "; checked in step 5" } else { "summary has no RESULT line" })
+            $script:OrderLogThisRun = "$Out\OrderTest_EURUSD_tester.csv"
+        } else {
+            $why = if ($err) { $err } else { "tester ran but wrote no new trade log" }
+            Step "4b order run (tester)" "NOT RUN" "$why (automation did not engage)"
+        }
+        Get-ChildItem "$MT5\NNFX_OrderTest_tester*" -ErrorAction SilentlyContinue | Copy-Item -Destination $Out -Force
     }
 }
 
@@ -248,6 +280,7 @@ if (-not $script:PyExe) {
     Step "5 Python unit tests" "FAIL" "no working Python found"
     Step "5 check_export.py" "NOT RUN" "no working Python found"
     Step "5 check_indicators.py" "NOT RUN" "no working Python found"
+    Step "5 check_trades.py" "NOT RUN" "no working Python found"
 } else {
     $py = Run-Py @("-m", "unittest", "discover", "-s", "$Repo\tests\python")
     $code = $LASTEXITCODE
@@ -270,6 +303,19 @@ if (-not $script:PyExe) {
         $o | Set-Content "$Out\check_indicators.txt" -Encoding ASCII
         $n = ([regex]::Matches($o, "(?m)^RESULT .*: PASS")).Count
         Step "5 check_indicators.py" $(if ($code -eq 0) { "PASS" } else { "FAIL" }) "$n of $($csvs.Count) files PASS"
+    }
+
+    if (-not $script:OrderLogThisRun) {
+        Step "5 check_trades.py" "NOT RUN" "no order-run trade log written in this run"
+    } else {
+        $o = Run-Py @("$Repo\tools\check_trades.py", $script:OrderLogThisRun, "--min-trades", "20",
+                      "--require", "SL,TP1,BE,TRAILON,TRAIL,TP2,EXIT,RETRY,TESTSTOPLESS,ABORT,REFUSE,MODIFY",
+                      "--require-note", "free margin", "--require-note", "minimum distance",
+                      "--require-note", "via=")
+        $code = $LASTEXITCODE
+        $o | Set-Content "$Out\check_trades.txt" -Encoding ASCII
+        $res = ([regex]::Matches($o, "(?m)^RESULT .*$") | Select-Object -Last 1).Value
+        Step "5 check_trades.py" $(if ($code -eq 0) { "PASS" } else { "FAIL" }) $(if ($res) { $res.Trim() } else { "" })
     }
 }
 
