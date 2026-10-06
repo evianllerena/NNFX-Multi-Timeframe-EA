@@ -20,8 +20,10 @@ Newest first.
   `test_process_safety.py` checks that nothing closes MT5 by name.
 - Owner decisions: D6c-1, D6c-2 (OANDA TMS read-only; `.pro` symbols settled), D6c-3 (the demo driver handles its
   own MT5 relaunch or restart), OD-3 update (one trading day boundary at 17:00 New York; PLAN 6d).
-- Results: restart test (a) PASS; restart test (b) on the demo PASS (`demo_restart_20261006_002457`, REBUILDS
-  MATCH 5 of 5); planted bugs 11 of 11. Five failed or invalid runs are kept in `invalid\` with `REASON.txt`.
+- `InpRestartAt=none` means no restart: the tester reuses the last value for an input listed EMPTY, so two runs
+  restarted unintentionally (kept in `invalid\`). The base run and the runner's order run must have 0 REBUILD rows.
+- Results: restart test (a) PASS (`restart_20261006_004837`); restart test (b) on the demo PASS (`demo_restart_20261006_002457`, REBUILDS
+  MATCH 5 of 5); planted bugs 11 of 11. Eight failed or invalid runs are kept in `invalid\` with `REASON.txt`, plus one planted-bug run.
 
 ## 2026-10-04 — Phase 6b: review G1_phase6b_1 fixes (F1, F4, F5)
 

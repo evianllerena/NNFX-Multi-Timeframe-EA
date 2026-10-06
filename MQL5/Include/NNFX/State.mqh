@@ -15,7 +15,7 @@
 //| NO trading calls (tests/python/test_order_calls.py, S2).         |
 //| Status: compiled 2026-10-05 (build 6238, 0 errors, 0 warnings);  |
 //| RecoveryTest 30/30; planted bugs 9 of 9; restart test (a)        |
-//| PASS (run restart_20261005_225140).                              |
+//| PASS (run restart_20261006_004837); demo real restarts PASS.     |
 //+------------------------------------------------------------------+
 #ifndef NNFX_STATE_MQH
 #define NNFX_STATE_MQH

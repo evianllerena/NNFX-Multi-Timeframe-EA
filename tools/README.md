@@ -20,7 +20,7 @@
 | `MQL5/Scripts/NNFX/NNFX_RecoveryTest.mq5` | Phase 6c: checksum vectors, the 5 state files and the 22 rebuild cases through `State.mqh` | Compiled 2026-10-05; 30/30; planted bugs 9 of 9 (M1-M9) |
 | `tools/compare_runs.py` | Phase 6c: `compare BASE RESTART --from TIME` (every column of every trade row after the restart; `RESULT: IDENTICAL`) and `rebuilds LOG` (each REBUILD row = the PRESTOP before it; `RESULT: REBUILDS MATCH`) | Tested here (`test_compare_runs.py`); planted bug P1 caught |
 | `tools/pick_restart_times.py` | Phase 6c: picks the R1-R4 restart times from a base run's STATE rows | Used by `run_restart_tests.ps1` |
-| `tools/run_restart_tests.ps1` | Phase 6c restart test (a): a base tester run, then R1-R4, R2 with the state file deleted and R2 with comments ignored, each restarted inside the tester (`InpRestartAt`); lists every EA input (the tester reuses last-used values otherwise) | OVERALL PASS (run `restart_20261005_225140`) |
+| `tools/run_restart_tests.ps1` | Phase 6c restart test (a): a base tester run, then R1-R4, R2 with the state file deleted and R2 with comments ignored, each restarted inside the tester (`InpRestartAt`); lists every EA input (the tester reuses last-used values otherwise) | OVERALL PASS (run `restart_20261006_004837`; base 0 REBUILD rows, each restart run 1) |
 | `tools/run_demo_restarts.ps1` | Phase 6c restart test (b): REAL restarts on the demo account in states R1-R4 (minimum lots); account check first; checks MT5 read every input; D6c-1/D6c-3 process rules | See `docs/VERIFICATION.md` |
 | Calendar export (MQL5 script) | Saves VP's news events, month by month, for backtests | Planned (Phase 6) |
 | Result recompute (Python) | Recomputes trades, R and drawdown from raw trade logs (V13) | Planned (Phase 8) |

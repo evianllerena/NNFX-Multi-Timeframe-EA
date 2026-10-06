@@ -13,7 +13,7 @@ Last updated: 2026-10-06.
 | 3 Python answer key | Merged |
 | 4 MQL5 rules core | Merged (PR #3) |
 | 5 Indicator slots and profiles | Merged: PR #4 (at `58e2994`, before the G1_phase5_1 fixes; see note below) and PR #5 (the reviewed fixes, `0e701dd`) |
-| 6 Orders, risk, recovery, guard, news, EA | Plan: gate G2 **PASS** (`G2_phase6_1`), `docs/PLAN_PHASE6.md`; owner decisions OD-1 to OD-21 (OD-3 updated 2026-10-06) and D6c-1 to D6c-3 in `docs/DECISIONS.md`. **6a sizing + exposure:** merged (PR #6). **6b orders:** merged (PR #7, `G1_phase6b_2` PASS). F3 (MT5-offline check) is deferred to the 6f G1 gate (D6b-1). **6c state and recovery:** branch `phase-6c-state-recovery`, draft PR, packet `G1_phase6c_1` in review. Restart test (a) in the tester PASS (`restart_20261005_225140`), test (b) real restarts on the demo PASS (`demo_restart_20261006_002457`), planted bugs 11 of 11. 6d-6f not started |
+| 6 Orders, risk, recovery, guard, news, EA | Plan: gate G2 **PASS** (`G2_phase6_1`), `docs/PLAN_PHASE6.md`; owner decisions OD-1 to OD-21 (OD-3 updated 2026-10-06) and D6c-1 to D6c-3 in `docs/DECISIONS.md`. **6a sizing + exposure:** merged (PR #6). **6b orders:** merged (PR #7, `G1_phase6b_2` PASS). F3 (MT5-offline check) is deferred to the 6f G1 gate (D6b-1). **6c state and recovery:** branch `phase-6c-state-recovery`, draft PR, packet `G1_phase6c_1` in review. Restart test (a) in the tester PASS (`restart_20261006_004837`), test (b) real restarts on the demo PASS (`demo_restart_20261006_002457`), planted bugs 11 of 11. 6d-6f not started |
 | 7 onward | See `docs/SPEC.md` |
 
 **Note (2026-10-04):** PR #4 was merged at `58e2994` on 2026-10-04 15:47 UTC, 4.5 minutes after review
