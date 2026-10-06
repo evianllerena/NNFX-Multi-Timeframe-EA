@@ -1,0 +1,61 @@
+# VP's major news events (RULEBOOK N1 / X5 [A]; R-15 roles not names, SNB instead of CHF Libor [C]) mapped to the
+# exact event names of MT5's economic calendar (OD-11: a text file in the repo; the OWNER approves the names).
+#
+# STATUS: DRAFT - not yet approved by the owner (OD-11). The export must not be relied on until this line says
+#         APPROVED with a date.
+#
+# Source of the names: NNFX_CalendarExport mode "list" on MetaQuotes-Demo, build 6241, 2026-10-06
+# (run calendar_list_20261006_171713: 1051 events for the 8 currencies). The calendar is MetaQuotes' own, the same
+# on every broker's MT5.
+#
+# Format: EVENT|currency|VP's words|calendar name or role pattern ("*" = any person's name)|event ids found today
+#   The export matches BOTH the ids and the pattern (a new chair or governor gets a new id; the pattern keeps
+#   catching it). Events released together (e.g. a rate decision and its votes) are listed once each; the news
+#   window is the same.
+#   Eurozone events only for EUR (ids 999...): the country releases (Germany 276..., Spain 724...) are not VP's.
+#
+# Judgement calls for the owner (marked "CHECK" below):
+#   1. USD "FOMC speech by the Fed chair": the chair's speeches AND the FOMC press conference (the chair speaks
+#      after every rate decision). Testimony to Congress is listed separately, NOT included in this draft.
+#   2. EUR "ECB president speech": the president's speeches AND the ECB monetary policy press conference.
+#   3. USD and CAD "CPI": the headline m/m (and y/y for USD) release; core CPI comes out at the same time.
+#   4. GBP "GDP": q/q, y/y and the monthly m/m (the UK publishes GDP monthly since 2018).
+#   5. NZD "GDT" (Global Dairy Trade price index): MT5 rates it LOW importance; included because VP names it.
+#   6. "employment": the headline employment-change release of each country (not the unemployment rate alone).
+
+EVENT|USD|interest rates|Fed Interest Rate Decision|840050014
+EVENT|USD|Non-Farm Payrolls|Nonfarm Payrolls|840030016
+EVENT|USD|CPI|CPI m/m|840030005
+EVENT|USD|CPI|CPI y/y|840030007
+EVENT|USD|FOMC speech by the Fed chair|Fed Chair * Speech|840050006,840050022
+EVENT|USD|FOMC speech by the Fed chair (CHECK 1)|FOMC Press Conference|840050018
+
+EVENT|EUR|interest rates|ECB Interest Rate Decision|999010007
+EVENT|EUR|interest rates|ECB Deposit Facility Rate Decision|999010006
+EVENT|EUR|ECB president speech|ECB President * Speech|999010004,999010029
+EVENT|EUR|ECB president speech (CHECK 2)|ECB Monetary Policy Press Conference|999010003
+
+EVENT|GBP|interest rates|BoE Interest Rate Decision|826020009
+EVENT|GBP|MPC votes|BoE MPC Vote Cut|826020010
+EVENT|GBP|MPC votes|BoE MPC Vote Hike|826020011
+EVENT|GBP|MPC votes|BoE MPC Vote Unchanged|826020012
+EVENT|GBP|GDP (CHECK 4)|GDP q/q|826010037
+EVENT|GBP|GDP (CHECK 4)|GDP y/y|826010038
+EVENT|GBP|GDP (CHECK 4)|GDP m/m|826010039
+
+EVENT|CAD|interest rates|BoC Interest Rate Decision|124040006
+EVENT|CAD|employment|Employment Change|124010011
+EVENT|CAD|CPI (CHECK 3)|CPI m/m|124010003
+EVENT|CAD|retail sales|Retail Sales m/m|124010007
+
+EVENT|AUD|interest rates|RBA Interest Rate Decision|36030008
+EVENT|AUD|employment (CHECK 6)|Employment Change|36010003
+
+EVENT|NZD|interest rate|RBNZ Interest Rate Decision|554020009
+EVENT|NZD|GDP|GDP q/q|554010024
+EVENT|NZD|GDT (CHECK 5)|GDT Price Index|554050001
+EVENT|NZD|employment (CHECK 6)|Employment Change q/q|554010016
+
+EVENT|JPY|interest rate|BoJ Interest Rate Decision|392060022
+
+EVENT|CHF|SNB rate decision (R-15, instead of Libor)|SNB Interest Rate Decision|756010001
