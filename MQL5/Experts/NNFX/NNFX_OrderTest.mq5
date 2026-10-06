@@ -384,17 +384,23 @@ void ScheduleStep(const double atr)
    g_bars_flat = 0;
   }
 
-void OnTick()
+// Last exit direction as soon as the current trade is fully closed (every tick, and again before each STATE row,
+// so a trade closed while a candle is processed is never shown as still unrecorded).
+void RecordExit(void)
   {
-   g_orders.EnforceStops();
-   g_orders.Poll("tick");
-   // last exit direction as soon as the current trade is fully closed
    if(g_current != "" && !g_exit_recorded && !g_orders.IsOpen(g_current))
      {
       g_exit_recorded = true;
       if(g_has_cont)
          g_cont.last_exit_dir = g_cur_dir;
      }
+  }
+
+void OnTick()
+  {
+   g_orders.EnforceStops();
+   g_orders.Poll("tick");
+   RecordExit();
    datetime bar = iTime(_Symbol, _Period, 0);
    if(bar == g_last_bar)
      {
@@ -441,6 +447,7 @@ void OnTick()
       g_orders.Reconcile();
       ScheduleStep(atr[0]);
      }
+   RecordExit();
    g_proc = iTime(_Symbol, _Period, 1);
    Row("STATE", "proc=" + NNFXTime(g_proc) + "; state=" + StateNow());
    SaveState();
