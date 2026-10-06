@@ -1,0 +1,114 @@
+# News cases (Phase 6e; docs/PLAN_PHASE6.md section 6). Shared by tests/python/test_news.py (answer key
+# nnfx_ref/news.py) and MQL5/Scripts/NNFX/NNFX_NewsTest.mq5. The event list is the APPROVED news/news_events.txt
+# (D6e-1). All times are server times. Every expected value is worked out by hand below.
+#
+# Rules: see the news block section below (D6e-3). prev = the previous ACTUAL candle close ("-" = the first candle seen).
+
+# MATCH|id|currency|event id|event name|expected VP item ("-" = not one of VP's events)
+MATCH|known_id|USD|840030016|Nonfarm Payrolls|Non-Farm Payrolls
+# a NEW Fed chair: id not in the list, caught by the role pattern "Fed Chair * Speech" (R-15)
+MATCH|new_fed_chair|USD|840050099|Fed Chair Warsh Speech|FOMC speech by the Fed chair
+# a NEW ECB president: id not in the list, caught by "ECB President * Speech"
+MATCH|new_ecb_president|EUR|999010099|ECB President Nagel Speech|ECB president speech
+MATCH|governor_not_chair|USD|840050008|Fed Governor Powell Speech|-
+MATCH|fomc_member|USD|840060002|FOMC Member Kaplan Speech|-
+MATCH|testimony_not_listed|USD|840050021|Fed Chair Powell Testimony|-
+MATCH|cpi_yy_not_listed|USD|840030007|CPI y/y|-
+MATCH|eur_country_gdp|EUR|276010008|GDP q/q|-
+MATCH|gbp_gdp|GBP|826010037|GDP q/q|GDP
+MATCH|mpc_vote|GBP|826020011|BoE MPC Vote Hike|interest rates: MPC votes
+# a listed id still matches if the calendar renames the event
+MATCH|renamed_known_id|USD|840050014|Fed Rate Decision|interest rates
+MATCH|snb|CHF|756010001|SNB Interest Rate Decision|SNB rate decision (R-15, instead of Libor)
+# the same name on another currency is not matched
+MATCH|wrong_currency|CAD|840030016|Nonfarm Payrolls|-
+
+# The news block (owner rule D6e-3, 2026-10-06; replaces "t < e <= t + 24 h", review G1_phase6e_1 F1). For each
+# event: start = the EARLIER of 24 h before it and 15:00 New York on the previous trading day; end = the 17:00 New
+# York close that ends its trading day (17:00-17:00 New York). A close t is blocked when start <= t < end: an event
+# exactly at a candle close is inside its block, trading resumes AT the 17:00 close. X5 = the first close inside a block.
+# Broker clock for these cases: MetaQuotes-Demo rule GMT+2 winter, US daylight saving -> server = New York + 7 h all year.
+BROKER|MQDEMO|2|US
+
+# Events (server time) and their blocks, worked out by hand:
+#  NFP Fri 06.05 08:30 NY = 15:30 server. Day Thu 17:00 -> Fri 17:00 NY. 24 h before = Thu 08:30 NY; 15:00 NY on the
+#     previous trading day (Thu) = Thu 15:00 -> earlier is Thu 08:30 = 06.04 15:30 server. End Fri 17:00 NY = 06.06 00:00.
+#  CPI Wed 06.10 08:30 NY = 15:30 server: start min(Tue 08:30, Tue 15:00) NY = 06.09 15:30 server; end 06.11 00:00.
+#  Fed Wed 06.10 14:00 NY = 21:00 server: start min(Tue 14:00, Tue 15:00) NY = 06.09 21:00 server; end 06.11 00:00.
+#  ECB Thu 06.11 07:15 NY = 14:15 server: start min(Wed 07:15, Wed 15:00) NY = 06.10 14:15 server; end 06.12 00:00.
+#  GBP GDP Mon 06.15 02:00 NY = 09:00 server. Day Sun 17:00 -> Mon 17:00 NY; the previous trading day is FRIDAY:
+#     15:00 NY Fri = 06.12 22:00 server, earlier than 24 h before (Sun 02:00 NY). End Mon 17:00 NY = 06.16 00:00.
+#  AUD jobs Wed 06.17 20:30 NY = Thu 06.18 03:30 server (overnight). Day Wed 17:00 -> Thu 17:00 NY. 24 h before =
+#     Tue 20:30 NY = 06.17 03:30 server, earlier than 15:00 NY Wed (06.17 22:00). End Thu 17:00 NY = 06.19 00:00.
+EV|2026.06.05 15:30|USD|840030016|Nonfarm Payrolls
+EV|2026.06.10 15:30|USD|840030005|CPI m/m
+EV|2026.06.10 21:00|USD|840050014|Fed Interest Rate Decision
+EV|2026.06.11 14:15|EUR|999010007|ECB Interest Rate Decision
+EV|2026.06.15 09:00|GBP|826010037|GDP q/q
+EV|2026.06.18 03:30|AUD|36010003|Employment Change
+# N2 blackout (preset text, OD-19): GBP from 22 Jun 00:00 to 24 Jun 23:59
+BLACKOUT|GBP:2026.06.22-2026.06.24
+
+# N1|id|pair|candle close t (server)|expected reasons, ";"-separated ("-" = not blocked)
+# Friday 08:30 NFP blocks EUR/USD from Thu 08:30 NY (24 h before) to the Fri 17:00 close, on 30M, 1H and 4H closes
+N1|nfp_before_start|EURUSD|2026.06.04 15:00|-
+N1|nfp_start_30m|EURUSD|2026.06.04 15:30|N1 USD Nonfarm Payrolls 2026.06.05 15:30
+N1|nfp_1h|EURUSD|2026.06.04 16:00|N1 USD Nonfarm Payrolls 2026.06.05 15:30
+N1|nfp_4h|EURUSD|2026.06.05 08:00|N1 USD Nonfarm Payrolls 2026.06.05 15:30
+# the event exactly at a 30M close is inside its block
+N1|nfp_at_release_close|EURUSD|2026.06.05 15:30|N1 USD Nonfarm Payrolls 2026.06.05 15:30
+N1|nfp_after_release|EURUSD|2026.06.05 20:00|N1 USD Nonfarm Payrolls 2026.06.05 15:30
+N1|nfp_last_close_before_end|EURUSD|2026.06.05 23:30|N1 USD Nonfarm Payrolls 2026.06.05 15:30
+# trading resumes at the 17:00 New York close
+N1|nfp_resumes_at_close|EURUSD|2026.06.06 00:00|-
+N1|quote_currency|GBPUSD|2026.06.04 16:00|N1 USD Nonfarm Payrolls 2026.06.05 15:30
+N1|other_pair|AUDNZD|2026.06.04 16:00|-
+# the Fed decision exactly at a 1H close; CPI's block covers it too (same news day)
+N1|fed_at_release_close_1h|USDCAD|2026.06.10 21:00|N1 USD CPI m/m 2026.06.10 15:30;N1 USD Fed Interest Rate Decision 2026.06.10 21:00
+N1|cpi_only_before_fed_start|USDCAD|2026.06.09 16:00|N1 USD CPI m/m 2026.06.10 15:30
+N1|usd_resumes|USDCAD|2026.06.11 00:00|-
+N1|ecb_base_currency|EURGBP|2026.06.10 15:00|N1 EUR ECB Interest Rate Decision 2026.06.11 14:15
+# overnight AUD jobs (20:30 NY): the 24 h start (Tue 20:30 NY) is earlier than 15:00 NY Wed
+N1|aud_before_start|AUDNZD|2026.06.17 03:00|-
+N1|aud_24h_start|AUDNZD|2026.06.17 03:30|N1 AUD Employment Change 2026.06.18 03:30
+N1|aud_last_close|AUDNZD|2026.06.18 23:30|N1 AUD Employment Change 2026.06.18 03:30
+N1|aud_resumes|AUDNZD|2026.06.19 00:00|-
+# a Monday release: the previous trading day is Friday, the block starts Fri 15:00 NY (06.12 22:00 server)
+N1|monday_before_friday_15|GBPUSD|2026.06.12 21:30|-
+N1|monday_from_friday_15|GBPUSD|2026.06.12 22:00|N1 GBP GDP q/q 2026.06.15 09:00
+N1|n2_first_day|GBPUSD|2026.06.22 00:00|N2 GBP
+N1|n2_inside|GBPUSD|2026.06.23 12:00|N2 GBP
+N1|n2_last_minute|GBPUSD|2026.06.24 23:59|N2 GBP
+N1|n2_after|GBPUSD|2026.06.25 00:00|-
+N1|n2_other_currency|EURUSD|2026.06.23 12:00|-
+
+# X5|id|pair|previous candle close|candle close t|expected first-close flag (0/1): the first close inside a block
+X5|m30_first|EURUSD|2026.06.04 15:00|2026.06.04 15:30|1
+X5|m30_next|EURUSD|2026.06.04 15:30|2026.06.04 16:00|0
+X5|h1_first|EURUSD|2026.06.04 15:00|2026.06.04 16:00|1
+X5|h1_second|EURUSD|2026.06.04 16:00|2026.06.04 17:00|0
+X5|h4_first|EURUSD|2026.06.04 12:00|2026.06.04 16:00|1
+X5|at_release_not_first|EURUSD|2026.06.05 15:00|2026.06.05 15:30|0
+X5|after_close_not_inside|EURUSD|2026.06.05 23:00|2026.06.06 00:00|0
+X5|quote_currency|GBPUSD|2026.06.04 15:00|2026.06.04 16:00|1
+X5|first_candle_seen|EURUSD|-|2026.06.05 10:00|1
+# CPI and the Fed on one news day have different starts: a flag at the first close inside EACH block
+X5|two_blocks_first|USDCAD|2026.06.09 15:00|2026.06.09 16:00|1
+X5|two_blocks_between|USDCAD|2026.06.09 16:00|2026.06.09 17:00|0
+X5|two_blocks_second|USDCAD|2026.06.09 20:00|2026.06.09 21:00|1
+X5|two_blocks_after|USDCAD|2026.06.09 21:00|2026.06.09 22:00|0
+X5|aud_first|AUDNZD|2026.06.17 03:00|2026.06.17 04:00|1
+# the Monday GBP block starts Friday 22:00 server: the first close inside is Friday's, not Monday's
+X5|weekend_friday_first|GBPUSD|2026.06.12 21:00|2026.06.12 22:00|1
+X5|weekend_monday_not_first|GBPUSD|2026.06.13 00:00|2026.06.15 01:00|0
+
+# UTC|id|broker winter offset|daylight-saving rule|event time in UTC (as the export stores it)|expected server time
+# The calendar gives history in TODAY's server offset, so the export stores UTC and the EA converts per date with
+# the broker's clock rule (run calendar_export_20261006_181154).
+# NFP Fri 9 Jan 2026 08:30 EST = 13:30 UTC; MetaQuotes rule GMT+2 winter (US) -> 15:30
+UTC|mq_winter_nfp|2|US|2026.01.09 13:30|2026.01.09 15:30
+# NFP Fri 5 Jun 2026 08:30 EDT = 12:30 UTC; GMT+3 in summer -> 15:30
+UTC|mq_summer_nfp|2|US|2026.06.05 12:30|2026.06.05 15:30
+# OANDA rule GMT+1 winter (EU): 5 Jun (EU summer) +2 -> 14:30; Tue 27 Oct (EU winter, US summer) +1 -> 13:30
+UTC|oanda_summer|1|EU|2026.06.05 12:30|2026.06.05 14:30
+UTC|oanda_gap_week|1|EU|2026.10.27 12:30|2026.10.27 13:30

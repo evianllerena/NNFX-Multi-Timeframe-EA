@@ -1,0 +1,45 @@
+# VP's major news events (RULEBOOK N1 / X5 [A]; R-15 roles not names, SNB instead of CHF Libor [C]) mapped to the
+# exact event names of MT5's economic calendar (OD-11: a text file in the repo; the owner approves the names).
+#
+# STATUS: APPROVED by the owner 2026-10-06 (D6e-1): VP's own words only, one entry per item he names, no extra
+#         events. The news rules stay N1 + X5 as in the rulebook (D6e-2).
+#         (Moved from profiles/ on 2026-10-06, content unchanged: profiles/ holds indicator profiles only.)
+#
+# Source of the names: NNFX_CalendarExport mode "list" on MetaQuotes-Demo, build 6241, 2026-10-06
+# (run calendar_list_20261006_171713; copy tests/fixtures/news/calendar_catalogue_20261006.csv). MetaQuotes'
+# calendar, the same on every broker's MT5.
+#
+# Format: EVENT|currency|VP's words|calendar name or role pattern ("*" = any person's name)|event ids found today
+#   The export matches BOTH the ids and the pattern: a new chair or governor gets a new event id, the role pattern
+#   keeps catching it (R-15: roles not names).
+#   Headline release only where the calendar has several forms of one figure (CPI m/m, GDP q/q).
+#   Eurozone events only for EUR (ids 999...), not the country releases.
+
+EVENT|USD|interest rates|Fed Interest Rate Decision|840050014
+EVENT|USD|Non-Farm Payrolls|Nonfarm Payrolls|840030016
+EVENT|USD|CPI|CPI m/m|840030005
+EVENT|USD|FOMC speech by the Fed chair|Fed Chair * Speech|840050006,840050022
+
+EVENT|EUR|interest rates|ECB Interest Rate Decision|999010007
+EVENT|EUR|ECB president speech|ECB President * Speech|999010004,999010029
+
+EVENT|GBP|interest rates|BoE Interest Rate Decision|826020009
+EVENT|GBP|interest rates: MPC votes|BoE MPC Vote *|826020010,826020011,826020012
+EVENT|GBP|GDP|GDP q/q|826010037
+
+EVENT|CAD|interest rates|BoC Interest Rate Decision|124040006
+EVENT|CAD|employment|Employment Change|124010011
+EVENT|CAD|CPI|CPI m/m|124010003
+EVENT|CAD|retail sales|Retail Sales m/m|124010007
+
+EVENT|AUD|interest rates|RBA Interest Rate Decision|36030008
+EVENT|AUD|employment|Employment Change|36010003
+
+EVENT|NZD|interest rate|RBNZ Interest Rate Decision|554020009
+EVENT|NZD|GDP|GDP q/q|554010024
+EVENT|NZD|GDT|GDT Price Index|554050001
+EVENT|NZD|employment|Employment Change q/q|554010016
+
+EVENT|JPY|interest rate|BoJ Interest Rate Decision|392060022
+
+EVENT|CHF|SNB rate decision (R-15, instead of Libor)|SNB Interest Rate Decision|756010001

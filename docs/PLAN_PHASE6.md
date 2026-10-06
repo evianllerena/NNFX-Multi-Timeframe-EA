@@ -524,6 +524,18 @@ the real one.
    - an Algo Trading pre-check;
    - the slippage window.
 
+**Carried from the G1_phase6d_1 verdict (PASS; items 1-4, to do before the first 6f demo run):**
+1. **The master switch must not be left changed by a test.** The master test must record `NNFX_MASTER`'s state before
+   it starts and restore it at the end. Missing = OFF is the safe default (D6d-1). The switch the test left at 1 was
+   deleted on 2026-10-06 (`NNFX_GvTool`, run `gv_delete_master_20261006_170258`, D-OPS-1).
+2. **The drawdown pause must survive a crash.** The peak and the paused flag live in terminal global variables. In
+   6f's mid-candle kill test, add one with the pause on: after the restart it must still be paused.
+3. **Click each chart button by hand, with its real confirm dialog,** on the demo with the real EA. The owner does
+   this or watches it.
+4. **Two log-text fixes in the test EA:**
+   - The forced-pause row says "N trade(s) open" but prints `TradeCount()` (trades so far). Print the number open.
+   - The chart-open row ends "applied; error 4202". Explain it, or clear the error before logging.
+
 ### Implements
 
 **SPEC, Architecture:**
