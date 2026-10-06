@@ -71,6 +71,12 @@ Added 2026-10-04 after PR #4 was merged before its review fixes
   `gh pr view <n> --json state,isDraft,mergedAt,headRefOid`, all run when the packet is written.
   No statement about GitHub without it.
 - One branch per PR; never push to a branch whose PR is merged.
+- Keep every PR's GitHub page current (owner, 2026-10-06). After every verdict, RESPONSE, re-run or change in
+  merge readiness:
+  1. The PR description's first line is a status banner, e.g. `STATUS: CHANGES REQUESTED (G1_phase6c_1: F1 ...,
+     F2 ...) - DO NOT MERGE` or `STATUS: PASS - MERGE OK <7-char commit> - ready for the owner to merge`.
+  2. A PR comment gives the verdict result, the findings list and the packet folder name.
+  3. `gh pr ready` ONLY when the verdict says PASS and MERGE OK, and the head commit matches it.
 
 ## Unchanged
 
