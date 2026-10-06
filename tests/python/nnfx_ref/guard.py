@@ -2,7 +2,7 @@
 
 The switches and limits that block NEW entries (open trades keep being managed, S-2):
 
-  master     terminal-wide switch (a global variable). Missing = OFF: never trade on a switch nobody set [C]
+  master     terminal-wide switch (a global variable). Missing = OFF (D6d-1)
   instance   this instance's switch
   drawdown   equity <= 90% of the peak equity, sampled at each candle close (R-12 [A], OD-2); reset by hand only (S-6)
   dailyloss  the trading day's closed-trade P/L <= -3 x risk % of the day's starting balance (S-5, OD-3 + update)
@@ -127,7 +127,7 @@ def daily_loss(b: Broker, t: datetime, balance_now: float, risk_pct: float,
                closed: Iterable[Tuple[datetime, float]]) -> Tuple[float, float, bool]:
     """(today's net closed P/L, the limit as a negative amount, blocked). Closed trades only (OD-3); the day starts
     at the trading day boundary (OD-3 update). Limit = 3 x risk % of the day's starting balance, which is the
-    balance now minus today's closed P/L [C]."""
+    balance now minus today's closed P/L; exactly the limit blocks (D6d-2)."""
     start = trading_day_start(b, t)
     pl = sum(p for (ct, p) in closed if start <= ct <= t)
     day_start_balance = balance_now - pl
@@ -147,7 +147,7 @@ class Drawdown:
             self.paused = True
 
     def reset(self, equity: float) -> None:
-        """By hand only (S-6): the pause ends and the peak restarts from the equity now [C]."""
+        """By hand only (S-6, D6d-3): the pause ends and the peak restarts from the equity now; logged by the caller."""
         self.paused = False
         self.peak = equity
 

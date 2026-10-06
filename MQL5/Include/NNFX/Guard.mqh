@@ -17,8 +17,8 @@
 //| update, owner 2026-10-06), never server midnight. New York       |
 //| follows US daylight saving; the server follows the broker's rule |
 //| (a setting: winter offset + "none"/"EU"/"US"). Pure functions    |
-//| take server times; nothing here reads the clock except the       |
-//| global-variable helpers at the end. No trading calls.            |
+//| take server times; nothing here reads the clock. Never          |
+//| TimeLocal() (D6d-4). No trading calls.                           |
 //| Status: not yet compiled.                                        |
 //+------------------------------------------------------------------+
 #ifndef NNFX_GUARD_MQH
@@ -168,7 +168,8 @@ bool NNFXInWeekendBlock(const NNFXBroker &b, const datetime t, const double hour
   }
 
 // Today's net closed P/L, the limit (negative) and whether new entries are blocked. Closed trades only (OD-3);
-// the day starts at the trading day boundary; limit = 3 x risk % of (balance now - today's P/L) [C].
+// the day starts at the trading day boundary; limit = 3 x risk % of the day's starting balance = balance now -
+// today's P/L; exactly the limit blocks (D6d-2).
 bool NNFXDailyLoss(const NNFXBroker &b, const datetime t, const double balanceNow, const double riskPct,
                    const datetime &closeTimes[], const double &profits[], double &pl, double &limit)
   {
@@ -195,7 +196,8 @@ void NNFXDrawdownSample(NNFXDrawdown &dd, const double equity)
       dd.paused = true;
   }
 
-// By hand only (S-6): the pause ends and the peak restarts from the equity now [C]
+// By hand only (S-6, D6d-3): the pause ends and the peak restarts from the equity now. Called only by
+// NNFXDrawdownResetRequested (and the fixture test)
 void NNFXDrawdownReset(NNFXDrawdown &dd, const double equity)
   {
    dd.paused = false;
@@ -229,7 +231,7 @@ string NNFXGuardBlocks(const int master, const bool instanceOn, const bool ddPau
 
 //--- live helpers (terminal global variables; shared by every instance on this terminal) ---
 
-// 1 on, 0 off, -1 missing
+// 1 on, 0 off, -1 missing (D6d-1: missing counts as OFF)
 int NNFXMasterState(void)
   {
    if(!GlobalVariableCheck(NNFX_GV_MASTER))
@@ -249,14 +251,22 @@ void NNFXDrawdownSave(const NNFXDrawdown &dd)
    GlobalVariableSet(NNFX_GV_DD_PAUSED, dd.paused ? 1.0 : 0.0);
   }
 
-// The owner's reset by hand (S-6): NNFX_DD_RESET = 1 (or the chart button). Returns true if a reset was done.
-bool NNFXDrawdownResetRequested(NNFXDrawdown &dd, const double equity)
+// The owner's reset by hand (S-6, D6d-3): NNFX_DD_RESET = 1, set by the owner (or by the chart button after its
+// confirm step). The ONLY caller of NNFXDrawdownReset outside the fixture test (source scan, test_guard_rules.py):
+// never automatic. Returns true if a reset was done; logText says what changed and MUST be logged by the caller.
+bool NNFXDrawdownResetRequested(NNFXDrawdown &dd, const double equity, string &logText)
   {
+   logText = "";
    if(!GlobalVariableCheck(NNFX_GV_DD_RESET) || GlobalVariableGet(NNFX_GV_DD_RESET) == 0.0)
       return false;
+   double oldPeak = dd.peak;
+   bool wasPaused = dd.paused;
    NNFXDrawdownReset(dd, equity);
    NNFXDrawdownSave(dd);
    GlobalVariableSet(NNFX_GV_DD_RESET, 0.0);
+   logText = StringFormat("drawdown reset by hand (D6d-3): was %s, peak %.2f -> %.2f (equity now %.2f)",
+                          wasPaused ? "paused" : "not paused", oldPeak, dd.peak, equity);
+   Print("NNFX: ", logText);
    return true;
   }
 

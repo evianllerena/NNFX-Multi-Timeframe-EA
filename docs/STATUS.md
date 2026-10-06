@@ -33,6 +33,9 @@ Read-only EnvCheck on demo 62316800 (`docs/ENVIRONMENT.md`): hedging, EUR accoun
 
 ## Waiting on the owner
 
+- **After 25 Oct and after 1 Nov 2026 (D6d-4):** the reviewer checks each broker's server time against GMT, to
+  confirm the clock-change rules assumed in `tests/fixtures/guard/guard_cases.txt`: OANDA TMS GMT+1 in winter on the
+  EU rule, MetaQuotes-Demo GMT+2 in winter on the US rule. Until then they are settings, not facts.
 - Tick I-1, I-2, I-3, I-7, I-9 in the living rulebook doc; then refresh the `docs/RULEBOOK.md` snapshot.
 - Review D5-1 to D5-5 (`docs/DECISIONS.md`).
 - Choose the live broker (`docs/ENVIRONMENT.md`; MetaQuotes-Demo is not a retail broker).
