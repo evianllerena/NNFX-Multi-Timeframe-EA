@@ -33,7 +33,8 @@ def violations():
         if not name.endswith((".ps1", ".py")):
             continue
         path = os.path.join(TOOLS, name)
-        lines = strip_comments(open(path, encoding="utf-8", errors="replace").read(), name.endswith(".ps1"))
+        with open(path, encoding="utf-8", errors="replace") as f:
+            lines = strip_comments(f.read(), name.endswith(".ps1"))
         for n, line in enumerate(lines, 1):
             low = line.lower()
             if "stop-process" in low and not re.search(r"stop-process\s+(.*\s)?-id\b", low):

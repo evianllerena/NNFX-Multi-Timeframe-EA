@@ -116,7 +116,8 @@ class TestStateFile(unittest.TestCase):
         self.assertGreaterEqual(len(rows), 4)
         for p in rows:
             with self.subTest(file=p[1]):
-                text = open(os.path.join(STATE_FILES, p[1]), encoding="ascii", newline="").read()
+                with open(os.path.join(STATE_FILES, p[1]), encoding="ascii", newline="") as f:
+                    text = f.read()
                 status, trades, conts, _, why = rc.parse_state_file(text)
                 self.assertEqual(status, p[2], why)
                 self.assertEqual(len(trades), int(p[3]))

@@ -60,7 +60,8 @@ def mql_files():
 
 
 def read(path):
-    return open(path, encoding="utf-8", errors="replace").read()
+    with open(path, encoding="utf-8", errors="replace") as f:
+        return f.read()
 
 
 def matching_brace(text, open_at):
