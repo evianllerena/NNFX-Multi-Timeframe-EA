@@ -27,7 +27,7 @@
 //| history in TODAY's offset, so the file cannot hold server time.  |
 //| Never TimeLocal (D6d-4). No trading calls.                       |
 //| Status: compiled 2026-10-06 (build 6241, 0 errors, 0 warnings);  |
-//| NewsTest 47/47; planted bugs 7 of 7 (N1-N7).                     |
+//| NewsTest 61/61 with D6e-3; planted bugs 11 of 11 (N1-N11).       |
 //+------------------------------------------------------------------+
 #ifndef NNFX_NEWS_MQH
 #define NNFX_NEWS_MQH

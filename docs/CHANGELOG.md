@@ -2,6 +2,19 @@
 
 Newest first.
 
+## 2026-10-06 — Phase 6e: review G1_phase6e_1 fixes (F1 -> D6e-3, F2)
+
+- F1, replaced by the owner's rule **D6e-3**. Each news event blocks new entries on its currency's pairs from the
+  EARLIER of 24 h before it and 15:00 New York on the previous trading day, until the 17:00 New York close of the
+  trading day it falls in.
+  - An event at a candle close is inside the block. Trading resumes at the close. X5 fires at the first close inside.
+  - Changed in `news.py`, `News.mqh`, the fixtures (25 N1, 16 X5), `NNFX_NewsTest` (61 checks) and the calendar
+    compare.
+  - On the 2019-2026 export: 0 release minutes left free on 30M, 1H or 4H.
+- F2: `check_calendar.py` names every VP entry with no event in the last 120 days (WARN). It flags the Fed chair's
+  speeches, last 2026-05-31. The gap is in ENVIRONMENT.md and carried to the 6f live alarm.
+- Planted bugs re-aimed at the D6e-3 block: 14 of 14.
+
 ## 2026-10-06 — Phase 6e: news (calendar export + N1 / X5 / N2)
 
 - Owner: D6d-5 (the daily loss counts the whole account), D6e-1 (the approved event list: VP's own words, 21

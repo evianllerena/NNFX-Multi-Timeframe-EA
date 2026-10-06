@@ -192,7 +192,7 @@ through custom chart events (test build only). A by-hand click of each button is
 ## Phase 6e: news (`NNFX_NewsTest`, calendar export)
 
 `NNFX_NewsTest` runs from the runner. It reads `$MT5\MQL5\Files\NNFX\news\news_cases.txt` and the approved
-`news_events.txt`. **Pass line:** `RESULT: 47 passed, 0 failed, 47 total`.
+`news_events.txt`. **Pass line:** `RESULT: 61 passed, 0 failed, 61 total` (the D6e-3 news block).
 
 Calendar export (live terminal, any day): `powershell -ExecutionPolicy Bypass -File tools\run_calendar_export.ps1`.
 **Pass lines:** `RESULT: 93 of 93 months exported, 0 errors`, `check_calendar.py PASS`,

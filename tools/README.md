@@ -31,8 +31,8 @@
 | `MQL5/Scripts/NNFX/NNFX_GvTool.mq5` | D-OPS-1 test-terminal tool: lists, or deletes (`InpDelete`), `NNFX_` terminal global variables only, with a before/after report. Places no orders | Compiled 2026-10-06 (build 6241); deleted `NNFX_MASTER` (run `gv_delete_master_20261006_170258`) |
 | `MQL5/Scripts/NNFX/NNFX_CalendarExport.mq5` | Phase 6e: the MT5 calendar to a file. Modes `list` (the catalogue), `export` (month by month, approved list only, UTC), `compare` (the live calendar vs the file, one week, 5 pairs) and `depth`. Places no orders | Compiled 2026-10-06; run `calendar_export_20261006_182148` PASS |
 | `tools/run_calendar_export.ps1` | Phase 6e: runs the export, `check_calendar.py`, the compare and the depth steps | PASS (`calendar_export_20261006_182148`) |
-| `tools/check_calendar.py` | Phase 6e: over an export. Months, duplicates, VP's events per year, time base (UTC vs New York release times, exceptions named) | Tested here (`test_check_calendar.py`, 8 tests); planted P1-P3 caught |
-| `MQL5/Scripts/NNFX/NNFX_NewsTest.mq5` | Phase 6e: the shared news cases through `News.mqh` | Compiled 2026-10-06; 47/47; planted bugs 7 of 7 |
+| `tools/check_calendar.py` | Phase 6e: over an export. Months, duplicates, VP's events per year, time base (UTC vs New York release times, exceptions named); recency WARN for any VP entry silent for 120 days (G1_phase6e_1 F2) | Tested here (`test_check_calendar.py`, 9 tests); planted P1-P3 caught |
+| `MQL5/Scripts/NNFX/NNFX_NewsTest.mq5` | Phase 6e: the shared news cases through `News.mqh` | Compiled 2026-10-06; 61/61 (D6e-3); planted bugs 11 of 11 |
 | Result recompute (Python) | Recomputes trades, R and drawdown from raw trade logs (V13) | Planned (Phase 8) |
 
 How to run each MQL5 check: `tests/mql5/README.md`.

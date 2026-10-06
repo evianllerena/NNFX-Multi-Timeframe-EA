@@ -9,7 +9,7 @@
 //| N1 and N2 blocks, the X5 first-close flag.                       |
 //| Places NO orders. Writes MQL5\Files\NNFX_NewsTest.txt            |
 //| Status: compiled 2026-10-06 (build 6241, 0 errors, 0 warnings);  |
-//| 47/47.                                                           |
+//| 61/61 (D6e-3 news block).                                        |
 //+------------------------------------------------------------------+
 // Inputs keep their defaults when run automatically (no input dialog, so unattended runs never wait for a click).
 #property strict
