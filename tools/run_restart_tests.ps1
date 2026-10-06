@@ -8,6 +8,7 @@ run_restart_tests.ps1 - Phase 6c restart test (a): SIMULATED restarts in the Str
      broker, the state file and the candles. Two extra R2 runs: state file deleted first, comments ignored.
   4. For each run: tools/compare_runs.py compare (identical to the run without a restart, every row and column,
      from the restart on) and tools/compare_runs.py rebuilds (the rebuilt state = the state before, field for field).
+     REBUILD rows are counted first: the base run must have 0, each restart run exactly 1 ("InpRestartAt=none").
 
 Owner decision D6c-1: only the tested terminal (full path) blocks the run; others are listed and never touched;
 a terminal is only ever closed by the process id this script started.
