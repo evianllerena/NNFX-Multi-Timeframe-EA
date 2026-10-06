@@ -261,7 +261,7 @@ if ($PythonOnly) {
           "[TesterInputs]", "InpRiskPct=2.0", "InpEveryBars=6", "InpMaxTrades=0", "InpMinLots=false", "InpMagic=26999",
           "InpStoplessTest=true", "InpLoseReplyOn=3", "InpAbortOn=7", "InpStopsRefuseOn=9", "InpMarginRefuseOn=11",
           "InpModifyOn=13", "InpStopWhenDone=false", "InpRestartAt=none", "InpRestartDeleteState=false",
-          "InpRestartIgnoreComments=false") |
+          "InpRestartIgnoreComments=false", "InpCloseLeftovers=false") |
             Set-Content -LiteralPath $ini -Encoding ASCII
         $err = Run-Terminal $ini 60
         if ((Fresh $orderSummary $t0) -and (Fresh $orderLog $t0)) {

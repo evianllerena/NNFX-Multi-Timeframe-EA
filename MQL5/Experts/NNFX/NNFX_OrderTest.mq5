@@ -62,6 +62,10 @@ input bool   InpStopWhenDone  = false;  // Remove the EA once InpMaxTrades trade
 input string InpRestartAt     = "none"; // Tester: simulated restart at the first candle at/after this time ("none" = no restart)
 input bool   InpRestartDeleteState = false;    // Simulated or real restart: delete the state file before the rebuild
 input bool   InpRestartIgnoreComments = false; // Simulated or real restart: the rebuild ignores order comments
+// D-OPS-1 (owner, 2026-10-06): close this magic's leftover TEST trades and stop. DEMO only, magic 26990-26999 only;
+// rebuilt from the broker like a restart, then closed through Orders.mqh (CloseRemaining), logged to
+// Common\Files\NNFX\trades\OrderTest_<symbol>_cleanup.csv. Opens nothing.
+input bool   InpCloseLeftovers = false;
 input string InpBaseline      = "ref_baseline_sma20.txt";  // Profiles (Common\Files\NNFX\profiles) for the tracker
 input string InpC1            = "ref_c1_rvi10.txt";
 input string InpC2            = "ref_c2_macd_main.txt";
@@ -86,6 +90,7 @@ NNFXCont         g_cont;
 bool             g_has_cont = false;
 datetime         g_proc = 0;           // open time of the last processed candle
 bool             g_restart_done = false;
+bool             g_cleanup = false;     // InpCloseLeftovers run: no trading at all
 string           g_last_saved = "";
 
 string TradeId(const int k)          { return StringFormat("T%04d", k); }
@@ -167,6 +172,25 @@ void LoadSchedule(void)
       g_stopless_done = (p[7] == "1");
      }
    FileClose(h);
+  }
+
+// Test scaffolding after a rebuild: the schedule remembers its current trade by ID. After a "deal history only"
+// rebuild (no comments, no state file) that trade carries the fallback ID "R<half 1 ticket>" instead
+// (G1_phase6c_1 F3), so the schedule follows it; otherwise it would think it is flat and open another trade.
+// The test EA has one trade open at a time. Logged as INFO (compare_runs leaves INFO rows out).
+void ScheduleAdoptRebuilt(void)
+  {
+   if(g_current == "" || g_orders.IsOpen(g_current))
+      return;
+   NNFXTrade t[];
+   g_orders.ExportTrades(t);
+   for(int i = 0; i < ArraySize(t); i++)
+      if(t[i].sym == _Symbol)
+        {
+         Row("INFO", "schedule: current trade " + g_current + " is " + t[i].id + " after the rebuild");
+         g_current = t[i].id;
+         return;
+        }
   }
 
 int SideOf(const NNFXBar &b)
@@ -257,11 +281,52 @@ bool NewOrders(void)
    return g_orders.Init(InpMagic, GetPointer(g_log), 1.5, 1.0, 2.0, 1.5);
   }
 
+// D-OPS-1: rebuild this magic's open test trades from the broker and close each one through Orders.mqh.
+void CloseLeftovers(void)
+  {
+   string notes = Rebuild(iTime(_Symbol, _Period, 1), false, false);
+   Row("REBUILD", "leftover cleanup (D-OPS-1); state=" + StateNow() + "; notes=" + notes);
+   NNFXTrade t[];
+   int n = g_orders.ExportTrades(t);
+   int closed = 0;
+   for(int i = 0; i < n; i++)
+      if(g_orders.CloseRemaining(t[i].id, "leftover TEST trade closed (D-OPS-1, owner 2026-10-06)"))
+         closed++;
+   int mine = 0, tests = 0;
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+     {
+      ulong tk = PositionGetTicket(i);
+      if(tk == 0 || !PositionSelectByTicket(tk))
+         continue;
+      long m = PositionGetInteger(POSITION_MAGIC);
+      if(m == InpMagic)
+         mine++;
+      if(m >= 26990 && m <= 26999)
+         tests++;
+     }
+   Row("INFO", StringFormat("cleanup magic %I64d: %d open trades found, %d closed; positions left: this magic %d, "
+                            "test magics 26990-26999 %d, whole account %d", InpMagic, n, closed, mine, tests,
+                            PositionsTotal()));
+  }
+
 int OnInit()
   {
    g_mode = (MQLInfoInteger(MQL_TESTER) != 0) ? "tester" : "demo";
+   if(InpCloseLeftovers)
+     {
+      if(g_mode != "demo" || InpMagic < 26990 || InpMagic > 26999 ||
+         AccountInfoInteger(ACCOUNT_TRADE_MODE) != ACCOUNT_TRADE_MODE_DEMO)
+        {
+         Print("NNFX_OrderTest: InpCloseLeftovers refused (DEMO account and magic 26990-26999 only, D-OPS-1)");
+         return INIT_FAILED;
+        }
+      g_mode = "cleanup";
+      g_cleanup = true;
+     }
    bool restart = false;
-   if(g_mode == "tester")
+   if(g_cleanup)
+      restart = false;
+   else if(g_mode == "tester")
      {
       // a tester agent keeps MQL5\Files between runs: start every tester run clean
       FileDelete(NNFXStatePath(Instance()));
@@ -285,6 +350,12 @@ int OnInit()
       Print("NNFX_OrderTest: init failed: ", g_bb.Error());
       return INIT_FAILED;
      }
+   if(g_cleanup)
+     {
+      CloseLeftovers();
+      ExpertRemove();
+      return INIT_SUCCEEDED;
+     }
    if(restart)
      {
       // a REAL restart: rebuild before anything else (SPEC); the schedule is test scaffolding, kept apart
@@ -301,6 +372,7 @@ int OnInit()
          g_proc = iTime(_Symbol, _Period, 1);   // OD-7: the EA skips to the next new candle anyway
       string notes = Rebuild(g_proc, InpRestartDeleteState, InpRestartIgnoreComments);
       Row("REBUILD", "real restart; state=" + StateNow() + "; notes=" + notes);
+      ScheduleAdoptRebuilt();
       SaveState();
      }
    return INIT_SUCCEEDED;
@@ -403,6 +475,8 @@ void RecordExit(void)
 
 void OnTick()
   {
+   if(g_cleanup)
+      return;
    g_orders.EnforceStops();
    g_orders.Poll("tick");
    RecordExit();
@@ -429,6 +503,7 @@ void OnTick()
       string notes = Rebuild(g_proc, InpRestartDeleteState, InpRestartIgnoreComments);
       string after = StateNow();
       Row("REBUILD", "match=" + (after == before ? "yes" : "no") + "; state=" + after + "; notes=" + notes);
+      ScheduleAdoptRebuilt();
      }
 
    NNFXBar b;

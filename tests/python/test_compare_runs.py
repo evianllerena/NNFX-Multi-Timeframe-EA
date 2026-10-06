@@ -127,6 +127,70 @@ class TestCompareRuns(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("only 0 restarts", out)
 
+    # hard kill (G1_phase6c_1 F2): no PRESTOP; the rebuild is compared with the last STATE row before it
+    def hard_kill_rows(self, rebuilt_state):
+        rs = base_rows()
+        rs.insert(3, row("2026.06.02 11:00:30", "REBUILD", "real restart; " + rebuilt_state + "; notes=state file: present"))
+        return rs
+
+    def test_hard_kill_compared_with_last_state_row(self):
+        write(self.hard_kill_rows(S1), self.a)
+        ok, out = run(compare_runs.rebuilds, self.a)
+        self.assertTrue(ok, out)
+        self.assertIn("last STATE row 2026.06.02 11:00:00, no PRESTOP: hard stop", out)
+
+    def test_hard_kill_mismatch_caught(self):
+        write(self.hard_kill_rows(S2), self.a)
+        ok, out = run(compare_runs.rebuilds, self.a)
+        self.assertFalse(ok, out)
+        self.assertIn("differs from last STATE row", out)
+
+    # deal history only (G1_phase6c_1 F3): the fallback ID "R" + half 1's ticket
+    def fallback_rows(self, rid="R11", note_id="fallback id R11 = positions 11+12"):
+        rs = base_rows()
+        s1r = S1.replace("T0001", rid)
+        rs.insert(3, row("2026.06.02 11:00:00", "PRESTOP", S1))
+        rs.insert(4, row("2026.06.02 11:00:00", "REBUILD", "match=no; " + s1r + "; notes=state file: absent | " + note_id))
+        for r in rs[5:]:
+            i = COLS.index("trade_id")
+            if r[i] == "T0001":
+                r[i] = rid
+            j = COLS.index("note")
+            r[j] = r[j].replace("T0001", rid)
+        return rs
+
+    def test_fallback_ids_accepted_only_with_the_flag(self):
+        write(self.fallback_rows(), self.a)
+        ok, out = run(compare_runs.rebuilds, self.a)
+        self.assertFalse(ok, out)
+        ok, out = run(compare_runs.rebuilds, self.a, 1, True)
+        self.assertTrue(ok, out)
+        self.assertIn("fallback IDs T0001 -> R11", out)
+        write(base_rows(), self.a)
+        write(self.fallback_rows(), self.b)
+        ok, out = run(compare_runs.compare, self.a, self.b, "2026.06.02 11:00")
+        self.assertFalse(ok, out)
+        ok, out = run(compare_runs.compare, self.a, self.b, "2026.06.02 11:00", True)
+        self.assertTrue(ok, out)
+
+    def test_wrong_or_unlogged_fallback_id_rejected(self):
+        for rid, note in (("R12", "fallback id R12 = positions 12+11"),   # half 2's ticket
+                          ("R99", "fallback id R99 = positions 11+12"),   # not a ticket of this trade
+                          ("R11", "fallback pairing: 11,12")):            # mapping not logged
+            with self.subTest(rid=rid, note=note):
+                write(self.fallback_rows(rid, note), self.a)
+                ok, out = run(compare_runs.rebuilds, self.a, 1, True)
+                self.assertFalse(ok, out)
+
+    def test_fallback_ids_do_not_hide_other_differences(self):
+        rs = self.fallback_rows()
+        rs[-1][COLS.index("price")] = "1.1009"
+        write(base_rows(), self.a)
+        write(rs, self.b)
+        ok, out = run(compare_runs.compare, self.a, self.b, "2026.06.02 11:00", True)
+        self.assertFalse(ok, out)
+        self.assertIn("differs in price", out)
+
 
 if __name__ == "__main__":
     unittest.main()

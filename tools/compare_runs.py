@@ -12,18 +12,28 @@ Two checks, on trade logs written by MQL5/Include/NNFX/TradeLog.mqh:
            -> RESULT: IDENTICAL (0 differing rows, <n> compared)   or   RESULT: DIFFERENT (...)
 
   rebuilds LOG.csv
-           every PRESTOP row (the state just before a restart) is followed by a REBUILD row whose state
-           is the same, field for field (the lines after "state=", split on " / "). The EA's own
-           "match=" flag is not trusted: the comparison is redone here.
+           every REBUILD row's state is the same, field for field (the lines after "state=", split on
+           " / "), as the state just before the restart: the PRESTOP row if the EA wrote one, else (a hard
+           kill: OnDeinit never ran) the last STATE row before it. Each restart line says which. The EA's
+           own "match=" flag is not trusted: the comparison is redone here.
            -> RESULT: REBUILDS MATCH (<n> of <n>)   or   RESULT: REBUILD MISMATCH (...)
 
-Usage:  python tools/compare_runs.py compare BASE.csv RESTART.csv --from TIME
-        python tools/compare_runs.py rebuilds LOG.csv [--min N]
+  --fallback-ids (both commands; "deal history only" restarts, G1_phase6c_1 F3)
+           With no order comments and no state file, the rebuild cannot know the old trade ID. It uses the
+           documented fallback ID "R" + half 1's position ticket (State.mqh, recovery.py) and logs
+           "fallback id R54 = positions 54+55" in the REBUILD note. compare: trade IDs in both runs are
+           replaced by "pos<half 1 ticket>" before comparing (base IDs from the OPEN rows of half 1; "R<n>" IDs
+           -> pos<n>), in the trade_id column and in the TRADE lines of state=. rebuilds: a TRADE line may
+           differ in its ID only, and only if the rebuilt ID is "R" + its half-1 position AND the note logs it.
+
+Usage:  python tools/compare_runs.py compare BASE.csv RESTART.csv --from TIME [--fallback-ids]
+        python tools/compare_runs.py rebuilds LOG.csv [--min N] [--fallback-ids]
 Exit code 0 = PASS.
 """
 import argparse
 import csv
 import os
+import re
 import sys
 
 SKIP = ("PRESTOP", "REBUILD", "INFO")
@@ -36,12 +46,44 @@ def read(path):
         return header, [row for row in r]
 
 
-def compare(base_path, restart_path, from_time):
+_TRADE_ID = re.compile(r"TRADE\|([^|]+)\|")
+
+
+def normalise_ids(header, rows):
+    """Trade IDs -> "pos<half 1 ticket>" (see --fallback-ids)."""
+    ti, hi, ki, ni = header.index("trade_id"), header.index("half"), header.index("ticket"), header.index("note")
+    ei = header.index("event")
+    pos1 = {}
+    for r in rows:
+        if r[ei] == "OPEN" and r[hi] == "1" and r[ti]:
+            pos1.setdefault(r[ti], r[ki])
+
+    def key(tid):
+        if tid in pos1:
+            return "pos" + pos1[tid]
+        if re.fullmatch(r"R\d+", tid):
+            return "pos" + tid[1:]
+        return tid
+
+    out = []
+    for r in rows:
+        r = list(r)
+        if r[ti]:
+            r[ti] = key(r[ti])
+        r[ni] = _TRADE_ID.sub(lambda m: "TRADE|%s|" % key(m.group(1)), r[ni])
+        out.append(r)
+    return out
+
+
+def compare(base_path, restart_path, from_time, fallback_ids=False):
     hb, rb = read(base_path)
     hr, rr = read(restart_path)
     if hb != hr:
         print("RESULT: DIFFERENT (headers differ)")
         return False
+    if fallback_ids:
+        rb, rr = normalise_ids(hb, rb), normalise_ids(hr, rr)
+        print("trade IDs compared as pos<half 1 ticket> (--fallback-ids)")
     ti, ei = hb.index("time"), hb.index("event")
     a = [r for r in rb if r[ti] >= from_time and r[ei] not in SKIP]
     b = [r for r in rr if r[ti] >= from_time and r[ei] not in SKIP]
@@ -75,27 +117,53 @@ def state_of(note):
     return [x for x in s.split(" / ") if x]
 
 
-def rebuilds(path, min_count=1):
+def fallback_ok(b, a, note):
+    """A TRADE line that differs only in its ID: allowed if the rebuilt ID is "R" + half 1's position and the
+    REBUILD note logs that mapping. Returns the mapping text or None."""
+    fb, fa = b.split("|"), a.split("|")
+    if len(fb) != len(fa) or len(fb) < 6 or fb[0] != "TRADE" or fb[2:] != fa[2:] or fb[1] == fa[1]:
+        return None
+    if fa[1] != "R" + fa[4]:
+        return None
+    logged = "fallback id %s = positions %s+%s" % (fa[1], fa[4], fa[5])
+    return "%s -> %s" % (fb[1], fa[1]) if logged in note else None
+
+
+def rebuilds(path, min_count=1, fallback_ids=False):
     h, rows = read(path)
     ei, ni, ti = h.index("event"), h.index("note"), h.index("time")
     pairs, bad, pending = 0, [], None
     for r in rows:
-        if r[ei] == "PRESTOP":
+        if r[ei] in ("PRESTOP", "STATE"):
             pending = r
         elif r[ei] == "REBUILD":
             if pending is None:
-                bad.append("REBUILD at %s without a PRESTOP before it" % r[ti])
+                bad.append("REBUILD at %s without a PRESTOP or STATE row before it" % r[ti])
                 continue
             pairs += 1
+            src = "PRESTOP" if pending[ei] == "PRESTOP" else "last STATE row %s, no PRESTOP: hard stop" % pending[ti]
             before, after = state_of(pending[ni]), state_of(r[ni])
+            maps = []
+            if (fallback_ids and before is not None and after is not None and before != after
+                    and len(before) == len(after)):
+                rest = []
+                for x, y in zip(sorted(before), sorted(after, key=lambda s: s.split("|")[2:])):
+                    m = fallback_ok(x, y, r[ni]) if x != y else None
+                    if m:
+                        maps.append(m)
+                    elif x != y:
+                        rest.append((x, y))
+                if not rest:
+                    before = after
             if before is None or after is None:
-                bad.append("REBUILD at %s: no state= in PRESTOP or REBUILD" % r[ti])
+                bad.append("REBUILD at %s: no state= in the row before it or in REBUILD" % r[ti])
             elif before != after:
                 only_b = [x for x in before if x not in after]
                 only_a = [x for x in after if x not in before]
-                bad.append("REBUILD at %s differs: before %s, rebuilt %s" % (r[ti], only_b, only_a))
+                bad.append("REBUILD at %s differs from %s: before %s, rebuilt %s" % (r[ti], src, only_b, only_a))
             else:
-                print("  restart at %s: rebuilt state = state before, %d lines" % (r[ti], len(after)))
+                print("  restart at %s: rebuilt state = state before (%s), %d lines%s"
+                      % (r[ti], src, len(after), "; fallback IDs " + ", ".join(maps) if maps else ""))
             pending = None
     if pairs < min_count:
         bad.append("only %d restarts in the log, need %d" % (pairs, min_count))
@@ -115,11 +183,14 @@ def main(argv=None):
     c.add_argument("base")
     c.add_argument("restart")
     c.add_argument("--from", dest="from_time", required=True)
+    c.add_argument("--fallback-ids", action="store_true")
     r = sub.add_parser("rebuilds")
     r.add_argument("log")
     r.add_argument("--min", type=int, default=1)
+    r.add_argument("--fallback-ids", action="store_true")
     a = ap.parse_args(argv)
-    ok = compare(a.base, a.restart, a.from_time) if a.cmd == "compare" else rebuilds(a.log, a.min)
+    ok = (compare(a.base, a.restart, a.from_time, a.fallback_ids) if a.cmd == "compare"
+          else rebuilds(a.log, a.min, a.fallback_ids))
     return 0 if ok else 1
 
 

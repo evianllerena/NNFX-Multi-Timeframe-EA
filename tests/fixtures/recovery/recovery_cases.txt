@@ -381,7 +381,8 @@ CANDLE|EURUSD|2026.06.02 12:00|1.103|0.002|1|1
 CANDLE|EURUSD|2026.06.02 13:00|1.1035|0.002|1|1
 EXP|TRADE|R31|EURUSD|-1|31|32|1|1|0.3|1.103|1.103|0.002|-1|1.106|0|0
 EXP|CONT|EURUSD|-1|0|1|1|2026.06.02 13:00
-NOTE|fallback pairing
+NOTE|fallback id R31 = positions 31+32
+NOTE|fallback id R21 = position 21
 END
 
 # A short trade before TP1, closes below the baseline, C1 short: continuation armed short.

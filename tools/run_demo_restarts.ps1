@@ -12,7 +12,9 @@ run_demo_restarts.ps1 - Phase 6c restart test (b): REAL restarts on the demo acc
      file and the candles, and writes REBUILD).
   4. When all four states were tested, or after -Minutes, the EA is restarted with no new trades allowed
      (InpMaxTrades=1, InpStopWhenDone): it manages its open trade to the end and removes itself.
-  5. tools/compare_runs.py rebuilds (every REBUILD = the PRESTOP before it, field for field) and
+  5. tools/compare_runs.py rebuilds (every REBUILD = the PRESTOP before it, field for field; for the -HardKill
+     restart, done with Stop-Process -Force on our own PID right after a candle, there is no PRESTOP and the
+     REBUILD must equal the last STATE row) and
      tools/check_trades.py on the whole demo log.
 
 D6c-1: only the tested terminal (full path) blocks the run; others are listed, never touched; a terminal is
@@ -30,7 +32,8 @@ param(
     [string]$Python  = "C:\Users\Evision\AppData\Local\Programs\Python\Python312\python.exe",
     [long]$ExpectLogin = 113593254,
     [string]$ExpectServer = "MetaQuotes-Demo",
-    [int]$Minutes = 120
+    [int]$Minutes = 120,
+    [string]$HardKill = "R2"     # G1_phase6c_1 F2: this restart is a hard kill of our own PID ("" = none)
 )
 $ErrorActionPreference = "Continue"
 $Terminal = Join-Path $Install "terminal64.exe"
@@ -159,13 +162,17 @@ if (-not $okAcc) { Say "STOP: not the expected demo account; nothing was traded.
 # which left trade T0003 open at the broker (its own SL/TP); 26997 = run demo_restart_20261006_001959 (invalid, T0001 left open).
 $eaInputs = @("InpRiskPct=2.0", "InpEveryBars=2", "InpMinLots=true", "InpMagic=26996", "InpStoplessTest=false", "InpLoseReplyOn=0",
             "InpAbortOn=0", "InpStopsRefuseOn=0", "InpMarginRefuseOn=0", "InpModifyOn=0",
-            "InpRestartAt=none", "InpRestartDeleteState=false", "InpRestartIgnoreComments=false")
+            "InpRestartAt=none", "InpRestartDeleteState=false", "InpRestartIgnoreComments=false", "InpCloseLeftovers=false")
 Write-Set "NNFX_OrderTest_restart.set" ($eaInputs + @("InpMaxTrades=0", "InpStopWhenDone=false"))
 @("[StartUp]", "Expert=NNFX\NNFX_OrderTest", "ExpertParameters=NNFX_OrderTest_restart.set", "Symbol=EURUSD", "Period=M1") |
     Set-Content "$Out\run_demo.ini" -Encoding ASCII
 $p = Start-EA "$Out\run_demo.ini" ($eaInputs.Count + 2)
 Say ("started pid {0} at {1}" -f $p.Id, (Get-Date -Format "HH:mm:ss"))
 
+$HardKilled = $false
+function Proc-Line {
+    try { return @(Get-Content -LiteralPath $StateFile -ErrorAction Stop | Where-Object { $_ -like "PROC|*" })[0] } catch { return "" }
+}
 function Classify {
     if (-not (Test-Path $StateFile)) { return @() }
     try { $lines = Get-Content -LiteralPath $StateFile -ErrorAction Stop } catch { return @() }
@@ -195,8 +202,24 @@ while ($done.Count -lt 4 -and (Get-Date) -lt $deadline) {
     if (-not $target) { continue }
     $snap = "$Out\state_before_$target.txt"
     Copy-Item $StateFile $snap -Force -ErrorAction SilentlyContinue
-    Say ("{0}: state seen twice at {1}; closing pid {2} and restarting" -f $target, (Get-Date -Format "HH:mm:ss"), $p.Id)
-    Close-MT5 $p
+    if ($target -eq $HardKill) {
+        # G1_phase6c_1 F2: a HARD kill of our own PID (D-OPS-1), like a crash or power cut: OnDeinit never runs, so
+        # there is no PRESTOP row and the rebuild must equal the last STATE row. Killed right after the EA has
+        # processed a new candle (the state file's PROC line changes), so that STATE row is the state at the kill.
+        $proc0 = Proc-Line
+        $until = (Get-Date).AddSeconds(150)
+        while ((Proc-Line) -eq $proc0 -and (Get-Date) -lt $until) { Start-Sleep -Milliseconds 300 }
+        Start-Sleep -Milliseconds 500
+        Copy-Item $StateFile $snap -Force -ErrorAction SilentlyContinue
+        Say ("{0}: state seen twice; after the candle of {1}, HARD KILL of pid {2} at {3} (Stop-Process -Force -Id)" -f
+             $target, (Proc-Line), $p.Id, (Get-Date -Format "HH:mm:ss"))
+        Stop-Process -Id $p.Id -Force
+        $null = $p.WaitForExit(60000)
+        $script:HardKilled = $true
+    } else {
+        Say ("{0}: state seen twice at {1}; closing pid {2} and restarting" -f $target, (Get-Date -Format "HH:mm:ss"), $p.Id)
+        Close-MT5 $p
+    }
     $p = Start-EA "$Out\run_demo.ini" ($eaInputs.Count + 2)
     Say ("  restarted pid {0} at {1}" -f $p.Id, (Get-Date -Format "HH:mm:ss"))
     $done[$target] = (Get-Date -Format "HH:mm:ss")
@@ -232,5 +255,11 @@ foreach ($c in @(@{ N = "rebuilt = before (compare_runs rebuilds)"; A = @("$Repo
     $txt | Set-Content ("$Out\" + ($c.N -replace "[^A-Za-z0-9]+", "_") + ".txt") -Encoding ASCII
     $res = ([regex]::Matches($txt, "(?m)^RESULT.*$") | Select-Object -Last 1).Value
     Step $c.N ($code -eq 0) $res.Trim()
+    if ($c.N -like "rebuilt*" -and $HardKill) {
+        # exactly one restart without a PRESTOP row (the hard kill), compared with the last STATE row before it
+        $hard = @([regex]::Matches($txt, "(?m)^.*no PRESTOP: hard stop.*$") | ForEach-Object { $_.Value.Trim() })
+        Step "$HardKill hard kill: no PRESTOP, rebuilt = last STATE row" ($script:HardKilled -and $hard.Count -eq 1) $(
+            if ($hard.Count -eq 1) { $hard[0] } else { "$($hard.Count) restarts without PRESTOP (must be 1); killed: $($script:HardKilled)" })
+    }
 }
 Done

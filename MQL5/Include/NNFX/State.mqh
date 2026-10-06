@@ -423,7 +423,8 @@ void NNFXRebuildPure(const NNFXPosRec &posAll[], const NNFXDealRec &dealsIn[], c
          resolved[i] = true;
         }
      }
-   // fallback groups: same symbol, second, direction and volume, in deal order
+   // fallback groups: same symbol, second, direction and volume, in deal order. Trade ID = "R" + half 1's position
+   // ticket (deterministic; G1_phase6c_1 F3); each mapping is logged: "fallback id R31 = positions 31+32".
    for(int i = 0; i < nd; i++)
      {
       if(d[i].entry != "IN" || resolved[i])
@@ -431,6 +432,7 @@ void NNFXRebuildPure(const NNFXPosRec &posAll[], const NNFXDealRec &dealsIn[], c
       string list = "";
       int count = 0;
       string firstId = "";
+      long grp[];
       for(int j = i; j < nd; j++)
         {
          if(d[j].entry != "IN" || resolved[j] || d[j].sym != d[i].sym || d[j].time != d[i].time || d[j].dir != d[i].dir ||
@@ -446,9 +448,18 @@ void NNFXRebuildPure(const NNFXPosRec &posAll[], const NNFXDealRec &dealsIn[], c
          keyId[j] = firstId;
          resolved[j] = true;
          list += (count > 0 ? "," : "") + IntegerToString((long)d[j].pos);
+         ArrayResize(grp, count + 1);
+         grp[count] = (long)d[j].pos;
          count++;
         }
       NNFXAddNote(notes, "fallback pairing: " + list);
+      for(int k = 0; k < count; k += 2)
+        {
+         if(k + 1 < count)
+            NNFXAddNote(notes, StringFormat("fallback id R%I64d = positions %I64d+%I64d", grp[k], grp[k], grp[k + 1]));
+         else
+            NNFXAddNote(notes, StringFormat("fallback id R%I64d = position %I64d", grp[k], grp[k]));
+        }
      }
 
    // our open positions

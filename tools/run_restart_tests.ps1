@@ -56,7 +56,7 @@ Say ""
 $defaults = [ordered]@{ InpRiskPct = "2.0"; InpEveryBars = "6"; InpMaxTrades = "0"; InpMinLots = "false"; InpMagic = "26999";
     InpStoplessTest = "false"; InpLoseReplyOn = "0"; InpAbortOn = "0"; InpStopsRefuseOn = "0"; InpMarginRefuseOn = "0";
     InpModifyOn = "0"; InpStopWhenDone = "false"; InpRestartAt = "none"; InpRestartDeleteState = "false";
-    InpRestartIgnoreComments = "false" }
+    InpRestartIgnoreComments = "false"; InpCloseLeftovers = "false" }
 function Run-Tester([string]$name, [string[]]$inputs) {
     $ini = "$Out\run_$name.ini"
     $vals = [ordered]@{}
@@ -102,7 +102,11 @@ $runs = @(
     @{ Name = "R3"; At = $times["R3"]; Extra = @() },
     @{ Name = "R4"; At = $times["R4"]; Extra = @() },
     @{ Name = "R2_state_deleted"; At = $times["R2"]; Extra = @("InpRestartDeleteState=true") },
-    @{ Name = "R2_comments_ignored"; At = $times["R2"]; Extra = @("InpRestartIgnoreComments=true") }
+    @{ Name = "R2_comments_ignored"; At = $times["R2"]; Extra = @("InpRestartIgnoreComments=true") },
+    # "deal history only" (G1_phase6c_1 F3): no state file AND no comments. The trade gets the documented fallback
+    # ID "R<half 1 ticket>", so the comparisons use --fallback-ids (every other field must still be equal)
+    @{ Name = "R2_history_only"; At = $times["R2"]; Extra = @("InpRestartDeleteState=true", "InpRestartIgnoreComments=true");
+       Fallback = $true }
 )
 foreach ($r in $runs) {
     if (-not $r.At) { Step "$($r.Name) restart" $false "no restart time"; continue }
@@ -110,14 +114,19 @@ foreach ($r in $runs) {
     if (-not $f) { Step "$($r.Name) restart at $($r.At)" $false "no fresh trade log"; continue }
     $n = Rebuild-Rows $f
     Step "$($r.Name) restarted once" ($n -eq 1) "$n REBUILD rows (must be 1)"
-    $c = Py @("$Repo\tools\compare_runs.py", "compare", $b, $f, "--from", $r.At)
+    $fb = @(); if ($r.Fallback) { $fb = @("--fallback-ids") }
+    $c = Py (@("$Repo\tools\compare_runs.py", "compare", $b, $f, "--from", $r.At) + $fb)
     $c.Text | Set-Content "$Out\$($r.Name).compare.txt" -Encoding ASCII
     $res = ([regex]::Matches($c.Text, "(?m)^RESULT.*$") | Select-Object -Last 1).Value
     Step "$($r.Name) compare (from $($r.At))" ($c.Code -eq 0) $res.Trim()
-    $k = Py @("$Repo\tools\compare_runs.py", "rebuilds", $f)
+    $k = Py (@("$Repo\tools\compare_runs.py", "rebuilds", $f) + $fb)
     $k.Text | Set-Content "$Out\$($r.Name).rebuilds.txt" -Encoding ASCII
     $res = ([regex]::Matches($k.Text, "(?m)^RESULT.*$") | Select-Object -Last 1).Value
     Step "$($r.Name) rebuilt = before" ($k.Code -eq 0) $res.Trim()
+    if ($r.Fallback) {
+        $m = [regex]::Match($k.Text, "fallback IDs (T\d+ -> R\d+)")
+        Step "$($r.Name) fallback ID used and logged" $m.Success $(if ($m.Success) { $m.Groups[1].Value } else { "no fallback ID mapping in the rebuild" })
+    }
 }
 Say ""
 Say $(if ($AllPass) { "OVERALL: PASS" } else { "OVERALL: NOT ALL PASSED (see the lines above)" })

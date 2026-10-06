@@ -214,7 +214,9 @@ def rebuild(positions: List[Position], deals: List[Deal], state_status: str, sta
             keyed[d.pos] = from_state
         else:
             unresolved.append(d)
-    # fallback: same symbol, second, direction and volume, in deal order
+    # fallback: same symbol, second, direction and volume, in deal order. The trade ID is "R" + half 1's position
+    # ticket (the first IN deal of the pair): deterministic, the same on every rebuild of the same history (G1_phase6c_1
+    # F3). The note logs each mapping: "fallback id R31 = positions 31+32" (a lone half: "= position 21").
     groups: Dict[Tuple, List[Deal]] = {}
     for d in unresolved:
         groups.setdefault((d.sym, d.time, d.dir, round(d.volume, 8)), []).append(d)
@@ -225,6 +227,11 @@ def rebuild(positions: List[Position], deals: List[Deal], state_status: str, sta
             if k + 1 < len(g):
                 keyed[g[k + 1].pos] = (tid, 2)
         notes.append("fallback pairing: %s" % ",".join(str(d.pos) for d in g))
+        for k in range(0, len(g), 2):
+            if k + 1 < len(g):
+                notes.append("fallback id R%d = positions %d+%d" % (g[k].pos, g[k].pos, g[k + 1].pos))
+            else:
+                notes.append("fallback id R%d = position %d" % (g[k].pos, g[k].pos))
 
     open_pos = {p.pos: p for p in positions if p.magic == magic}
     outs: Dict[int, Deal] = {}
