@@ -260,7 +260,7 @@ if ($PythonOnly) {
           # EVERY input listed: the tester reuses an EA's last-used value for any input left out
           "[TesterInputs]", "InpRiskPct=2.0", "InpEveryBars=6", "InpMaxTrades=0", "InpMinLots=false", "InpMagic=26999",
           "InpStoplessTest=true", "InpLoseReplyOn=3", "InpAbortOn=7", "InpStopsRefuseOn=9", "InpMarginRefuseOn=11",
-          "InpModifyOn=13", "InpStopWhenDone=false", "InpRestartAt=", "InpRestartDeleteState=false",
+          "InpModifyOn=13", "InpStopWhenDone=false", "InpRestartAt=none", "InpRestartDeleteState=false",
           "InpRestartIgnoreComments=false") |
             Set-Content -LiteralPath $ini -Encoding ASCII
         $err = Run-Terminal $ini 60
@@ -268,6 +268,9 @@ if ($PythonOnly) {
             Copy-Item $orderSummary, $orderLog "$Out\" -Force
             $res = ([regex]::Matches((ReadText $orderSummary), "(?m)^RESULT:.*$") | Select-Object -Last 1).Value
             Step "4b order run (tester)" "PASS" $(if ($res) { $res.Trim() + "; checked in step 5" } else { "summary has no RESULT line" })
+            # no simulated restart in this run: "InpRestartAt=" (empty) was reused from an earlier run in 20261006_004127
+            $nr = @(Get-Content -LiteralPath $orderLog | Where-Object { $_ -match "^[^,]*,REBUILD," }).Count
+            Step "4b no restart in order run" $(if ($nr -eq 0) { "PASS" } else { "FAIL" }) "$nr REBUILD rows (must be 0)"
             $script:OrderLogThisRun = "$Out\OrderTest_EURUSD_tester.csv"
         } else {
             $why = if ($err) { $err } else { "tester ran but wrote no new trade log" }

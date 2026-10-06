@@ -48,10 +48,13 @@ foreach ($o in @($running | Where-Object { $_.Path -ine $Terminal })) { Say ("ot
 Say ""
 
 # Restart scenario: no test hooks, no stopless test. EVERY input is listed in every run: the Strategy Tester
-# reuses an EA's last-used value for any input left out (found in run restart_20261005_224233, kept in invalid\).
+# reuses an EA's last-used value for any input left out (found in run restart_20261005_224233, kept in invalid\),
+# AND for an input listed with an EMPTY value: "InpRestartAt=" did not clear it, so the base run of
+# restart_20261005_225140 restarted too (kept in invalid\). "No restart" is "InpRestartAt=none", and every run's
+# REBUILD rows are counted: the base must have 0, each restart run exactly 1.
 $defaults = [ordered]@{ InpRiskPct = "2.0"; InpEveryBars = "6"; InpMaxTrades = "0"; InpMinLots = "false"; InpMagic = "26999";
     InpStoplessTest = "false"; InpLoseReplyOn = "0"; InpAbortOn = "0"; InpStopsRefuseOn = "0"; InpMarginRefuseOn = "0";
-    InpModifyOn = "0"; InpStopWhenDone = "false"; InpRestartAt = ""; InpRestartDeleteState = "false";
+    InpModifyOn = "0"; InpStopWhenDone = "false"; InpRestartAt = "none"; InpRestartDeleteState = "false";
     InpRestartIgnoreComments = "false" }
 function Run-Tester([string]$name, [string[]]$inputs) {
     $ini = "$Out\run_$name.ini"
@@ -72,14 +75,17 @@ function Run-Tester([string]$name, [string[]]$inputs) {
     }
     return $null
 }
+function Rebuild-Rows([string]$csv) { return @(Get-Content -LiteralPath $csv | Where-Object { $_ -match "^[^,]*,REBUILD," }).Count }
 function Py([string[]]$a) {
     $lines = & $Python @a 2>&1 | ForEach-Object { if ($_ -is [System.Management.Automation.ErrorRecord]) { $_.Exception.Message } else { [string]$_ } }
     return @{ Code = $LASTEXITCODE; Text = (($lines | Out-String) -replace "`r?`n", "`r`n") }
 }
 
-$b = Run-Tester "base" @("InpRestartAt=")
+$b = Run-Tester "base" @("InpRestartAt=none")
 if (-not $b) { Step "base run (no restart)" $false "no fresh trade log"; $Summary | Set-Content "$Out\SUMMARY.txt" -Encoding ASCII; exit 1 }
-Step "base run (no restart)" $true "$b"
+$n = Rebuild-Rows $b
+Step "base run (no restart)" ($n -eq 0) "$n REBUILD rows (must be 0) - $b"
+if ($n -ne 0) { $Summary | Set-Content "$Out\SUMMARY.txt" -Encoding ASCII; exit 1 }
 $pick = Py @("$Repo\tools\pick_restart_times.py", $b)
 $pick.Text | Set-Content "$Out\pick_restart_times.txt" -Encoding ASCII
 $times = @{}
@@ -101,6 +107,8 @@ foreach ($r in $runs) {
     if (-not $r.At) { Step "$($r.Name) restart" $false "no restart time"; continue }
     $f = Run-Tester $r.Name (@("InpRestartAt=$($r.At)") + $r.Extra)
     if (-not $f) { Step "$($r.Name) restart at $($r.At)" $false "no fresh trade log"; continue }
+    $n = Rebuild-Rows $f
+    Step "$($r.Name) restarted once" ($n -eq 1) "$n REBUILD rows (must be 1)"
     $c = Py @("$Repo\tools\compare_runs.py", "compare", $b, $f, "--from", $r.At)
     $c.Text | Set-Content "$Out\$($r.Name).compare.txt" -Encoding ASCII
     $res = ([regex]::Matches($c.Text, "(?m)^RESULT.*$") | Select-Object -Last 1).Value

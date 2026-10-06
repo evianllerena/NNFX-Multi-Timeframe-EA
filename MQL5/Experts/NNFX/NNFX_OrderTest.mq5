@@ -55,7 +55,10 @@ input int    InpStopsRefuseOn = 9;      // Tester only: stops level 100000 point
 input int    InpMarginRefuseOn = 11;    // Tester only: free margin 0 on this trade -> REFUSE, OD-5 (0 = off)
 input int    InpModifyOn      = 13;     // Tester only: SL/TP planned 20 points off on this trade -> MODIFY (0 = off)
 input bool   InpStopWhenDone  = false;  // Remove the EA once InpMaxTrades trades were tried and none is open (demo run)
-input string InpRestartAt     = "";     // Tester: simulated restart at the first candle at/after this time ("" = none)
+// "none" = no restart. Not "": the Strategy Tester treats an empty value in [TesterInputs] as not listed and reuses
+// the last-used value (runs restart_20261005_225140 and 20261006_004127 restarted although "InpRestartAt=" was
+// listed; kept in checks\invalid\).
+input string InpRestartAt     = "none"; // Tester: simulated restart at the first candle at/after this time ("none" = no restart)
 input bool   InpRestartDeleteState = false;    // Simulated or real restart: delete the state file before the rebuild
 input bool   InpRestartIgnoreComments = false; // Simulated or real restart: the rebuild ignores order comments
 input string InpBaseline      = "ref_baseline_sma20.txt";  // Profiles (Common\Files\NNFX\profiles) for the tracker
@@ -414,7 +417,7 @@ void OnTick()
       return;   // decisions only from the second candle on (and OD-7 after a restart)
 
    // a SIMULATED restart (tester): everything in memory is thrown away and rebuilt, before this candle is processed
-   if(InpRestartAt != "" && !g_restart_done && bar >= StringToTime(InpRestartAt))
+   if(InpRestartAt != "none" && InpRestartAt != "" && !g_restart_done && bar >= StringToTime(InpRestartAt))
      {
       g_restart_done = true;
       string before = StateNow();
