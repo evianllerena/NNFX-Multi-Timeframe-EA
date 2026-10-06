@@ -1,0 +1,78 @@
+# News cases (Phase 6e; docs/PLAN_PHASE6.md section 6). Shared by tests/python/test_news.py (answer key
+# nnfx_ref/news.py) and MQL5/Scripts/NNFX/NNFX_NewsTest.mq5. The event list is the APPROVED profiles/news_events.txt
+# (D6e-1). All times are server times. Every expected value is worked out by hand below.
+#
+# Rules: N1 blocks a pair at the candle close t when either currency has an event e with t < e <= t + 24 h, or an N2
+# blackout covers t. X5's flag is true at the first candle close inside an event's window (I-10); prev = the previous
+# ACTUAL candle close ("-" = the first candle seen).
+
+# MATCH|id|currency|event id|event name|expected VP item ("-" = not one of VP's events)
+MATCH|known_id|USD|840030016|Nonfarm Payrolls|Non-Farm Payrolls
+# a NEW Fed chair: id not in the list, caught by the role pattern "Fed Chair * Speech" (R-15)
+MATCH|new_fed_chair|USD|840050099|Fed Chair Warsh Speech|FOMC speech by the Fed chair
+# a NEW ECB president: id not in the list, caught by "ECB President * Speech"
+MATCH|new_ecb_president|EUR|999010099|ECB President Nagel Speech|ECB president speech
+MATCH|governor_not_chair|USD|840050008|Fed Governor Powell Speech|-
+MATCH|fomc_member|USD|840060002|FOMC Member Kaplan Speech|-
+MATCH|testimony_not_listed|USD|840050021|Fed Chair Powell Testimony|-
+MATCH|cpi_yy_not_listed|USD|840030007|CPI y/y|-
+MATCH|eur_country_gdp|EUR|276010008|GDP q/q|-
+MATCH|gbp_gdp|GBP|826010037|GDP q/q|GDP
+MATCH|mpc_vote|GBP|826020011|BoE MPC Vote Hike|interest rates: MPC votes
+# a listed id still matches if the calendar renames the event
+MATCH|renamed_known_id|USD|840050014|Fed Rate Decision|interest rates
+MATCH|snb|CHF|756010001|SNB Interest Rate Decision|SNB rate decision (R-15, instead of Libor)
+# the same name on another currency is not matched
+MATCH|wrong_currency|CAD|840030016|Nonfarm Payrolls|-
+
+# The events used by the N1 and X5 cases
+EV|2026.06.05 15:30|USD|840030016|Nonfarm Payrolls
+EV|2026.06.10 15:30|USD|840030005|CPI m/m
+EV|2026.06.10 21:00|USD|840050014|Fed Interest Rate Decision
+EV|2026.06.11 14:15|EUR|999010007|ECB Interest Rate Decision
+EV|2026.06.15 09:00|GBP|826010037|GDP q/q
+EV|2026.06.17 03:00|NZD|554010024|GDP q/q
+# N2 blackout (preset text, OD-19): GBP from 22 Jun 00:00 to 24 Jun 23:59
+BLACKOUT|GBP:2026.06.22-2026.06.24
+
+# N1|id|pair|candle close t|expected reasons, ";"-separated ("-" = not blocked)
+# NFP at 06.05 15:30: t + 24 h = 06.05 15:30 exactly -> inside (end inclusive)
+N1|end_inclusive|EURUSD|2026.06.04 15:30|N1 USD Nonfarm Payrolls 2026.06.05 15:30
+N1|one_minute_early|EURUSD|2026.06.04 15:29|-
+# the event at the close itself is not "in the next 24 hours" (start exclusive)
+N1|start_exclusive|EURUSD|2026.06.05 15:30|-
+# after the event: the window looks forward only
+N1|after_event_not_blocked|EURUSD|2026.06.05 20:00|-
+# USD is the QUOTE currency of GBPUSD
+N1|quote_currency|GBPUSD|2026.06.04 16:00|N1 USD Nonfarm Payrolls 2026.06.05 15:30
+N1|other_pair|AUDNZD|2026.06.04 16:00|-
+# ECB at 06.11 14:15 is 23 h 15 after 06.10 15:00
+N1|base_currency|EURGBP|2026.06.10 15:00|N1 EUR ECB Interest Rate Decision 2026.06.11 14:15
+# two events close together: both reasons (t + 24 h = 06.11 12:00, before the ECB)
+N1|two_events|EURUSD|2026.06.10 12:00|N1 USD CPI m/m 2026.06.10 15:30;N1 USD Fed Interest Rate Decision 2026.06.10 21:00
+N1|n2_first_day|GBPUSD|2026.06.22 00:00|N2 GBP
+N1|n2_inside|GBPUSD|2026.06.23 12:00|N2 GBP
+N1|n2_last_minute|GBPUSD|2026.06.24 23:59|N2 GBP
+N1|n2_after|GBPUSD|2026.06.25 00:00|-
+N1|n2_other_currency|EURUSD|2026.06.23 12:00|-
+
+# X5|id|pair|previous candle close|candle close t|expected first-close flag (0/1)
+# NFP 06.05 15:30: its window holds the closes t with 06.04 15:30 <= t < 06.05 15:30
+X5|h1_first|EURUSD|2026.06.04 15:00|2026.06.04 16:00|1
+X5|h1_second|EURUSD|2026.06.04 16:00|2026.06.04 17:00|0
+X5|m30_first_on_edge|EURUSD|2026.06.04 15:00|2026.06.04 15:30|1
+X5|m30_next|EURUSD|2026.06.04 15:30|2026.06.04 16:00|0
+X5|h4_first|EURUSD|2026.06.04 12:00|2026.06.04 16:00|1
+X5|after_event|EURUSD|2026.06.05 15:00|2026.06.05 16:00|0
+X5|quote_currency|GBPUSD|2026.06.04 15:00|2026.06.04 16:00|1
+X5|first_candle_seen|EURUSD|-|2026.06.05 10:00|1
+# two events close together (CPI 06.10 15:30, Fed 06.10 21:00): a flag at the first close inside EACH window
+X5|two_events_first|EURUSD|2026.06.09 15:00|2026.06.09 16:00|1
+X5|two_events_between|EURUSD|2026.06.09 16:00|2026.06.09 17:00|0
+X5|two_events_second|EURUSD|2026.06.09 20:00|2026.06.09 21:00|1
+X5|two_events_after|EURUSD|2026.06.09 21:00|2026.06.09 22:00|0
+# weekend: GBP GDP Mon 06.15 09:00, window from Sun 06.14 09:00. Friday's last H1 close is Sat 06.13 00:00 (outside);
+# Monday's first close 01:00 is the first close inside (t - 1 h = 00:00 would be inside: the actual previous close
+# must be used)
+X5|weekend_first|GBPUSD|2026.06.13 00:00|2026.06.15 01:00|1
+X5|weekend_second|GBPUSD|2026.06.15 01:00|2026.06.15 02:00|0
