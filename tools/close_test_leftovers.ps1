@@ -11,7 +11,8 @@ and removes itself; it opens nothing. The EA refuses the mode on a non-demo acco
   3. PASS when every magic's INFO row says "this magic 0" and the last one says "test magics 26990-26999 0".
 
 Output: <MT5 data folder>\MQL5\Files\NNFX\checks\cleanup_<date-time>\ (SUMMARY.txt, the cleanup log, logs).
-Usage:  powershell -ExecutionPolicy Bypass -File tools\close_test_leftovers.ps1 -Magics 26998,26997
+Usage:  powershell -ExecutionPolicy Bypass -Command "& .\tools\close_test_leftovers.ps1 -Magics 26998,26997"
+        (not -File: it passes "26998,26997" as one string; run cleanup_20261006_091939, kept in invalid\)
 #>
 param(
     [long[]]$Magics,
