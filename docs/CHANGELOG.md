@@ -2,6 +2,41 @@
 
 Newest first.
 
+## 2026-10-06 — Phase 6d: guard (switches and limits)
+
+- `tests/python/nnfx_ref/guard.py` (the answer key) and `tests/fixtures/guard/guard_cases.txt` (56 hand-worked
+  cases); `MQL5/Include/NNFX/Guard.mqh` (the port) and `NNFX_GuardTest.mq5` (56/56 in MT5).
+  - Trading day boundary = 17:00 New York in server time (OD-3 update). US and EU daylight saving are separate, with
+    a per-broker clock rule as a setting (D6d-4: to verify after 25 Oct and 1 Nov). The rollover window is
+    [-15 min, +60 min).
+  - Weekend block, off by default.
+  - Daily loss: closed trades, 6% of the day's starting balance; exactly 6% blocks (D6d-2).
+  - Drawdown pause: 10% below the equity peak, sampled at candle close. Reset manual only, and logged (D6d-3).
+  - Master switch `NNFX_MASTER`: missing = OFF (D6d-1).
+  - Max spread (off until measured) and indicator failure.
+  - Never `TimeLocal` (D6d-4).
+- `MQL5/Include/NNFX/Panel.mqh`: chart buttons for instance on/off, close-all (confirm) and drawdown reset
+  (confirm). It never trades.
+- Test EA, `InpGuard` (off by default):
+  - SKIP `blocked:<reasons>`; open trades keep being managed.
+  - GUARD rows for every change of the block reasons, the pause, the daily loss and the reset.
+  - Tester-only `InpTesterMaster` and `InpTesterPauseAt`.
+  - Demo master-switch test mode: instance A opens instance B's chart from a template.
+- `TradeLog.mqh`: `FILE_SHARE_READ` (drivers read the log while the EA writes it).
+- Tools:
+  - `check_guard_log.py` (`--require-managed`, `--managed-during-pause`), `check_master_test.py` (`--panel`);
+  - `run_demo_master_test.ps1`, `NNFX_TemplateProbe.mq5`;
+  - `check_trades.py --be-lag-seconds` (live breakeven via=transaction may be 1-2 s after TP1);
+  - runner steps 4c (guard run) and 4d (pause while a trade is open).
+- Source scans:
+  - `test_guard_rules.py`: no `TimeLocal`; drawdown reset only on the owner's request.
+  - `test_input_lists.py`: every test-EA input is listed by every driver.
+- Findings:
+  - The tester does NOT see the terminal's global variables.
+  - The live server offset reads +0 before login.
+  - Planted bugs 9 of 9 (Guard.mqh).
+- PLAN 6f carry-overs from the G1_phase6c_2 verdict.
+
 ## 2026-10-06 — Phase 6c: review G1_phase6c_1 fixes (F1-F4)
 
 - F3: the fallback trade ID of a "deal history only" rebuild is documented. It is `R` + half 1's position ticket,
