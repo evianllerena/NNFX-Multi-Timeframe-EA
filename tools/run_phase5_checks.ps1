@@ -143,7 +143,7 @@ if ($PythonOnly) {
                   "Scripts\NNFX\NNFX_EnvCheck", "Experts\NNFX\NNFX_RepaintCheck", "Scripts\NNFX\NNFX_SizingTest",
                   "Scripts\NNFX\NNFX_SafetyTest", "Scripts\NNFX\NNFX_OrderMathTest", "Experts\NNFX\NNFX_OrderTest",
                   "Scripts\NNFX\NNFX_RecoveryTest", "Scripts\NNFX\NNFX_DealReport", "Scripts\NNFX\NNFX_GuardTest",
-                  "Experts\NNFX\NNFX_TemplateProbe")
+                  "Experts\NNFX\NNFX_TemplateProbe", "Scripts\NNFX\NNFX_GvTool")
     $compileOk = $true
     foreach ($f in $programs) {
         $src = "$MT5\MQL5\$f.mq5"; $log = "$MT5\MQL5\$f.log"; $ex5 = "$MT5\MQL5\$f.ex5"

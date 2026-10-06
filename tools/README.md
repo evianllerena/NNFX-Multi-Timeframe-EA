@@ -28,6 +28,7 @@
 | `MQL5/Experts/NNFX/NNFX_TemplateProbe.mq5` | Phase 6d test tool: saves its own chart as a template, to read this build's `.tpl` format. Places no orders | Compiled 2026-10-06 |
 | `tools/run_demo_master_test.ps1` | Phase 6d demo test of the master switch on two charts, and of the chart buttons. Leftovers are closed at the end and the whole account must be flat | See `docs/VERIFICATION.md` |
 | `tools/check_master_test.py` | Phase 6d: both instances saw the master switch go OFF and ON (GUARD `blocks:` rows), no entry while OFF; `--panel`: no entry while the instance is off, the drawdown reset logged at a later candle, close-all leaves nothing open | Tested here (`test_check_master_test.py`) |
+| `MQL5/Scripts/NNFX/NNFX_GvTool.mq5` | D-OPS-1 test-terminal tool: lists, or deletes (`InpDelete`), `NNFX_` terminal global variables only, with a before/after report. Places no orders | Compiled 2026-10-06 (build 6241); deleted `NNFX_MASTER` (run `gv_delete_master_20261006_170258`) |
 | Calendar export (MQL5 script) | Saves VP's news events, month by month, for backtests | Planned (Phase 6) |
 | Result recompute (Python) | Recomputes trades, R and drawdown from raw trade logs (V13) | Planned (Phase 8) |
 
