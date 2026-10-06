@@ -66,13 +66,24 @@ function Run-Tester([string]$name, [string[]]$inputs) {
     @("[Tester]", "Expert=NNFX\NNFX_OrderTest", "Symbol=EURUSD", "Period=H1", "Model=1", "FromDate=$From", "ToDate=$To",
       "ForwardMode=0", "Optimization=0", "Visual=0", "Report=NNFX_RestartTest_$name", "ReplaceReport=1", "ShutdownTerminal=1",
       "[TesterInputs]") + $lines | Set-Content -LiteralPath $ini -Encoding ASCII
-    $t0 = Get-Date
-    $p = Start-Process -FilePath $Terminal -ArgumentList "/config:`"$ini`"" -PassThru
-    if (-not $p.WaitForExit(3600000)) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue; return $null }
-    Start-Sleep -Seconds 2
-    if ((Test-Path $Log) -and (Get-Item $Log).LastWriteTime -ge $t0) {
-        Copy-Item $Log "$Out\$name.csv" -Force
-        return "$Out\$name.csv"
+    # Up to 3 tries. If the tested terminal is already open (not started by this script; run
+    # restart_20261006_092459, kept in invalid\), our start hands over to it and ends at once: wait until it is
+    # gone (it is never touched, D6c-1/D-OPS-1) and try again.
+    for ($try = 1; $try -le 3; $try++) {
+        $t0 = Get-Date
+        $p = Start-Process -FilePath $Terminal -ArgumentList "/config:`"$ini`"" -PassThru
+        if (-not $p.WaitForExit(3600000)) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue; return $null }
+        Start-Sleep -Seconds 2
+        if ((Test-Path $Log) -and (Get-Item $Log).LastWriteTime -ge $t0) {
+            Copy-Item $Log "$Out\$name.csv" -Force
+            return "$Out\$name.csv"
+        }
+        $other = @(Get-Process -Name terminal64 -ErrorAction SilentlyContinue | Where-Object { $_.Path -ieq $Terminal })
+        Say ("  {0}: try {1} wrote no trade log; tested terminal(s) open, not started by this script: {2}" -f $name, $try,
+             $(if ($other.Count) { ($other | ForEach-Object { $_.Id }) -join "," } else { "none" }))
+        $until = (Get-Date).AddMinutes(10)
+        while ((Get-Date) -lt $until -and @(Get-Process -Name terminal64 -ErrorAction SilentlyContinue |
+               Where-Object { $_.Path -ieq $Terminal }).Count -gt 0) { Start-Sleep -Seconds 5 }
     }
     return $null
 }
