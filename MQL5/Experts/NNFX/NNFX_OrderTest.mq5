@@ -44,6 +44,7 @@
 #define NNFX_TEST_BUILD
 #include <NNFX\State.mqh>
 #include <NNFX\BarBuilder.mqh>
+#include <NNFX\Guard.mqh>
 
 input double InpRiskPct       = 2.0;    // Risk % (M2)
 input int    InpEveryBars     = 6;      // A new trade when flat, every N closed candles
@@ -67,6 +68,15 @@ input bool   InpRestartIgnoreComments = false; // Simulated or real restart: the
 // rebuilt from the broker like a restart, then closed through Orders.mqh (CloseRemaining), logged to
 // Common\Files\NNFX\trades\OrderTest_<symbol>_cleanup.csv. Opens nothing.
 input bool   InpCloseLeftovers = false;
+// Phase 6d guard (Guard.mqh). Off = the 6b/6c behaviour. On: before each new entry the guard is asked; a blocked
+// entry writes a SKIP row "blocked:<reasons>" and is not tried; open trades keep being managed (S-2).
+input bool   InpGuard          = false;
+input bool   InpInstanceOn     = true;   // this instance's switch
+input int    InpServerWinterOffset = 2;  // broker clock (D6d-4, a setting, unverified): hours east of UTC in winter
+input string InpServerDst      = "US";   // broker clock: daylight-saving rule "none", "EU" or "US"
+input double InpWeekendHours   = 0;      // S-7: block the last N hours before the Friday boundary (0 = off)
+input double InpMaxSpread      = 0;      // points; 0 = off (not set until spreads are measured)
+input int    InpTesterMaster   = -1;     // TESTER ONLY: -1 = read NNFX_MASTER, 1 = on, 0 = off (refused outside it)
 input string InpBaseline      = "ref_baseline_sma20.txt";  // Profiles (Common\Files\NNFX\profiles) for the tracker
 input string InpC1            = "ref_c1_rvi10.txt";
 input string InpC2            = "ref_c2_macd_main.txt";
@@ -92,6 +102,9 @@ bool             g_has_cont = false;
 datetime         g_proc = 0;           // open time of the last processed candle
 bool             g_restart_done = false;
 bool             g_cleanup = false;     // InpCloseLeftovers run: no trading at all
+NNFXBroker       g_broker;
+NNFXDrawdown     g_dd;
+bool             g_dl_was = false;      // daily loss blocked at the last candle (to log the change once)
 bool             g_pending_rebuild = false;  // a real restart: no trading until the rebuild has run (OnTimer)
 uint             g_ready_since = 0;     // GetTickCount() when MT5 was first seen connected and logged in
 string           g_last_saved = "";
@@ -312,9 +325,81 @@ void CloseLeftovers(void)
                             PositionsTotal()));
   }
 
+// The guard at a candle close (6d). Server time = TimeCurrent() (the broker's clock; never TimeLocal, D6d-4).
+string GuardAtCandle(const bool indicatorOk)
+  {
+   datetime t = TimeCurrent();
+   double equity = AccountInfoDouble(ACCOUNT_EQUITY);
+   // drawdown (R-12, OD-2): the owner's reset first (D6d-3, logged), then this candle's equity sample
+   NNFXDrawdownLoad(g_dd);
+   string resetText;
+   if(NNFXDrawdownResetRequested(g_dd, equity, resetText))
+      Row("GUARD", resetText);
+   bool was = g_dd.paused;
+   NNFXDrawdownSample(g_dd, equity);
+   NNFXDrawdownSave(g_dd);
+   if(g_dd.paused && !was)
+     {
+      string why = StringFormat("drawdown pause (R-12): equity %.2f <= 90%% of the peak %.2f; reset by hand only (S-6)",
+                                equity, g_dd.peak);
+      Row("GUARD", why);
+      NNFXNotify(why);
+     }
+   // daily loss (S-5, D6d-2): the account's closed deals since the trading day boundary
+   datetime start = NNFXTradingDayStart(g_broker, t);
+   datetime times[];
+   double profits[];
+   if(HistorySelect(start, t + 60))
+     {
+      int n = HistoryDealsTotal();
+      for(int i = 0; i < n; i++)
+        {
+         ulong d = HistoryDealGetTicket(i);
+         long entry = HistoryDealGetInteger(d, DEAL_ENTRY);
+         if(entry != DEAL_ENTRY_OUT && entry != DEAL_ENTRY_OUT_BY && entry != DEAL_ENTRY_INOUT)
+            continue;
+         int k = ArraySize(times);
+         ArrayResize(times, k + 1);
+         ArrayResize(profits, k + 1);
+         times[k] = (datetime)HistoryDealGetInteger(d, DEAL_TIME);
+         profits[k] = HistoryDealGetDouble(d, DEAL_PROFIT) + HistoryDealGetDouble(d, DEAL_SWAP) +
+                      HistoryDealGetDouble(d, DEAL_COMMISSION) + HistoryDealGetDouble(d, DEAL_FEE);
+        }
+     }
+   double pl, limit;
+   bool dl = NNFXDailyLoss(g_broker, t, AccountInfoDouble(ACCOUNT_BALANCE), InpRiskPct, times, profits, pl, limit);
+   if(dl && !g_dl_was)
+     {
+      string why = StringFormat("daily loss limit (S-5, D6d-2): today's closed P/L %.2f <= %.2f since %s",
+                                pl, limit, NNFXTime(start));
+      Row("GUARD", why);
+      NNFXNotify(why);
+     }
+   g_dl_was = dl;
+   int master = NNFXMasterState();
+   if(g_mode == "tester" && InpTesterMaster >= 0)
+      master = InpTesterMaster;
+   double spread = (double)SymbolInfoInteger(_Symbol, SYMBOL_SPREAD);
+   return NNFXGuardBlocks(master, InpInstanceOn, g_dd.paused, dl, NNFXInRollover(g_broker, t),
+                          NNFXInWeekendBlock(g_broker, t, InpWeekendHours), spread, InpMaxSpread, indicatorOk);
+  }
+
 int OnInit()
   {
    g_mode = (MQLInfoInteger(MQL_TESTER) != 0) ? "tester" : "demo";
+   g_broker.name = AccountInfoString(ACCOUNT_SERVER);
+   g_broker.winter_offset = InpServerWinterOffset;
+   g_broker.dst = InpServerDst;
+   if(InpGuard && InpServerDst != "none" && InpServerDst != "EU" && InpServerDst != "US")
+     {
+      Print("NNFX_OrderTest: InpServerDst must be none, EU or US");
+      return INIT_PARAMETERS_INCORRECT;
+     }
+   if(InpTesterMaster >= 0 && MQLInfoInteger(MQL_TESTER) == 0)
+     {
+      Print("NNFX_OrderTest: InpTesterMaster is for the Strategy Tester only (live: the NNFX_MASTER global variable)");
+      return INIT_PARAMETERS_INCORRECT;
+     }
    if(InpCloseLeftovers)
      {
       if(g_mode != "demo" || InpMagic < 26990 || InpMagic > 26999 ||
@@ -339,6 +424,11 @@ int OnInit()
       restart = FileIsExist(NNFXStatePath(Instance())) || FileIsExist(SchedulePath());
    if(!g_log.Open("OrderTest_" + _Symbol + "_" + g_mode + ".csv", restart))
       return INIT_FAILED;
+   if(InpGuard && g_mode == "tester")
+      // PLAN 6d: are the terminal's global variables visible in the tester? NNFX_GuardTest sets this probe
+      Row("INFO", StringFormat("tester global variables: NNFX_TESTER_PROBE %s; NNFX_MASTER %s",
+                               GlobalVariableCheck("NNFX_TESTER_PROBE") ? "visible" : "NOT visible",
+                               GlobalVariableCheck(NNFX_GV_MASTER) ? "visible" : "missing"));
    if(!NewOrders())
       return INIT_FAILED;
    g_atr = iATR(_Symbol, _Period, 14);
@@ -449,7 +539,7 @@ void OnTradeTransaction(const MqlTradeTransaction &trans, const MqlTradeRequest 
   }
 
 // The schedule for one new candle (unchanged from 6b).
-void ScheduleStep(const double atr)
+void ScheduleStep(const double atr, const string blocks)
   {
    if(g_current != "" && g_orders.IsOpen(g_current))
      {
@@ -462,6 +552,12 @@ void ScheduleStep(const double atr)
    g_bars_flat++;
    if(g_bars_flat < InpEveryBars)
       return;
+   if(blocks != "")
+     {
+      // a new entry is due but the guard blocks it: not tried, the trade number is not used; tried again next candle
+      Row("SKIP", "blocked:" + blocks);
+      return;
+     }
    if(InpMaxTrades > 0 && g_trade_no >= InpMaxTrades)
      {
       if(InpStopWhenDone)
@@ -567,7 +663,8 @@ void OnTick()
         }
       g_orders.OnBarClose(_Symbol, close, atr[0]);
       g_orders.Reconcile();
-      ScheduleStep(atr[0]);
+      string blocks = InpGuard ? GuardAtCandle(ok) : "";
+      ScheduleStep(atr[0], blocks);
      }
    RecordExit();
    g_proc = iTime(_Symbol, _Period, 1);

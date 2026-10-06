@@ -162,7 +162,8 @@ if (-not $okAcc) { Say "STOP: not the expected demo account; nothing was traded.
 # which left trade T0003 open at the broker (its own SL/TP); 26997 = run demo_restart_20261006_001959 (invalid, T0001 left open).
 $eaInputs = @("InpRiskPct=2.0", "InpEveryBars=2", "InpMinLots=true", "InpMagic=26996", "InpStoplessTest=false", "InpLoseReplyOn=0",
             "InpAbortOn=0", "InpStopsRefuseOn=0", "InpMarginRefuseOn=0", "InpModifyOn=0",
-            "InpRestartAt=none", "InpRestartDeleteState=false", "InpRestartIgnoreComments=false", "InpCloseLeftovers=false")
+            "InpRestartAt=none", "InpRestartDeleteState=false", "InpRestartIgnoreComments=false", "InpCloseLeftovers=false",
+            "InpGuard=false", "InpInstanceOn=true", "InpServerWinterOffset=2", "InpServerDst=US", "InpWeekendHours=0", "InpMaxSpread=0", "InpTesterMaster=-1")
 Write-Set "NNFX_OrderTest_restart.set" ($eaInputs + @("InpMaxTrades=0", "InpStopWhenDone=false"))
 @("[StartUp]", "Expert=NNFX\NNFX_OrderTest", "ExpertParameters=NNFX_OrderTest_restart.set", "Symbol=EURUSD", "Period=M1") |
     Set-Content "$Out\run_demo.ini" -Encoding ASCII

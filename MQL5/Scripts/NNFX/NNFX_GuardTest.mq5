@@ -185,6 +185,10 @@ void OnStart()
                        (double)(TimeTradeServer() - TimeGMT()) / 3600.0, Fmt(TimeTradeServer()), Fmt(TimeGMT()), detail));
    else
       Out("INFO server - GMT not read: not logged in (" + detail + ")");
+   // PLAN 6d "Global variables in the tester": a harmless probe (never the master switch) set in the terminal; the
+   // guard tester run (runner step 4c) reports whether it can see it
+   GlobalVariableSet("NNFX_TESTER_PROBE", (double)TimeCurrent());
+   Out("INFO set terminal global variable NNFX_TESTER_PROBE = " + Fmt(TimeCurrent()) + " (for the tester visibility check)");
    int ms = NNFXMasterState();
    Out("INFO master switch " + NNFX_GV_MASTER + ": " + (ms < 0 ? "missing (counts as OFF)" : (ms == 1 ? "on" : "off")));
    if(g_report != INVALID_HANDLE)

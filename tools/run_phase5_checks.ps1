@@ -264,7 +264,8 @@ if ($PythonOnly) {
           "[TesterInputs]", "InpRiskPct=2.0", "InpEveryBars=6", "InpMaxTrades=0", "InpMinLots=false", "InpMagic=26999",
           "InpStoplessTest=true", "InpLoseReplyOn=3", "InpAbortOn=7", "InpStopsRefuseOn=9", "InpMarginRefuseOn=11",
           "InpModifyOn=13", "InpStopWhenDone=false", "InpRestartAt=none", "InpRestartDeleteState=false",
-          "InpRestartIgnoreComments=false", "InpCloseLeftovers=false") |
+          "InpRestartIgnoreComments=false", "InpCloseLeftovers=false",
+          "InpGuard=false", "InpInstanceOn=true", "InpServerWinterOffset=2", "InpServerDst=US", "InpWeekendHours=0", "InpMaxSpread=0", "InpTesterMaster=-1") |
             Set-Content -LiteralPath $ini -Encoding ASCII
         $err = Run-Terminal $ini 60
         if ((Fresh $orderSummary $t0) -and (Fresh $orderLog $t0)) {
@@ -280,6 +281,37 @@ if ($PythonOnly) {
             Step "4b order run (tester)" "NOT RUN" "$why (automation did not engage)"
         }
         Get-ChildItem "$MT5\NNFX_OrderTest_tester*" -ErrorAction SilentlyContinue | Copy-Item -Destination $Out -Force
+
+        # 4c. Phase 6d guard run in the tester: the same test EA with InpGuard=true, a new entry due at every flat
+        # candle (InpEveryBars=1), the weekend block at 4 hours, the master switch forced on for the tester
+        # (InpTesterMaster=1), the MetaQuotes-Demo clock rule (GMT+2 winter, US; D6d-4). Checked in step 5.
+        $t0 = Get-Date
+        $ini = "$Out\run_NNFX_OrderTest_guard.ini"
+        @("[Tester]", "Expert=NNFX\NNFX_OrderTest", "Symbol=EURUSD", "Period=H1", "Model=1",
+          "FromDate=$TesterFrom", "ToDate=$TesterTo", "ForwardMode=0", "Optimization=0", "Visual=0",
+          "Report=NNFX_OrderTest_guard", "ReplaceReport=1", "ShutdownTerminal=1",
+          "[TesterInputs]", "InpRiskPct=2.0", "InpEveryBars=1", "InpMaxTrades=0", "InpMinLots=false", "InpMagic=26995",
+          "InpStoplessTest=false", "InpLoseReplyOn=0", "InpAbortOn=0", "InpStopsRefuseOn=0", "InpMarginRefuseOn=0",
+          "InpModifyOn=0", "InpStopWhenDone=false", "InpRestartAt=none", "InpRestartDeleteState=false",
+          "InpRestartIgnoreComments=false", "InpCloseLeftovers=false",
+          "InpGuard=true", "InpInstanceOn=true", "InpServerWinterOffset=2", "InpServerDst=US", "InpWeekendHours=4",
+          "InpMaxSpread=0", "InpTesterMaster=1") |
+            Set-Content -LiteralPath $ini -Encoding ASCII
+        $err = Run-Terminal $ini 60
+        if ((Fresh $orderSummary $t0) -and (Fresh $orderLog $t0)) {
+            Copy-Item $orderLog "$Out\OrderTest_EURUSD_tester_guard.csv" -Force
+            Copy-Item $orderSummary "$Out\OrderTest_EURUSD_tester_guard_summary.txt" -Force
+            $glog = "$Out\OrderTest_EURUSD_tester_guard.csv"
+            $res = ([regex]::Matches((ReadText $orderSummary), "(?m)^RESULT:.*$") | Select-Object -Last 1).Value
+            Step "4c guard run (tester)" "PASS" $(if ($res) { $res.Trim() + "; checked in step 5" } else { "summary has no RESULT line" })
+            $probe = @(Get-Content -LiteralPath $glog | Where-Object { $_ -match "tester global variables:" } | ForEach-Object { ($_ -split ",", 25)[24] })
+            Step "4c global variables in the tester" "INFO" $(if ($probe.Count) { $probe[0] } else { "no probe row" })
+            $script:GuardLogThisRun = $glog
+        } else {
+            $why = if ($err) { $err } else { "tester ran but wrote no new trade log" }
+            Step "4c guard run (tester)" "NOT RUN" "$why (automation did not engage)"
+        }
+        Get-ChildItem "$MT5\NNFX_OrderTest_guard*" -ErrorAction SilentlyContinue | Copy-Item -Destination $Out -Force
     }
 }
 
@@ -366,6 +398,22 @@ if (-not $script:PyExe) {
         $o | Set-Content "$Out\check_trades.txt" -Encoding ASCII
         $res = ([regex]::Matches($o, "(?m)^RESULT .*$") | Select-Object -Last 1).Value
         Step "5 check_trades.py" $(if ($code -eq 0) { "PASS" } else { "FAIL" }) $(if ($res) { $res.Trim() } else { "" })
+    }
+    # 6d guard run: the windows recomputed by the answer key; the trades still pass Check 1c
+    if (-not $script:GuardLogThisRun) {
+        Step "5 check_guard_log.py" "NOT RUN" "no guard-run trade log written in this run"
+    } else {
+        $o = Run-Py @("$Repo\tools\check_guard_log.py", $script:GuardLogThisRun, "--winter-offset", "2", "--dst", "US",
+                      "--weekend-hours", "4", "--min-skips", "5", "--require-managed")
+        $code = $LASTEXITCODE
+        $o | Set-Content "$Out\check_guard_log.txt" -Encoding ASCII
+        $res = ([regex]::Matches($o, "(?m)^RESULT.*$") | Select-Object -Last 1).Value
+        Step "5 check_guard_log.py" $(if ($code -eq 0) { "PASS" } else { "FAIL" }) $(if ($res) { $res.Trim() } else { "" })
+        $o = Run-Py @("$Repo\tools\check_trades.py", $script:GuardLogThisRun, "--min-trades", "20")
+        $code = $LASTEXITCODE
+        $o | Set-Content "$Out\check_trades_guard.txt" -Encoding ASCII
+        $res = ([regex]::Matches($o, "(?m)^RESULT.*$") | Select-Object -Last 1).Value
+        Step "5 check_trades.py (guard run)" $(if ($code -eq 0) { "PASS" } else { "FAIL" }) $(if ($res) { $res.Trim() } else { "" })
     }
 }
 
