@@ -86,16 +86,34 @@ function Inputs-Read([datetime]$since) {
     }
     return -1
 }
-# Our PID ended by itself (e.g. MT5 LiveUpdate: run demo_restart_20261006_000708 updated build 6238 -> 6241 and came
-# back under a NEW pid). D6c-1: the driver never touches a PID it did not start, so it lists any tested terminal
-# still running for the owner and stops.
-function Stop-Exited($proc) {
-    Say ("STOP: pid {0} exited by itself at {1} (MT5 LiveUpdate restarts under a new PID)" -f $proc.Id, (Get-Date -Format "HH:mm:ss"))
-    foreach ($o in @(Get-Process terminal64 -ErrorAction SilentlyContinue | Where-Object { $_.Path -ieq $Terminal })) {
-        Say ("  tested terminal still running, NOT started by this driver, not touched: pid {0}; the owner closes it" -f $o.Id)
+# Our PID ended by itself. Seen twice on 2026-10-06 (both runs kept in checks\invalid\): MT5 LiveUpdate (build
+# 6238 -> 6241) came back under a NEW pid, and the window was closed by hand. D6c-3 (owner, 2026-10-06: "you need to
+# figure out how to close it ... i cant be always"): the driver adopts a relaunch ONLY if it has the tested terminal's
+# full path AND this run's own config file on its command line; any other terminal64 is never touched (D6c-1).
+# With no such relaunch, the driver starts MT5 again itself (an unplanned restart; its REBUILD row is checked too).
+$script:Unplanned = 0
+function Find-Relaunch([string]$ini) {
+    $end = (Get-Date).AddSeconds(90)
+    while ((Get-Date) -lt $end) {
+        $own = @(Get-CimInstance Win32_Process -Filter "Name='terminal64.exe'" | Where-Object {
+            $_.ExecutablePath -ieq $Terminal -and $_.CommandLine -and
+            $_.CommandLine.IndexOf($ini, [StringComparison]::OrdinalIgnoreCase) -ge 0 })
+        if ($own.Count -gt 0) { $r = Get-Process -Id $own[0].ProcessId -ErrorAction SilentlyContinue; if ($r) { return $r } }
+        Start-Sleep -Seconds 5
     }
-    $script:AllPass = $false
-    Done
+    return $null
+}
+function Resolve-Exited($proc, [string]$ini) {
+    Say ("pid {0} exited by itself at {1} (not closed by this driver)" -f $proc.Id, (Get-Date -Format "HH:mm:ss"))
+    $r = Find-Relaunch $ini
+    if ($r) {
+        Say ("  adopted pid {0}: tested terminal path and this run's own {1} on its command line (D6c-3)" -f $r.Id, (Split-Path $ini -Leaf))
+        return $r
+    }
+    $script:Unplanned++
+    if ($script:Unplanned -gt 5) { Say "STOP: MT5 ended by itself more than 5 times"; $script:AllPass = $false; Done }
+    Say "  no relaunch found: starting MT5 again (unplanned restart $($script:Unplanned); its REBUILD row is checked too)"
+    return Start-EA $ini ($eaInputs.Count + 2)
 }
 function Start-EA([string]$ini, [int]$want) {
     $t0 = Get-Date
@@ -108,7 +126,7 @@ function Start-EA([string]$ini, [int]$want) {
         Done
     }
     Start-Sleep -Seconds 5
-    if ($proc.HasExited) { Stop-Exited $proc }
+    if ($proc.HasExited) { $proc = Resolve-Exited $proc $ini }
     return $proc
 }
 function Write-Set([string]$name, [string[]]$lines) {
@@ -136,8 +154,8 @@ if (-not $okAcc) { Say "STOP: not the expected demo account; nothing was traded.
 # NOT "$common": PowerShell names ignore case, and $Common is the [string] Common Files parameter (run
 # demo_restart_20261005_225412, kept in checks\invalid\, squashed this list into one string).
 # Magic 26997: its own deal history. 26999 = the 6b demo run; 26998 = run demo_restart_20261006_000708 (invalid),
-# which left trade T0003 open at the broker (its own SL/TP).
-$eaInputs = @("InpRiskPct=2.0", "InpEveryBars=2", "InpMinLots=true", "InpMagic=26997", "InpStoplessTest=false", "InpLoseReplyOn=0",
+# which left trade T0003 open at the broker (its own SL/TP); 26997 = run demo_restart_20261006_001959 (invalid, T0001 left open).
+$eaInputs = @("InpRiskPct=2.0", "InpEveryBars=2", "InpMinLots=true", "InpMagic=26996", "InpStoplessTest=false", "InpLoseReplyOn=0",
             "InpAbortOn=0", "InpStopsRefuseOn=0", "InpMarginRefuseOn=0", "InpModifyOn=0")
 Write-Set "NNFX_OrderTest_restart.set" ($eaInputs + @("InpMaxTrades=0", "InpStopWhenDone=false"))
 @("[StartUp]", "Expert=NNFX\NNFX_OrderTest", "ExpertParameters=NNFX_OrderTest_restart.set", "Symbol=EURUSD", "Period=M1") |
@@ -167,7 +185,7 @@ $deadline = (Get-Date).AddMinutes($Minutes)
 $prev = @()
 while ($done.Count -lt 4 -and (Get-Date) -lt $deadline) {
     Start-Sleep -Seconds 5
-    if ($p.HasExited) { Stop-Exited $p }
+    if ($p.HasExited) { $p = Resolve-Exited $p "$Outun_demo.ini"; $prev = @(); continue }
     $now = @(Classify)
     $target = @($now | Where-Object { -not $done.ContainsKey($_) -and $prev -contains $_ }) | Select-Object -First 1
     $prev = $now
