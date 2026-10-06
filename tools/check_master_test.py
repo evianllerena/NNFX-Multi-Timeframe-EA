@@ -12,7 +12,15 @@ Pass:
   - no new entry (OPEN, half 1) in either log from off + 60 s to on (exclusive)
   - INFO: management rows (TP1, BE, TRAILON, TRAIL, SL, TP2, EXIT, CLOSE) inside the window (open trades kept)
 
-Usage:  python tools/check_master_test.py A.csv B.csv
+With --panel (instance A's chart buttons, driven by the test EA through the panel's own handlers):
+  - "instance switch OFF by the chart button", later "... ON ...": no new entry of A in between; any SKIP of A
+    in between names "instance"
+  - "drawdown reset requested by the chart button" is followed, at a later candle, by the guard's
+    "drawdown reset by hand (D6d-3)" row (manual, logged)
+  - "close-all by the chart button": every trade of A open at that moment gets an EXIT row "close-all button" and
+    no trade of A is left open in the next STATE row
+
+Usage:  python tools/check_master_test.py A.csv B.csv [--panel]
 Exit code 0 = PASS.
 """
 import csv
@@ -32,9 +40,57 @@ def ts(r):
     return datetime.strptime(r["time"], "%Y.%m.%d %H:%M:%S")
 
 
-def check(path_a, path_b):
+def check_panel(a, fails):
+    g = [(i, r) for i, r in enumerate(a) if r["event"] == "GUARD"]
+    off = next((i for i, r in g if "instance switch OFF by the chart button" in r["note"]), None)
+    on = next((i for i, r in g if off is not None and i > off and "instance switch ON by the chart button" in r["note"]), None)
+    req = next((i for i, r in g if "drawdown reset requested by the chart button" in r["note"]), None)
+    done = next((i for i, r in g if req is not None and i > req and "drawdown reset by hand (D6d-3)" in r["note"]), None)
+    ca = next((i for i, r in g if "close-all by the chart button" in r["note"]), None)
+    if off is None or on is None:
+        fails.append("panel: no instance OFF and ON rows from the chart button")
+    else:
+        between = a[off + 1:on]
+        opens = [r for r in between if r["event"] == "OPEN"]
+        bad_skips = [r for r in between if r["event"] == "SKIP" and "instance" not in r["note"]]
+        print("panel: instance OFF %s .. ON %s: new entries %d, SKIP %d (all naming instance: %s)"
+              % (a[off]["time"], a[on]["time"], len(opens), sum(r["event"] == "SKIP" for r in between), not bad_skips))
+        if opens:
+            fails.append("panel: new entry %s at %s while the instance switch was OFF" % (opens[0]["trade_id"], opens[0]["time"]))
+        for r in bad_skips:
+            fails.append("panel: SKIP at %s does not name instance: %s" % (r["time"], r["note"]))
+    if req is None or done is None:
+        fails.append("panel: drawdown reset requested by the button but no 'drawdown reset by hand (D6d-3)' row after it")
+    else:
+        print("panel: drawdown reset requested %s, done and logged %s: %s" % (a[req]["time"], a[done]["time"], a[done]["note"]))
+        if a[done]["time"][:16] == a[req]["time"][:16]:
+            fails.append("panel: drawdown reset applied in the same minute as the request (must be the next candle)")
+    if ca is None:
+        fails.append("panel: no close-all row from the chart button")
+    else:
+        opened, closed = set(), set()
+        for r in a[:ca]:
+            if r["event"] == "OPEN":
+                opened.add(r["trade_id"])
+            if r["event"] in ("SL", "TP2", "EXIT", "CLOSE") and r["half"] == "2":
+                closed.add(r["trade_id"])
+        open_then = opened - closed
+        exits = {r["trade_id"] for r in a[ca + 1:] if r["event"] == "EXIT" and "close-all button" in r["note"]}
+        nxt = next((r for r in a[ca + 1:] if r["event"] == "STATE"), None)
+        left = nxt is not None and "TRADE|" in nxt["note"]
+        print("panel: close-all at %s: trades open then %s, EXIT rows %s, next STATE %s"
+              % (a[ca]["time"], sorted(open_then), sorted(exits), "has an open trade" if left else "flat"))
+        if open_then - exits:
+            fails.append("panel: close-all left %s without an EXIT row" % sorted(open_then - exits))
+        if nxt is None or left:
+            fails.append("panel: a trade of A still open after close-all (or no STATE row after it)")
+
+
+def check(path_a, path_b, panel=False):
     a, b = read(path_a), read(path_b)
     fails = []
+    if panel:
+        check_panel(a, fails)
     guard = [r for r in a if r["event"] == "GUARD" and "TEST master switch" in r["note"]]
     start = next((r for r in guard if "chart" in r["note"]), None)
     off = next((r for r in guard if "(OFF)" in r["note"]), None)
@@ -78,7 +134,8 @@ def report(fails, path):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
+    args = [x for x in sys.argv[1:] if x != "--panel"]
+    if len(args) != 2:
         print(__doc__)
         sys.exit(2)
-    sys.exit(0 if check(sys.argv[1], sys.argv[2]) else 1)
+    sys.exit(0 if check(args[0], args[1], "--panel" in sys.argv[1:]) else 1)

@@ -102,5 +102,73 @@ class TestCheckMasterTest(unittest.TestCase):
         self.assertIn("did it run?", out)
 
 
+def panel_rows():
+    """Instance A's chart-button steps after the master switch is back ON."""
+    return [
+        # the test EA holds one trade at a time: T0001 and T0002 (log_a) closed before T0003
+        row("2026.10.06 19:11:20", "SL", tid="T0001", half=2),
+        row("2026.10.06 19:11:40", "SL", tid="T0002", half=2),
+        row("2026.10.06 19:12:00", "OPEN", tid="T0003", half=1),
+        row("2026.10.06 19:12:00", "OPEN", tid="T0003", half=2),
+        row("2026.10.06 19:12:00", "STATE", "proc=...; state=TRADE|T0003|... / CONT|..."),
+        row("2026.10.06 19:13:00", "GUARD", "instance switch OFF by the chart button"),
+        row("2026.10.06 19:14:00", "TRAIL", tid="T0003", half=2),
+        row("2026.10.06 19:15:00", "GUARD", "instance switch ON by the chart button"),
+        row("2026.10.06 19:17:00", "GUARD", "drawdown reset requested by the chart button (confirmed): NNFX_DD_RESET = 1"),
+        row("2026.10.06 19:18:00", "GUARD", "drawdown reset by hand (D6d-3): was not paused; peak 100000.00 -> 99990.00"),
+        row("2026.10.06 19:19:00", "GUARD", "close-all by the chart button (confirmed): 1 trade(s) of this instance"),
+        row("2026.10.06 19:19:00", "EXIT", "close-all button (confirmed)", tid="T0003"),
+        row("2026.10.06 19:19:00", "CLOSE", tid="T0003", half=1),
+        row("2026.10.06 19:19:00", "CLOSE", tid="T0003", half=2),
+        row("2026.10.06 19:19:00", "STATE", "proc=...; state=CONT|EURUSD|1|0|0|1|2026.10.06 19:12"),
+    ]
+
+
+class TestCheckMasterPanel(unittest.TestCase):
+    def run_panel(self, a_rows):
+        paths = []
+        for rows in (log_a() + a_rows, log_b()):
+            tmp = tempfile.NamedTemporaryFile("w", suffix=".csv", delete=False, newline="", encoding="ascii")
+            w = csv.DictWriter(tmp, fieldnames=COLS, lineterminator="\r\n")
+            w.writeheader()
+            w.writerows(rows)
+            tmp.close()
+            paths.append(tmp.name)
+        buf = io.StringIO()
+        try:
+            with redirect_stdout(buf):
+                ok = c.check(paths[0], paths[1], panel=True)
+        finally:
+            for p in paths:
+                os.remove(p)
+        return ok, buf.getvalue()
+
+    def test_panel_passes(self):
+        ok, out = self.run_panel(panel_rows())
+        self.assertTrue(ok, out)
+        self.assertIn("close-all at 2026.10.06 19:19:00: trades open then ['T0003']", out)
+
+    def test_entry_while_instance_off_fails(self):
+        rs = panel_rows()
+        rs.insert(6, row("2026.10.06 19:14:00", "OPEN", tid="T0004", half=1))   # after the OFF row
+        ok, out = self.run_panel(rs)
+        self.assertFalse(ok)
+        self.assertIn("while the instance switch was OFF", out)
+
+    def test_reset_not_logged_fails(self):
+        rs = [r for r in panel_rows() if "D6d-3" not in r["note"]]
+        ok, out = self.run_panel(rs)
+        self.assertFalse(ok)
+        self.assertIn("no 'drawdown reset by hand (D6d-3)' row", out)
+
+    def test_close_all_leaves_a_trade_fails(self):
+        rs = [r for r in panel_rows() if r["event"] != "EXIT"]
+        rs[-1] = row("2026.10.06 19:19:00", "STATE", "proc=...; state=TRADE|T0003|... / CONT|...")
+        ok, out = self.run_panel(rs)
+        self.assertFalse(ok)
+        self.assertIn("without an EXIT row", out)
+        self.assertIn("still open after close-all", out)
+
+
 if __name__ == "__main__":
     unittest.main()

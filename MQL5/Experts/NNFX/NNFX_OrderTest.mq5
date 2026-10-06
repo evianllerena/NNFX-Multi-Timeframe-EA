@@ -45,6 +45,7 @@
 #include <NNFX\State.mqh>
 #include <NNFX\BarBuilder.mqh>
 #include <NNFX\Guard.mqh>
+#include <NNFX\Panel.mqh>
 
 input double InpRiskPct       = 2.0;    // Risk % (M2)
 input int    InpEveryBars     = 6;      // A new trade when flat, every N closed candles
@@ -119,6 +120,8 @@ NNFXDrawdown     g_dd;
 bool             g_dl_was = false;      // daily loss blocked at the last candle (to log the change once)
 bool             g_pause_forced = false;
 int              g_master_candles = -1;  // candles since the master-switch test started (-1 = not running)
+CNNFXPanel       g_panel;               // chart buttons (live charts only)
+bool             g_panel_on = false;
 bool             g_pending_rebuild = false;  // a real restart: no trading until the rebuild has run (OnTimer)
 uint             g_ready_since = 0;     // GetTickCount() when MT5 was first seen connected and logged in
 string           g_last_saved = "";
@@ -365,6 +368,36 @@ void MasterTestStep(void)
       GlobalVariableSet(NNFX_GV_MASTER, 1.0);
       Row("GUARD", "TEST master switch: NNFX_MASTER = 1 (ON)");
      }
+   else
+     {
+      // then the chart buttons, through the panel's own handlers (test build: custom events, auto-confirmed)
+      int k = g_master_candles - (InpMasterOffAfter + InpMasterOffFor);
+      int action = (k == 1 || k == 3) ? NNFX_PANEL_INSTANCE : (k == 5 ? NNFX_PANEL_DDRESET : (k == 7 ? NNFX_PANEL_CLOSEALL : 0));
+      if(action != 0)
+        {
+         Row("GUARD", StringFormat("TEST panel: button %d sent as custom event", action));
+         EventChartCustom(0, (ushort)(NNFX_PANEL_TEST_EVENT_BASE + action), InpMagic, 0.0, "test");
+        }
+     }
+  }
+
+void OnChartEvent(const int id, const long &lparam, const double &dparam, const string &sparam)
+  {
+   if(!g_panel_on)
+      return;
+   int a = g_panel.OnEvent(id, lparam, dparam, sparam);
+   if(a == NNFX_PANEL_INSTANCE)
+      Row("GUARD", "instance switch " + (NNFXInstanceOn(_Symbol, InpMagic, InpInstanceOn) ? "ON" : "OFF") + " by the chart button");
+   else if(a == NNFX_PANEL_DDRESET)
+      Row("GUARD", "drawdown reset requested by the chart button (confirmed): NNFX_DD_RESET = 1, applied at the next candle");
+   else if(a == NNFX_PANEL_CLOSEALL)
+     {
+      NNFXTrade t[];
+      int n = g_orders.ExportTrades(t);
+      Row("GUARD", StringFormat("close-all by the chart button (confirmed): %d trade(s) of this instance", n));
+      for(int i = 0; i < n; i++)
+         g_orders.CloseRemaining(t[i].id, "close-all button (confirmed)");
+     }
   }
 
 // The guard at a candle close (6d). Server time = TimeCurrent() (the broker's clock; never TimeLocal, D6d-4).
@@ -433,7 +466,7 @@ string GuardAtCandle(const bool indicatorOk)
    if(g_mode == "tester" && InpTesterMaster >= 0)
       master = InpTesterMaster;
    double spread = (double)SymbolInfoInteger(_Symbol, SYMBOL_SPREAD);
-   return NNFXGuardBlocks(master, InpInstanceOn, g_dd.paused, dl, NNFXInRollover(g_broker, t),
+   return NNFXGuardBlocks(master, NNFXInstanceOn(_Symbol, InpMagic, InpInstanceOn), g_dd.paused, dl, NNFXInRollover(g_broker, t),
                           NNFXInWeekendBlock(g_broker, t, InpWeekendHours), spread, InpMaxSpread, indicatorOk);
   }
 
@@ -516,6 +549,11 @@ int OnInit()
       g_pending_rebuild = restart;
       EventSetTimer(1);
      }
+   if(g_mode == "demo" && !g_cleanup)
+     {
+      g_panel.Init(0, _Symbol, InpMagic, InpInstanceOn);
+      g_panel_on = true;
+     }
    return INIT_SUCCEEDED;
   }
 
@@ -572,6 +610,8 @@ void RealRestartRebuild(void)
 
 void OnDeinit(const int reason)
   {
+   if(g_panel_on)
+      g_panel.Remove();
    if(g_orders != NULL)
      {
       // stopped before the deferred rebuild ran: the memory is empty, which is not the state before this stop

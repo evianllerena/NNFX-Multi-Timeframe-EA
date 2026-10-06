@@ -10,10 +10,11 @@ open test trades keep being managed."
   3. Instance A (NNFX_OrderTest on EURUSD M1, magic 26993, guard on, InpMasterTestTpl=nnfx_master_b) starts: it sets
      NNFX_MASTER = 1, opens B's chart from the template, switches NNFX_MASTER to 0 after 5 candles and back to 1
      after 5 more (GUARD rows). Every input listed; MT5 must read them all.
-  4. Three candles after ON, MT5 (the driver's own PID; D-OPS-1) is closed.
+  4. After ON, A drives its chart buttons through the panel (instance off, on, drawdown reset, close-all; one
+     every two candles); ten candles after ON, MT5 (the driver's own PID; D-OPS-1) is closed.
   5. tools/close_test_leftovers.ps1 closes both magics' leftover test trades and checks the whole account is flat
      (G1_phase6c_2 verdict note 2).
-  6. tools/check_master_test.py on both logs; tools/check_trades.py on each.
+  6. tools/check_master_test.py --panel on both logs; tools/check_trades.py on each.
 Weekday, market open. Minimum lots. Nobody needs to watch it.
 Output: <MT5 data folder>\MQL5\Files\NNFX\checks\master_<date-time>\
 Usage:  powershell -ExecutionPolicy Bypass -File tools\run_demo_master_test.ps1
@@ -137,9 +138,9 @@ while ((Get-Date) -lt $end) {
     if ($p.HasExited) { Say "pid $($p.Id) exited by itself"; break }
     if (Test-Path $LogA) {
         $hit = @(Get-Content -LiteralPath $LogA -ErrorAction SilentlyContinue | Where-Object { $_ -match ",GUARD,.*NNFX_MASTER = 1 \(ON\)" })
-        if ($hit.Count -gt 0 -and -not $on) { $on = Get-Date; Say ("master back ON seen at {0}; 3 more candles" -f (Get-Date -Format "HH:mm:ss")) }
+        if ($hit.Count -gt 0 -and -not $on) { $on = Get-Date; Say ("master back ON seen at {0}; 10 more candles (the panel steps)" -f (Get-Date -Format "HH:mm:ss")) }
     }
-    if ($on -and (Get-Date) -gt $on.AddMinutes(3)) { break }
+    if ($on -and (Get-Date) -gt $on.AddMinutes(10)) { break }
 }
 # MT5 reads every input of A (its own log line), checked after the run from the terminal log
 Close-MT5 $p
@@ -162,7 +163,7 @@ Step "leftovers closed, whole account flat" $flat (@($c | Where-Object { $_ -mat
 
 # 6. checks
 if ((Test-Path "$Out\OrderTest_EURUSD_demo.csv") -and (Test-Path "$Out\OrderTest_GBPUSD_demo.csv")) {
-    foreach ($ck in @(@{ N = "check_master_test"; A = @("$Repo\tools\check_master_test.py", "$Out\OrderTest_EURUSD_demo.csv", "$Out\OrderTest_GBPUSD_demo.csv") },
+    foreach ($ck in @(@{ N = "check_master_test"; A = @("$Repo\tools\check_master_test.py", "$Out\OrderTest_EURUSD_demo.csv", "$Out\OrderTest_GBPUSD_demo.csv", "--panel") },
                       @{ N = "check_trades A"; A = @("$Repo\tools\check_trades.py", "$Out\OrderTest_EURUSD_demo.csv", "--require-note", "orders allowed: DEMO") },
                       @{ N = "check_trades B"; A = @("$Repo\tools\check_trades.py", "$Out\OrderTest_GBPUSD_demo.csv", "--require-note", "orders allowed: DEMO") })) {
         $lines = & $Python @($ck.A) 2>&1 | ForEach-Object { if ($_ -is [System.Management.Automation.ErrorRecord]) { $_.Exception.Message } else { [string]$_ } }
