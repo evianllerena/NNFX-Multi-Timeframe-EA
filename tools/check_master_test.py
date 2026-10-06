@@ -7,8 +7,10 @@ NNFX_MASTER) and B (opened by A from a template). A's GUARD rows give the times:
     "TEST master switch: NNFX_MASTER = 1 (ON)"                      on
 Pass:
   - B's chart was opened and its template applied, and B wrote its own log (it ran)
-  - BOTH logs have at least one SKIP naming "master", and every such SKIP is inside [off, on + 59 s]
-    (the two charts handle the same minute in either order, so B may see the switch up to one candle late)
+  - BOTH instances saw the switch: a GUARD row "blocks: ...master..." (the guard logs every change of its block
+    reasons, open trade or not) inside [off, off + 119 s], and a later one without "master" inside [on, on + 119 s]
+    (the two charts handle the same minute in either order, so one may see a change one candle late)
+  - every SKIP naming "master" is inside [off, on + 59 s] (a SKIP is written only when an entry is due)
   - no new entry (OPEN, half 1) in either log from off + 60 s to on (exclusive)
   - INFO: management rows (TP1, BE, TRAILON, TRAIL, SL, TP2, EXIT, CLOSE) inside the window (open trades kept)
 
@@ -110,11 +112,21 @@ def check(path_a, path_b, panel=False):
         opens = [r for r in rows if r["event"] == "OPEN" and r["half"] == "1"
                  and t_off + timedelta(seconds=60) <= ts(r) < t_on]
         managed = [r for r in rows if r["event"] in MANAGED and t_off <= ts(r) <= t_on]
+        changes = [r for r in rows if r["event"] == "GUARD" and r["note"].startswith("blocks: ")]
+        saw_off = next((r for r in changes if "master" in r["note"].split(" (was")[0]
+                        and t_off <= ts(r) <= t_off + timedelta(seconds=119)), None)
+        saw_on = next((r for r in changes if saw_off is not None and ts(r) > ts(saw_off)
+                       and "master" not in r["note"].split(" (was")[0]
+                       and t_on <= ts(r) <= t_on + timedelta(seconds=119)), None)
+        print("%s saw OFF: %s; saw ON: %s" % (name, saw_off["time"] + " " + saw_off["note"] if saw_off else "NO",
+                                            saw_on["time"] + " " + saw_on["note"] if saw_on else "NO"))
+        if saw_off is None:
+            fails.append("%s: no GUARD 'blocks: ...master' row within 2 candles of OFF" % name)
+        if saw_on is None:
+            fails.append("%s: no GUARD 'blocks:' row without master within 2 candles of ON" % name)
         print("%s %s: SKIP master %d (inside the window %d); new entries in the window %d; management rows in it %d"
               % (name, os.path.basename(path_a if name == "A" else path_b), len(skips), len(inside), len(opens),
                  len(managed)))
-        if not skips:
-            fails.append("%s: no SKIP blocked:master" % name)
         for r in skips:
             if r not in inside:
                 fails.append("%s: SKIP %s at %s, outside the OFF window" % (name, r["note"], r["time"]))

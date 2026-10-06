@@ -119,6 +119,7 @@ NNFXBroker       g_broker;
 NNFXDrawdown     g_dd;
 bool             g_dl_was = false;      // daily loss blocked at the last candle (to log the change once)
 bool             g_pause_forced = false;
+string           g_last_blocks = "-";   // the guard's block reasons at the last candle ("-" = not evaluated yet)
 int              g_master_candles = -1;  // candles since the master-switch test started (-1 = not running)
 CNNFXPanel       g_panel;               // chart buttons (live charts only)
 bool             g_panel_on = false;
@@ -769,6 +770,13 @@ void OnTick()
       g_orders.Reconcile();
       MasterTestStep();
       string blocks = InpGuard ? GuardAtCandle(ok) : "";
+      if(InpGuard && blocks != g_last_blocks)
+        {
+         // every change of the block reasons, open trade or not (a SKIP is written only when an entry is due)
+         Row("GUARD", "blocks: " + (blocks == "" ? "none" : blocks) + " (was " +
+             (g_last_blocks == "" ? "none" : g_last_blocks) + ")");
+         g_last_blocks = blocks;
+        }
       ScheduleStep(atr[0], blocks);
      }
    RecordExit();

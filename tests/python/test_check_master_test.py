@@ -30,9 +30,11 @@ def log_a():
         row("2026.10.06 19:00:01", "GUARD", "TEST master switch: NNFX_MASTER = 1; chart GBPUSD opened (id 1) with template nnfx_master_b: applied; error 0"),
         row("2026.10.06 19:02:00", "OPEN", tid="T0001", half=1),
         row("2026.10.06 19:05:00", "GUARD", "TEST master switch: NNFX_MASTER = 0 (OFF)"),
+        row("2026.10.06 19:05:00", "GUARD", "blocks: master (was none)"),
         row("2026.10.06 19:06:00", "TRAIL", tid="T0001", half=2),
         row("2026.10.06 19:07:00", "SKIP", "blocked:master"),
         row("2026.10.06 19:10:00", "GUARD", "TEST master switch: NNFX_MASTER = 1 (ON)"),
+        row("2026.10.06 19:10:00", "GUARD", "blocks: none (was master)"),
         row("2026.10.06 19:11:00", "OPEN", tid="T0002", half=1),
     ]
 
@@ -41,8 +43,10 @@ def log_b():
     return [
         row("2026.10.06 19:00:05", "INFO", "orders allowed: DEMO"),
         row("2026.10.06 19:05:00", "OPEN", tid="T0001", half=1),           # same minute as OFF: allowed
+        row("2026.10.06 19:06:00", "GUARD", "blocks: master (was none)"),     # B saw OFF one candle late: allowed
         row("2026.10.06 19:06:00", "SKIP", "blocked:master"),
         row("2026.10.06 19:10:00", "SKIP", "blocked:master"),              # B saw ON one candle late: allowed
+        row("2026.10.06 19:11:00", "GUARD", "blocks: none (was master)"),
         row("2026.10.06 19:11:00", "OPEN", tid="T0002", half=1),
     ]
 
@@ -76,11 +80,23 @@ class TestCheckMasterTest(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("while the master switch was OFF", out)
 
-    def test_b_never_blocked_fails(self):
-        b = [r for r in log_b() if r["event"] != "SKIP"]
+    def test_b_never_saw_the_switch_fails(self):
+        b = [r for r in log_b() if not r["note"].startswith("blocks:")]
         ok, out = self.run_logs(log_a(), b)
         self.assertFalse(ok)
-        self.assertIn("B: no SKIP blocked:master", out)
+        self.assertIn("B: no GUARD 'blocks: ...master' row", out)
+
+    def test_b_in_a_trade_without_skips_passes(self):
+        # B held a trade the whole time: no entry due, so no SKIP, but its guard saw the switch
+        b = [r for r in log_b() if r["event"] != "SKIP"]
+        ok, out = self.run_logs(log_a(), b)
+        self.assertTrue(ok, out)
+
+    def test_b_never_saw_on_fails(self):
+        b = [r for r in log_b() if r["note"] != "blocks: none (was master)"]
+        ok, out = self.run_logs(log_a(), b)
+        self.assertFalse(ok)
+        self.assertIn("without master within 2 candles of ON", out)
 
     def test_skip_outside_window_fails(self):
         b = log_b() + [row("2026.10.06 19:20:00", "SKIP", "blocked:master")]

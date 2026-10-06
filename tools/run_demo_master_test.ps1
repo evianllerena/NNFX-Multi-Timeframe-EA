@@ -51,6 +51,16 @@ function Close-MT5($p) {
         if (-not $p.WaitForExit(120000)) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue; Say "  (pid $($p.Id) did not close in 120 s: stopped by id)" }
     }
 }
+# The EA keeps its trade log open: read it shared (Get-Content fails on it; run master_20261006_122240, kept in invalid\)
+function Read-Shared([string]$path) {
+    try {
+        $fs = [System.IO.File]::Open($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+        $sr = New-Object System.IO.StreamReader($fs)
+        $text = $sr.ReadToEnd()
+        $sr.Close()
+        return $text
+    } catch { return "" }
+}
 function Write-Set([string]$name, [string[]]$lines) {
     [System.IO.File]::WriteAllText("$MT5\MQL5\Presets\$name", (($lines -join "`r`n") + "`r`n"), [System.Text.Encoding]::Unicode)
     Copy-Item "$MT5\MQL5\Presets\$name" "$Out\" -Force
@@ -137,7 +147,7 @@ while ((Get-Date) -lt $end) {
     Start-Sleep -Seconds 10
     if ($p.HasExited) { Say "pid $($p.Id) exited by itself"; break }
     if (Test-Path $LogA) {
-        $hit = @(Get-Content -LiteralPath $LogA -ErrorAction SilentlyContinue | Where-Object { $_ -match ",GUARD,.*NNFX_MASTER = 1 \(ON\)" })
+        $hit = [regex]::Matches((Read-Shared $LogA), ",GUARD,.*NNFX_MASTER = 1 \(ON\)")
         if ($hit.Count -gt 0 -and -not $on) { $on = Get-Date; Say ("master back ON seen at {0}; 10 more candles (the panel steps)" -f (Get-Date -Format "HH:mm:ss")) }
     }
     if ($on -and (Get-Date) -gt $on.AddMinutes(10)) { break }
