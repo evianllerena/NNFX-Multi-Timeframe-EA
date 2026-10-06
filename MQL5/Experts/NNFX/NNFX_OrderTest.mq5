@@ -28,8 +28,9 @@
 //|    is thrown away and rebuilt (State.mqh) from the broker, the   |
 //|    state file (optionally deleted first) and the candles         |
 //|    (optionally ignoring comments); PRESTOP and REBUILD rows      |
-//|  - a REAL restart (demo): OnDeinit writes PRESTOP, OnInit        |
-//|    rebuilds and writes REBUILD; the trade log is appended to     |
+//|  - a REAL restart (demo): OnDeinit writes PRESTOP; once MT5 is   |
+//|    connected (+3 s, OnTimer) it rebuilds and writes REBUILD;     |
+//|    nothing trades before that; the trade log is appended to      |
 //|                                                                  |
 //| Orders only in the tester or on a DEMO account (section 1).      |
 //| Log: Common\Files\NNFX\trades\OrderTest_<symbol>_<tester|demo>.csv|
@@ -91,6 +92,8 @@ bool             g_has_cont = false;
 datetime         g_proc = 0;           // open time of the last processed candle
 bool             g_restart_done = false;
 bool             g_cleanup = false;     // InpCloseLeftovers run: no trading at all
+bool             g_pending_rebuild = false;  // a real restart: no trading until the rebuild has run (OnTimer)
+uint             g_ready_since = 0;     // GetTickCount() when MT5 was first seen connected and logged in
 string           g_last_saved = "";
 
 string TradeId(const int k)          { return StringFormat("T%04d", k); }
@@ -350,15 +353,52 @@ int OnInit()
       Print("NNFX_OrderTest: init failed: ", g_bb.Error());
       return INIT_FAILED;
      }
+   // A real restart and the cleanup read the broker's positions and deals. OnInit can run before MT5 has
+   // logged in and synchronized (cleanup run cleanup_20261006_091948: EA loaded 09:19:57.504, "terminal
+   // synchronized" 09:19:58.017), so both wait in OnTimer until MT5 is connected, logged in and has a tick
+   // value, plus 3 s. Nothing trades before that (OnTick and OnTradeTransaction return).
+   if(g_cleanup || restart)
+     {
+      g_pending_rebuild = restart;
+      EventSetTimer(1);
+     }
+   return INIT_SUCCEEDED;
+  }
+
+void OnTimer()
+  {
+   if(!g_cleanup && !g_pending_rebuild)
+     {
+      EventKillTimer();
+      return;
+     }
+   if(!TerminalInfoInteger(TERMINAL_CONNECTED) || AccountInfoInteger(ACCOUNT_LOGIN) == 0 ||
+      !(SymbolInfoDouble(_Symbol, SYMBOL_TRADE_TICK_VALUE) > 0.0))
+     {
+      g_ready_since = 0;
+      return;
+     }
+   if(g_ready_since == 0)
+     {
+      g_ready_since = GetTickCount();
+      return;
+     }
+   if(GetTickCount() - g_ready_since < 3000)
+      return;
+   EventKillTimer();
    if(g_cleanup)
      {
       CloseLeftovers();
       ExpertRemove();
-      return INIT_SUCCEEDED;
+      return;
      }
-   if(restart)
-     {
-      // a REAL restart: rebuild before anything else (SPEC); the schedule is test scaffolding, kept apart
+   RealRestartRebuild();
+   g_pending_rebuild = false;
+  }
+
+// a REAL restart: rebuild before anything else (SPEC); the schedule is test scaffolding, kept apart
+void RealRestartRebuild(void)
+  {
       LoadSchedule();
       string lines[];
       NNFXTrade st[];
@@ -374,15 +414,15 @@ int OnInit()
       Row("REBUILD", "real restart; state=" + StateNow() + "; notes=" + notes);
       ScheduleAdoptRebuilt();
       SaveState();
-     }
-   return INIT_SUCCEEDED;
   }
 
 void OnDeinit(const int reason)
   {
    if(g_orders != NULL)
      {
-      Row("PRESTOP", StringFormat("deinit reason %d; state=", reason) + StateNow());
+      // stopped before the deferred rebuild ran: the memory is empty, which is not the state before this stop
+      Row("PRESTOP", StringFormat("deinit reason %d; ", reason) +
+          (g_pending_rebuild ? "stopped before the rebuild ran (no state)" : "state=" + StateNow()));
       int h = FileOpen("NNFX\\trades\\OrderTest_" + _Symbol + "_" + g_mode + "_summary.txt",
                        FILE_WRITE | FILE_TXT | FILE_ANSI | FILE_COMMON);
       if(h != INVALID_HANDLE)
@@ -403,6 +443,8 @@ void OnDeinit(const int reason)
 
 void OnTradeTransaction(const MqlTradeTransaction &trans, const MqlTradeRequest &request, const MqlTradeResult &result)
   {
+   if(g_cleanup || g_pending_rebuild)
+      return;
    g_orders.Poll("transaction");
   }
 
@@ -475,7 +517,7 @@ void RecordExit(void)
 
 void OnTick()
   {
-   if(g_cleanup)
+   if(g_cleanup || g_pending_rebuild)
       return;
    g_orders.EnforceStops();
    g_orders.Poll("tick");
