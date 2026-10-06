@@ -33,7 +33,8 @@
 //|                                                                  |
 //| Orders only in the tester or on a DEMO account (section 1).      |
 //| Log: Common\Files\NNFX\trades\OrderTest_<symbol>_<tester|demo>.csv|
-//| Status: not yet compiled.                                        |
+//| Status: compiled 2026-10-05 (build 6238, 0 errors, 0 warnings);  |
+//| restart test (a) PASS (run restart_20261005_225140).             |
 //+------------------------------------------------------------------+
 #property strict
 

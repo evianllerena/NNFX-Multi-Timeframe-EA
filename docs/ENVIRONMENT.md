@@ -113,25 +113,38 @@ Monday 2026-10-05 22:24 EDT = **Tuesday 04:24 server time (Asian session)**. `RE
 | AUDCAD.pro | 5 | 21 (floating) | 0 / 0 | 0.01 / 0.01 / 50 | 0.00001 / 0.62516 | 1.25 / -3.14 (mode 5) | 1993.04.26 | 2016 error 4401; 2017, 2018 no; 2019-2026 yes |
 | CHFJPY.pro | 3 | 45 (floating) | 0 / 0 | 0.01 / 0.01 / **25** | 0.001 / 0.56468 | -2.28 / 0.26 (mode 5) | 1992.02.18 | 2016 error 4401; 2017, 2018 no; 2019-2026 yes |
 
-**Symbol class (owner, 2026-10-05): do NOT use plain EURUSD / EURGBP on OANDA TMS until this is settled.**
-Plain EURUSD and EURGBP show a FIXED 2400-point spread and swap mode 0 (no swaps); AUDNZD, AUDCAD and CHFJPY exist only
-as `.pro`. A read-only re-run of `NNFX_EnvCheck` for `EURUSD.pro` and `EURGBP.pro` (with each symbol's path on the
-server and trade mode) is to decide which symbol class the EA uses; result below when run.
+**Symbol class: SETTLED. On OANDA TMS the EA uses the `.pro` symbols** (`EURUSD.pro`, `AUDNZD.pro`, `EURGBP.pro`,
+`AUDCAD.pro`, `CHFJPY.pro`). Plain `EURUSD` / `EURGBP` are **not tradable** on this account: trade mode
+`SYMBOL_TRADE_MODE_DISABLED`, server path `Forex\...`. The `.pro` symbols have trade mode `SYMBOL_TRADE_MODE_FULL` and
+server path `PRO\FX\...` (A: broker's own symbol properties). Read-only re-run `oanda_envcheck_pro_20261006_003214`
+(OANDA data folder `...\MQL5\Files\NNFX\checks\`), started 2026-10-06 00:32 EDT = 06:32 server, owner closed the
+OANDA terminal for it. EnvCheck compiled with OANDA's MetaEditor (build 6241, 0 errors, 0 warnings),
+`RESULT: VALID (read after login)`:
+
+| Symbol | Server path | Trade mode | Spread at 06:32 server | Lot min / step / max | Tick value (EUR) | Swap long / short (mode) | History starts (M1) | Real ticks, mid-January probe |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| **EURUSD.pro** | `PRO\FX\Major\EURUSD.pro` | **FULL** | 8 (floating) | 0.01 / 0.01 / 50 | 0.89115 | -2.38 / 0.42 (mode 5) | 1971.01.03 | 2016 error 4401; 2017 no; **2018-2026 yes** |
+| **EURGBP.pro** | `PRO\FX\Major\EURGBP.pro` | **FULL** | 8 (floating) | 0.01 / 0.01 / 50 | 1.17784 | -2.25 / 0.28 (mode 5) | 1993.05.02 | 2016 error 4401; 2017, 2018 no; **2019-2026 yes** |
+| EURUSD | `Forex\EURUSD` | **DISABLED** | 2400 (fixed) | 0.01 / 0.01 / 50 | 0.88180 | 0.00 / 0.00 (mode 0) | 1971.01.03 | 2016-2026 yes |
+| EURGBP | `Forex\EURGBP` | **DISABLED** | 2400 (fixed) | 0.01 / 0.01 / 50 | 1.16156 | 0.00 / 0.00 (mode 0) | 1993.05.02 | 2016-2021 yes; 2022, 2023 no; 2024-2026 yes |
+| AUDNZD.pro | `PRO\FX\Non-Major\AUDNZD.pro` | FULL | 20 (floating) | 0.01 / 0.01 / 50 | 0.49888 | 0.82 / -2.71 (mode 5) | 1993.04.04 | 2016-2018 no; 2019-2026 yes |
+
+Digits 5, stops level 0 and freeze level 0 on all five. The first table above (run `oanda_envcheck_20261005_222410`)
+still holds for the three `.pro` crosses; its EURUSD and EURGBP rows are the DISABLED plain symbols and are not used.
+Backtests on OANDA use the `.pro` symbols' history too; the plain symbols' longer tick history does not apply.
 
 **Daily close and rollover on OANDA TMS (server GMT+2, read 2026-10-06):** the D1 candle opens at 00:00 server
 = 22:00 GMT = **18:00 New York** (EDT, UTC-4). The 17:00 New York rollover is **23:00 server**. (On MetaQuotes-Demo,
 GMT+3, both are 00:00 server.) The rollover block must use 23:00 server here, not server midnight (PLAN_PHASE6 6d).
 Both offsets change at daylight-saving changes (US and the broker's own); to re-read after each change.
 
-**Real ticks, Phase 8 input:** on the three `.pro` pairs the mid-January probe found real ticks from **2019** on
-(2017 and 2018 "no", 2016 error 4401). The probe reads one 3-day window per year, so "no" means none in that window,
+**Real ticks, Phase 8 input:** on the `.pro` pairs the mid-January probe found real ticks from **2019** on
+(EURUSD.pro from 2018; 2017 and 2018 "no" on the others, 2016 error 4401 or "no"). The probe reads one 3-day window per year, so "no" means none in that window,
 not proven none all year. A backtest on OANDA "every tick based on real ticks" would start in 2019 at the earliest
 (SPEC: "at least 3 years if the broker's history allows").
 
-**Warning, not verified: the plain-name EURUSD and EURGBP readings are probably not the tradable instruments.**
-Both show a fixed 2400-point spread and zero swaps (swap mode 0), unlike the three `.pro` pairs. EnvCheck takes the
-requested name first if it exists, so it never looked for `EURUSD.pro` / `EURGBP.pro`. To re-check with those names
-(another ~15 minutes with the OANDA terminal closed) before any OANDA number is relied on.
+(The earlier warning that the plain-name EURUSD and EURGBP readings were probably not the tradable instruments is
+confirmed by the re-run above: they are trade mode DISABLED.)
 
 Also: the account currency is **EUR** (MetaQuotes-Demo is USD), so tick values are in EUR; spreads were read in the
 Asian session, not at the London/New York overlap; commission is still unknown (not a symbol property; it needs a
@@ -150,3 +163,10 @@ deal record, and no orders are placed on OANDA under D6c-2, or the broker's publ
 | 7 | How far back the economic calendar goes | Calendar export tool |
 | 8 | ~~Can the tester run from the command line on this PC?~~ | **Yes**: `tools/run_phase5_checks.ps1` step 4 ran the Strategy Tester from a `/config` file (runs `20261004_113357`, `20261004_115428`) |
 | 9 | Live broker choice | Owner |
+
+## MetaQuotes MT5 build change (2026-10-06)
+
+During demo run `demo_restart_20261006_000708`, MetaQuotes MT5 updated itself (LiveUpdate) from build **6238** to
+**6241** (terminal log 00:15:29 local: "LiveUpdate start ... /update"; "MetaTrader 5 x64 build 6241 started"). That
+run is kept in `checks\invalid\`. Runs before then are on 6238; runs after are on 6241. Every check after the update
+recompiles from the repo.

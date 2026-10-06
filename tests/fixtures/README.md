@@ -28,3 +28,15 @@ Format: see `tests/python/nnfx_ref/fixtures.py`. Rebuild with
   `NNFX_SafetyTest.mq5` (SF).
 - G1_phase6a_1 verdict note 2: `sizing_cases.txt` gains 3 cases (minimum lot and volume cap with lot step 0.1),
   `exposure_cases.txt` 1 (a second OD-4 case); now 23 + 23 cases.
+
+## Phase 6c additions
+
+- `recovery/recovery_cases.txt`: 22 restart-rebuild cases (broker positions, deals, the state file's trades,
+  candles -> the expected TRADE and CONT lines). They cover R1-R4, a deleted state file, comments ignored or changed
+  by the broker, a corrupt or stale state file, fallback pairing after an ABORT, TP1 from the deal reason (not the
+  comment), and other magics ignored. Every expected line is worked out by hand in the file's comments.
+- `recovery/state_files/`: 5 state files (2 valid, 3 corrupt: a changed byte, truncated, wrong version) and
+  `index.txt` with each expected reading.
+- Run by `test_recovery.py` (answer key `nnfx_ref/recovery.py`) and `NNFX_RecoveryTest.mq5`.
+- Deviation from `docs/PLAN_PHASE6.md`: the plan said JSON. These are line-based `.txt` files, like every fixture
+  since Phase 5, because MQL5 reads them without a JSON parser.

@@ -11,7 +11,8 @@
 //| sent ("NNFX <id> h<half>").                                      |
 //|                                                                  |
 //| Places NO orders. Writes MQL5\Files\NNFX_DealReport.txt          |
-//| Status: not yet compiled.                                        |
+//| Status: compiled 2026-10-04 (build 6238, 0 errors, 0 warnings);  |
+//| run after demo order run demo_20261004_224606.                   |
 //+------------------------------------------------------------------+
 // Inputs keep their defaults when run automatically (no input dialog, so unattended runs never wait for a click).
 #property strict

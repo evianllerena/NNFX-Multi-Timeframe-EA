@@ -138,3 +138,19 @@ Then `python tools\check_trades.py "...\Common\Files\NNFX\trades\OrderTest_EURUS
 
 Offline checks (carry-over 1): `tools/run_offline_check.ps1 -NoPython` (no owner action) and `-Mt5Offline`
 (needs the firewall rule described in that script's header, added and removed by the owner).
+
+## Phase 6c: state and recovery (`NNFX_RecoveryTest`, restart tests)
+
+`NNFX_RecoveryTest` runs from the runner. It reads the fixtures copied to `$MT5\MQL5\Files\NNFX\recovery\`: 3 FNV-1a
+vectors, the 5 state files and the 22 rebuild cases, run through `State.mqh`.
+**Pass line:** `RESULT: 30 passed, 0 failed, 30 total`.
+
+Restart test (a), in the tester: `powershell -ExecutionPolicy Bypass -File tools\run_restart_tests.ps1`. One base
+run of `NNFX_OrderTest`, then one run per restart state (R1-R4, R2 with the state file deleted, R2 with comments
+ignored). Each run is restarted inside the tester at the picked time.
+**Pass lines:** for each run, `RESULT: IDENTICAL (0 differing rows, n compared)` and `RESULT: REBUILDS MATCH`.
+
+Restart test (b), real restarts on the demo (weekday): `powershell -ExecutionPolicy Bypass -File
+tools\run_demo_restarts.ps1`. It needs MetaQuotes MT5 closed at the start and Algo Trading on, and nobody needs to
+watch it. MT5 opens and closes by itself; if MT5 relaunches or is closed, the driver handles it (D6c-3).
+**Pass lines:** `R1`-`R4` each restarted, `RESULT: REBUILDS MATCH (n of n)`, and `OVERALL: PASS`.

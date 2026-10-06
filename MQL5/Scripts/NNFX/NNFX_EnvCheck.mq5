@@ -8,8 +8,9 @@
 //|  - may download small amounts of price/tick history on demand;   |
 //|  - writes one report file: MQL5\Files\NNFX_EnvCheck.txt          |
 //|                                                                  |
-//| Status: 6c change (exact symbol names, Login line) not yet       |
-//| compiled.                                                        |
+//| Status: this version compiled 2026-10-05 23:29 with OANDA's      |
+//| MetaEditor (build 6241), 0 errors, 0 warnings. The MetaQuotes    |
+//| compile is in the final 6c runner run (docs/VERIFICATION.md).    |
 //| (the runner tools/run_phase5_checks.ps1 keeps the full report).  |
 //|                                                                  |
 //| Waits until MT5 is logged in before reading anything; if it is   |

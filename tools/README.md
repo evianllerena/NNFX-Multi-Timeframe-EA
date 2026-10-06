@@ -17,6 +17,11 @@
 | `tools/check_trades.py` | SPEC Check 1c over a trade log: stop from the first moment, equal halves, planned risk <= target (F4, 1e-6 float bound), SL/TP/BE/trail prices, test alarms, ABORT closes half 1, REFUSE sends nothing; `--require`, `--require-note` | Tested here (27 tests incl. corruption cases); planted bugs 15 of 15; PASS on the tester order run (run `20261004_164337`) |
 | `MQL5/Scripts/NNFX/NNFX_DealReport.mq5` | Read-only: one magic's orders and deals from the account history (filling mode, comments, commission, swap, fee, reason) | Compiled 2026-10-04; run after the demo order run `demo_20261004_224606` |
 | `tools/run_offline_check.ps1` | Carry-over 1: `-NoPython` proves the runner FAILs with no Python; `-Mt5Offline` proves EnvCheck and ExportBars FAIL with `RESULT: INVALID (not connected)` while an owner-added firewall rule blocks MT5 | `-NoPython` PASS 2026-10-04; `-Mt5Offline` not run yet (needs the owner's firewall rule) |
+| `MQL5/Scripts/NNFX/NNFX_RecoveryTest.mq5` | Phase 6c: checksum vectors, the 5 state files and the 22 rebuild cases through `State.mqh` | Compiled 2026-10-05; 30/30; planted bugs 9 of 9 (M1-M9) |
+| `tools/compare_runs.py` | Phase 6c: `compare BASE RESTART --from TIME` (every column of every trade row after the restart; `RESULT: IDENTICAL`) and `rebuilds LOG` (each REBUILD row = the PRESTOP before it; `RESULT: REBUILDS MATCH`) | Tested here (`test_compare_runs.py`); planted bug P1 caught |
+| `tools/pick_restart_times.py` | Phase 6c: picks the R1-R4 restart times from a base run's STATE rows | Used by `run_restart_tests.ps1` |
+| `tools/run_restart_tests.ps1` | Phase 6c restart test (a): a base tester run, then R1-R4, R2 with the state file deleted and R2 with comments ignored, each restarted inside the tester (`InpRestartAt`); lists every EA input (the tester reuses last-used values otherwise) | OVERALL PASS (run `restart_20261005_225140`) |
+| `tools/run_demo_restarts.ps1` | Phase 6c restart test (b): REAL restarts on the demo account in states R1-R4 (minimum lots); account check first; checks MT5 read every input; D6c-1/D6c-3 process rules | See `docs/VERIFICATION.md` |
 | Calendar export (MQL5 script) | Saves VP's news events, month by month, for backtests | Planned (Phase 6) |
 | Result recompute (Python) | Recomputes trades, R and drawdown from raw trade logs (V13) | Planned (Phase 8) |
 

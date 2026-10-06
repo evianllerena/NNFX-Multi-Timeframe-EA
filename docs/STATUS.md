@@ -24,12 +24,12 @@ brings them to `main` (merged 2026-10-04 as `0e701dd`). Guards against a repeat:
 ## OANDA TMS (candidate live broker, D6c-2)
 
 Read-only EnvCheck on demo 62316800 (`docs/ENVIRONMENT.md`): hedging, EUR account, server GMT+2. Open points:
-- **Symbol class:** plain EURUSD/EURGBP show a fixed 2400-point spread and no swaps; AUDNZD/AUDCAD/CHFJPY exist only
-  as `.pro`. Plain EURUSD/EURGBP are NOT to be used until a re-run with `EURUSD.pro` / `EURGBP.pro` settles which class
-  the EA uses (pending; needs the OANDA terminal closed for a few minutes).
+- **Symbol class: settled. The EA uses the `.pro` symbols on OANDA TMS.** Plain EURUSD/EURGBP are trade mode
+  DISABLED (server path `Forex\...`, fixed 2400-point spread, no swaps). `EURUSD.pro` / `EURGBP.pro` are trade mode
+  FULL (`PRO\FX\Major\...`, spread 8 at 06:32 server). Re-run `oanda_envcheck_pro_20261006_003214`, read-only.
 - **Rollover:** 17:00 New York = 23:00 server on OANDA (D1 opens 00:00 server = 18:00 New York); the 6d rollover block
   is keyed to the real rollover per broker, never to server midnight (`docs/PLAN_PHASE6.md` 6d).
-- **Phase 8 input:** real ticks on the `.pro` pairs from 2019 only (2017/2018 "no" in the probe).
+- **Phase 8 input:** real ticks on the `.pro` pairs from 2019 (EURUSD.pro from 2018) in the probe.
 
 ## Waiting on the owner
 

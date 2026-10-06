@@ -10,7 +10,8 @@
 //| the NNFXPosRec / NNFXDealRec / NNFXCandleRec arrays).            |
 //|                                                                  |
 //| Places NO orders. Writes MQL5\Files\NNFX_RecoveryTest.txt        |
-//| Status: not yet compiled.                                        |
+//| Status: compiled 2026-10-05 (build 6238, 0 errors, 0 warnings);  |
+//| 30/30 (planted-bug baseline and clean re-run, 2026-10-05).       |
 //+------------------------------------------------------------------+
 // Inputs keep their defaults when run automatically (no input dialog, so unattended runs never wait for a click).
 #property strict
