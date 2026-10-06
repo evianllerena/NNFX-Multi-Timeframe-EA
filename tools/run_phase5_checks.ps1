@@ -11,6 +11,7 @@ What it does, in order (each step's result goes in SUMMARY.txt):
                         are information only)
        NNFX_SafetyTest  pass line  RESULT: 6 passed, 0 failed, 6 total     (Phase 6b, S1)
        NNFX_OrderMathTest pass line RESULT: 22 passed, 0 failed, 22 total  (Phase 6b)
+       NNFX_RecoveryTest pass line RESULT: 29 passed, 0 failed, 29 total   (Phase 6c)
        NNFX_EnvCheck    information only, but must be read after login: "RESULT: VALID ..."
                         ("RESULT: INVALID (not connected)" is a FAIL)
        NNFX_ExportBars  pass line  RESULT: 5 of 5 pairs complete
@@ -96,7 +97,8 @@ if ($PythonOnly) {
     New-Item -ItemType Directory -Force "$MT5\MQL5\Include\NNFX", "$MT5\MQL5\Scripts\NNFX", "$MT5\MQL5\Experts\NNFX",
         "$MT5\MQL5\Files\NNFX\fixtures", "$MT5\MQL5\Files\NNFX\signals", "$MT5\MQL5\Files\NNFX\profiles_bad",
         "$MT5\MQL5\Files\NNFX\export", "$MT5\MQL5\Files\NNFX\sizing", "$MT5\MQL5\Files\NNFX\exposure",
-        "$MT5\MQL5\Files\NNFX\orders", "$Common\NNFX\profiles", "$Common\NNFX\reports", "$Common\NNFX\trades" | Out-Null
+        "$MT5\MQL5\Files\NNFX\orders", "$MT5\MQL5\Files\NNFX\recovery\state_files", "$Common\NNFX\profiles",
+        "$Common\NNFX\reports", "$Common\NNFX\trades" | Out-Null
     $ErrorActionPreference = "Stop"
     Copy-Item "$Repo\MQL5\Include\NNFX\*.mqh" "$MT5\MQL5\Include\NNFX\" -Force
     Copy-Item "$Repo\MQL5\Scripts\NNFX\*.mq5" "$MT5\MQL5\Scripts\NNFX\" -Force
@@ -107,6 +109,8 @@ if ($PythonOnly) {
     Copy-Item "$Repo\tests\fixtures\sizing\sizing_cases.txt" "$MT5\MQL5\Files\NNFX\sizing\" -Force
     Copy-Item "$Repo\tests\fixtures\exposure\exposure_cases.txt" "$MT5\MQL5\Files\NNFX\exposure\" -Force
     Copy-Item "$Repo\tests\fixtures\orders\order_cases.txt" "$MT5\MQL5\Files\NNFX\orders\" -Force
+    Copy-Item "$Repo\tests\fixtures\recovery\recovery_cases.txt" "$MT5\MQL5\Files\NNFX\recovery\" -Force
+    Copy-Item "$Repo\tests\fixtures\recovery\state_files\*.txt" "$MT5\MQL5\Files\NNFX\recovery\state_files\" -Force
     Copy-Item "$Repo\profiles\*.txt" "$Common\NNFX\profiles\" -Force
     $ErrorActionPreference = "Continue"
     Step "1 copy files" "PASS" ""
@@ -114,7 +118,8 @@ if ($PythonOnly) {
     # ---------------------------------------------------------------- 2. compile
     $programs = @("Scripts\NNFX\NNFX_RulesTest", "Scripts\NNFX\NNFX_SignalTest", "Scripts\NNFX\NNFX_ExportBars",
                   "Scripts\NNFX\NNFX_EnvCheck", "Experts\NNFX\NNFX_RepaintCheck", "Scripts\NNFX\NNFX_SizingTest",
-                  "Scripts\NNFX\NNFX_SafetyTest", "Scripts\NNFX\NNFX_OrderMathTest", "Experts\NNFX\NNFX_OrderTest")
+                  "Scripts\NNFX\NNFX_SafetyTest", "Scripts\NNFX\NNFX_OrderMathTest", "Experts\NNFX\NNFX_OrderTest",
+                  "Scripts\NNFX\NNFX_RecoveryTest", "Scripts\NNFX\NNFX_DealReport")
     $compileOk = $true
     foreach ($f in $programs) {
         $src = "$MT5\MQL5\$f.mq5"; $log = "$MT5\MQL5\$f.log"; $ex5 = "$MT5\MQL5\$f.ex5"
@@ -163,6 +168,7 @@ if ($PythonOnly) {
         @{ Name = "NNFX_SizingTest"; Report = "$MT5\MQL5\Files\NNFX_SizingTest.txt";       Pass = "RESULT: 46 passed, 0 failed, 46 total"; Min = 5 },
         @{ Name = "NNFX_SafetyTest"; Report = "$MT5\MQL5\Files\NNFX_SafetyTest.txt";       Pass = "RESULT: 6 passed, 0 failed, 6 total"; Min = 5 },
         @{ Name = "NNFX_OrderMathTest"; Report = "$MT5\MQL5\Files\NNFX_OrderMathTest.txt"; Pass = "RESULT: 22 passed, 0 failed, 22 total"; Min = 5 },
+        @{ Name = "NNFX_RecoveryTest"; Report = "$MT5\MQL5\Files\NNFX_RecoveryTest.txt";  Pass = "RESULT: 29 passed, 0 failed, 29 total"; Min = 5 },
         @{ Name = "NNFX_EnvCheck";   Report = "$MT5\MQL5\Files\NNFX_EnvCheck.txt";         Pass = "RESULT: VALID";                          Min = 20; Info = $true },
         @{ Name = "NNFX_ExportBars"; Report = "$MT5\MQL5\Files\NNFX\export\_summary.txt";  Pass = "RESULT: 5 of 5 pairs complete";          Min = 30 }
     )
