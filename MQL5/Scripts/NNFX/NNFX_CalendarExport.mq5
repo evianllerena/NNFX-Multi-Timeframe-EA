@@ -17,6 +17,13 @@
 //|   (time order, in UTC, the News.mqh format) and                  |
 //|   MQL5\Files\NNFX\calendar\_summary.txt: one line per month and  |
 //|   "RESULT: <m> of <m> months exported, <e> errors".              |
+//| InpMode = "compare" (PLAN 6e "Tester gives the same block as     |
+//|   live"): for one week, every H1 close of the 5 pairs, the N1    |
+//|   block and the X5 flag from the LIVE calendar vs from the       |
+//|   exported file (the path the tester uses). RESULT: identical or |
+//|   the mismatches.                                                |
+//| InpMode = "depth": the earliest January with USD events, 2000 to |
+//|   2019 (recorded, not pass/fail).                                |
 //| Status: not yet compiled.                                        |
 //+------------------------------------------------------------------+
 // Inputs keep their defaults when run automatically (no input dialog, so unattended runs never wait for a click).
@@ -30,6 +37,11 @@ input string InpCurrencies = "USD,EUR,GBP,CAD,AUD,NZD,JPY,CHF";    // VP's 8 cur
 input string InpList       = "NNFX\\news\\news_events.txt";         // export: the approved list (MQL5\Files)
 input string InpFrom       = "2019.01";                            // export: first month (YYYY.MM)
 input string InpTo         = "2026.09";                            // export: last month (YYYY.MM)
+input string InpEventFile  = "NNFX\\calendar\\events_2019.01_2026.09.txt"; // compare: the export (Common\Files)
+input string InpWeekStart  = "2026.09.21";                         // compare: Monday of the week (server date)
+input string InpPairs      = "EURUSD,AUDNZD,EURGBP,AUDCAD,CHFJPY"; // compare: VP's 5 test pairs
+input int    InpWinterOffset = 2;                                  // compare: broker clock rule (D6d-4, a setting)
+input string InpDst        = "US";                                 // compare: "none", "EU" or "US"
 
 int g_report = INVALID_HANDLE;
 
@@ -209,6 +221,115 @@ void ExportEvents(string &cur[])
    Out(StringFormat("RESULT: %d of %d months exported, %d errors", monthsOk, months, errors));
   }
 
+// The live path: the calendar's values around the week, matched to the approved list, calendar time -> UTC (the
+// offset now) -> server time with the broker's rule. The same steps as the export plus News.mqh's load, but straight
+// from the calendar.
+int LiveEvents(string &cur[], const NNFXNewsEntry &entries[], const NNFXBroker &b, const datetime from, const datetime to,
+               NNFXNewsEvent &out[])
+  {
+   ArrayResize(out, 0);
+   int offsetNow = (int)MathRound((TimeTradeServer() - TimeGMT()) / 900.0) * 900;
+   for(int c = 0; c < ArraySize(cur); c++)
+     {
+      MqlCalendarValue vals[];
+      if(CalendarValueHistory(vals, from, to, NULL, cur[c]) < 0)
+         return -1;
+      for(int i = 0; i < ArraySize(vals); i++)
+        {
+         MqlCalendarEvent e;
+         if(!CalendarEventById(vals[i].event_id, e))
+            return -1;
+         string id = StringFormat("%I64u", vals[i].event_id);
+         if(NNFXNewsMatch(entries, cur[c], id, e.name) < 0)
+            continue;
+         int k = ArraySize(out);
+         ArrayResize(out, k + 1);
+         out[k].time = NNFXUtcToServer(b, vals[i].time - offsetNow);
+         out[k].cur = cur[c];
+         out[k].id = id;
+         out[k].name = e.name;
+         out[k].vp = "";
+        }
+     }
+   return ArraySize(out);
+  }
+
+void CompareWeek(string &cur[])
+  {
+   string listLines[];
+   NNFXNewsEntry entries[];
+   if(!NNFXNewsReadLines(InpList, listLines, false) || NNFXNewsParseList(listLines, entries) == 0)
+     {
+      Out("RESULT: FAIL (cannot read the event list)");
+      return;
+     }
+   NNFXBroker b;
+   b.name = AccountInfoString(ACCOUNT_SERVER);
+   b.winter_offset = InpWinterOffset;
+   b.dst = InpDst;
+   NNFXNewsEvent fromFile[], live[];
+   datetime gen;
+   int nf = NNFXNewsLoad(InpEventFile, true, b, fromFile, gen);
+   datetime w0 = StringToTime(InpWeekStart), w1 = w0 + 7 * 86400;
+   int nl = LiveEvents(cur, entries, b, w0 - 2 * 86400, w1 + 2 * 86400, live);
+   Out(StringFormat("compare week from %s: %d events in the file, %d live events around the week (rule GMT+%d %s)",
+                    InpWeekStart, nf, nl, InpWinterOffset, InpDst));
+   if(nf <= 0 || nl < 0)
+     {
+      Out("RESULT: FAIL (no file events or a calendar error)");
+      return;
+     }
+   string pairs[];
+   int np = StringSplit(InpPairs, ',', pairs);
+   NNFXBlackout none[];
+   int compared = 0, mismatches = 0, blocks = 0, flags = 0;
+   for(int k = 0; k < np; k++)
+     {
+      datetime prev = 0;
+      for(datetime tc = w0 + 3600; tc <= w1; tc += 3600)
+        {
+         MqlDateTime s;
+         TimeToStruct(tc - 3600, s);
+         if(s.day_of_week == 0 || s.day_of_week == 6)
+            continue;   // no candle opens on the weekend
+         string wf, wl;
+         bool bf = NNFXNewsBlocked(pairs[k], tc, fromFile, none, wf);
+         bool bl = NNFXNewsBlocked(pairs[k], tc, live, none, wl);
+         bool xf = NNFXNewsFirstClose(pairs[k], tc, prev, fromFile);
+         bool xl = NNFXNewsFirstClose(pairs[k], tc, prev, live);
+         compared++;
+         blocks += bf ? 1 : 0;
+         flags += xf ? 1 : 0;
+         if(wf != wl || xf != xl)
+           {
+            mismatches++;
+            if(mismatches <= 10)
+               Out(StringFormat("MISMATCH %s %s: file [%s] X5 %d, live [%s] X5 %d", pairs[k],
+                                TimeToString(tc, TIME_DATE | TIME_MINUTES), wf, xf ? 1 : 0, wl, xl ? 1 : 0));
+           }
+         prev = tc;
+        }
+     }
+   Out(StringFormat("compared %d H1 closes of %d pairs: %d blocked by N1, %d X5 first closes", compared, np, blocks, flags));
+   Out(mismatches == 0 ? StringFormat("RESULT: identical (0 mismatches, %d candle closes compared)", compared)
+                       : StringFormat("RESULT: FAIL (%d mismatches)", mismatches));
+  }
+
+void Depth(void)
+  {
+   int first = 0;
+   for(int y = 2000; y <= 2019; y++)
+     {
+      MqlCalendarValue vals[];
+      int n = CalendarValueHistory(vals, StringToTime(StringFormat("%d.01.01", y)), StringToTime(StringFormat("%d.02.01", y)) - 1, NULL, "USD");
+      Out(StringFormat("January %d: %d USD values", y, n));
+      if(n > 0 && first == 0)
+         first = y;
+     }
+   Out(first > 0 ? StringFormat("RESULT: earliest January with USD events: %d (recorded, not pass/fail)", first)
+                 : "RESULT: no USD events 2000-2019");
+  }
+
 void OnStart()
   {
    FolderCreate("NNFX\\calendar");
@@ -230,6 +351,10 @@ void OnStart()
       ListEvents(cur);
    else if(InpMode == "export")
       ExportEvents(cur);
+   else if(InpMode == "compare")
+      CompareWeek(cur);
+   else if(InpMode == "depth")
+      Depth();
    else
       Out("RESULT: FAIL (unknown mode " + InpMode + ")");
    if(g_report != INVALID_HANDLE)
