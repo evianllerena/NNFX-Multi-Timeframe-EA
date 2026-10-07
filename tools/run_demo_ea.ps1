@@ -28,7 +28,7 @@ Output: <MT5 data folder>\MQL5\Files\NNFX\checks\demo_ea_<mode>_<date-time>\
 Usage:  powershell -ExecutionPolicy Bypass -File tools\run_demo_ea.ps1 -Mode kill_tp1
 #>
 param(
-    [ValidateSet("kill_tp1", "kill_pause", "smoke", "news_alarm")] [string]$Mode = "kill_tp1",
+    [ValidateSet("kill_tp1", "kill_pause", "smoke", "news_alarm", "offline")] [string]$Mode = "kill_tp1",
     [string]$Repo    = "C:\Users\Evision\NNFX-Multi-Timeframe-EA",
     [string]$MT5     = "C:\Users\Evision\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075",
     [string]$Common  = "C:\Users\Evision\AppData\Roaming\MetaQuotes\Terminal\Common\Files",
@@ -130,7 +130,12 @@ function Inputs-Read([datetime]$since) {
     return -1
 }
 
-# 1. account check (D6c-1)
+# 1. account check (D6c-1). Offline mode: the owner's firewall rule must exist instead (no account can be read)
+if ($Mode -eq "offline") {
+    $rule = Get-NetFirewallRule -DisplayName "NNFX offline test" -ErrorAction SilentlyContinue
+    Step "firewall rule 'NNFX offline test' present (owner)" ([bool]$rule) $(if ($rule) { "blocks terminal64.exe outbound" } else { "missing: add it first" })
+    if (-not $rule) { $Summary | Set-Content "$Out\SUMMARY.txt"; exit 1 }
+} else {
 Write-Set "NNFX_EnvCheck_quick.set" @("InpCheckTicks=false")
 $t0 = Get-Date
 Run-Script "NNFX_EnvCheck" "NNFX_EnvCheck_quick.set" 10
@@ -142,6 +147,7 @@ $server = [regex]::Match($text, "(?m)^Server:\s+(\S+)").Groups[1].Value
 $okAcc = ($login -eq "$ExpectLogin" -and $server -eq $ExpectServer -and $text.Contains("Trade mode:   DEMO"))
 Step "account check" $okAcc "'$login' on '$server'"
 if (-not $okAcc) { Say "STOP: not the expected demo account; nothing was traded."; $Summary | Set-Content "$Out\SUMMARY.txt"; exit 1 }
+}
 
 # 2. global variables: record, then set (restored at the end whatever happens)
 $gvNames = @("NNFX_MASTER", "NNFX_DD_PEAK", "NNFX_DD_PAUSED", "NNFX_DD_RESET")
@@ -163,6 +169,7 @@ $prior = Gv-Section "$Out\gv_before.txt" "before"
 Say ("global variables before: " + (($gvNames | ForEach-Object { "$_=" + $(if ($prior.ContainsKey($_)) { $prior[$_] } else { "missing" }) }) -join ", "))
 $set = @("NNFX_MASTER=1")
 if ($Mode -eq "kill_pause") { $set += @("NNFX_DD_PEAK=1000000000", "NNFX_DD_PAUSED=0", "NNFX_DD_RESET=0") }
+if ($Mode -eq "offline") { $set = @("NNFX_MASTER=1") }   # even with trading allowed, nothing may be sent while offline
 Write-Set "NNFX_GvTool_set.set" @("InpDelete=", "InpSet=$($set -join ',')")
 Run-Script "NNFX_GvTool" "NNFX_GvTool_set.set" 5
 Copy-Item "$MT5\MQL5\Files\NNFX_GvTool.txt" "$Out\gv_set.txt" -Force
@@ -311,6 +318,10 @@ if ($Mode -eq "kill_tp1" -or $Mode -eq "kill_pause") {
                  ("first blocks row: " + $(if ($first) { ($first -split ",")[-1] } else { "none" }) + "; new pause trips: $($trip.Count)")
         }
     }
+} elseif ($Mode -eq "offline") {
+    # MT5 cannot reach its server: the EA must never get past its start-up wait (connected + logged in + 3 s)
+    $end = (Get-Date).AddMinutes(4)
+    while ((Get-Date) -lt $end) { Start-Sleep -Seconds 10; $p = Keep-Alive $p }
 } elseif ($Mode -eq "news_alarm") {
     # the start-up runs the news checks once after login; give it 3 minutes, then read the Experts log
     $end = (Get-Date).AddMinutes(3)
@@ -334,6 +345,14 @@ $runStart = [datetime]::ParseExact($Stamp, "yyyyMMdd_HHmmss", $null)
 foreach ($lf in @(Get-ChildItem "$MT5\MQL5\Logs\*.log" | Where-Object { $_.LastWriteTime -ge $runStart })) { Copy-Item $lf.FullName "$Out\experts_$($lf.Name)" -Force }
 foreach ($lf in @(Get-ChildItem "$MT5\Logs\*.log" | Where-Object { $_.LastWriteTime -ge $runStart })) { Copy-Item $lf.FullName "$Out\terminal_$($lf.Name)" -Force }
 $rows = if (Test-Path "$Out\trades_$Name") { Get-Content "$Out\trades_$Name" } else { @() }
+if ($Mode -eq "offline") {
+    # D6b-1 / PLAN 6f MT5-offline check, the EA part. Offline there are no ticks and no connection, so the EA never
+    # reaches an order call to log "not connected": the proof is that its start-up never runs and nothing is sent
+    $stop = @($rows | Where-Object { $_ -match ",PRESTOP," -and $_ -match "stopped before the start-up ran \(not connected" }) | Select-Object -First 1
+    $opens = @($rows | Where-Object { $_ -match "^[^,]*,(OPEN|REBUILD)," }).Count
+    Step "EA offline: start-up never ran (not connected)" ([bool]$stop) $(if ($stop) { ($stop -split ",")[-1] } else { "no such PRESTOP row" })
+    Step "EA offline: no order, no rebuild" ($opens -eq 0) "$opens OPEN/REBUILD rows"
+} else {
 Step "orders allowed: DEMO" (@($rows | Where-Object { $_ -match "orders allowed: DEMO" }).Count -ge 1) ""
 $tfMin = @{ "M1" = "1"; "M5" = "5"; "M15" = "15"; "M30" = "30"; "H1" = "60"; "H4" = "240" }[$Period]
 if (Test-Path "$Out\decisions_$Name") {
@@ -351,6 +370,7 @@ if (Test-Path "$Out\trades_$Name") {
     $none = $o -match "\(0 trades"
     Step "check_trades" (($r -match "PASS") -or ($none -and $Mode -eq "smoke")) $(if ($none) { "no trades in this run" } else { $r.Trim() })
 }
+}
 $errs = @()
 foreach ($lf in @(Get-ChildItem "$Out\experts_*.log" -ErrorAction SilentlyContinue)) {
     $errs += @(Get-Content $lf.FullName -Encoding Unicode | Where-Object { $_ -match "NNFX_EA" -and $_ -match "(?i)\berror\b|critical|array out of range|zero divide|invalid pointer" })
@@ -365,7 +385,9 @@ if ($Mode -eq "news_alarm") {
     Step "live alarm: no event in the next 24 h (D6f-3, recency)" ([bool]$rec) $(if ($rec) { ($rec -split "\t")[-1] } else { "not in the Experts log" })
 }
 Restore-Gvs
-if ($Mode -ne "smoke") {
+if ($Mode -eq "offline") {
+    Say "no clean-up of trades: offline, none can exist from this run (0 OPEN rows above); close_test_leftovers needs a connection"
+} elseif ($Mode -ne "smoke") {
     $c = & powershell -ExecutionPolicy Bypass -Command "& '$Repo\tools\close_test_leftovers.ps1' -Magics $Magic" 2>&1 | Out-String
     $c | Set-Content "$Out\cleanup.txt" -Encoding ASCII
     # judged on this magic and the test magics (G1_phase6c_2 note 2); the whole account may hold the 1H smoke EA's
