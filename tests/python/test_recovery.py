@@ -95,6 +95,21 @@ class TestStateFile(unittest.TestCase):
         self.assertEqual(rc.serialize(trades, conts), rc.serialize([t], [c]))
         self.assertEqual(rc.tfmt(proc), "2026.06.02 13:00")
 
+    def test_core_lines_round_trip(self):
+        """6f (DESIGN_6F section 5): each pair's rules-core memory is a PCORE line, sorted by symbol, inside the
+        checksum; a file without PCORE lines (the 6c test EA's) still reads as before."""
+        t, c = self.sample()
+        snap = "CORE|1|" + "|".join(["0"] * (rc.CORE_FIELDS - 2))
+        cores = {"GBPUSD": snap, "AUDNZD": snap.replace("CORE|1|0|", "CORE|1|7|")}
+        text = rc.state_file_text("26060", [t], [c], 0, cores)
+        self.assertLess(text.index("PCORE|AUDNZD|"), text.index("PCORE|GBPUSD|"))
+        got = {}
+        status, trades, conts, _, why = rc.parse_state_file(text, got)
+        self.assertEqual(status, "present", why)
+        self.assertEqual(got, cores)
+        self.assertEqual(rc.parse_state_file(text.replace("CORE|1|7|", "CORE|1|8|"))[0], "corrupt")
+        self.assertEqual(rc.state_file_text("26060", [t], [c], 0), rc.state_file_text("26060", [t], [c], 0, {}))
+
     def test_one_changed_byte_is_corrupt(self):
         t, c = self.sample()
         text = rc.state_file_text("26999", [t], [c], 0).replace("0.002", "0.003")
@@ -118,10 +133,13 @@ class TestStateFile(unittest.TestCase):
             with self.subTest(file=p[1]):
                 with open(os.path.join(STATE_FILES, p[1]), encoding="ascii", newline="") as f:
                     text = f.read()
-                status, trades, conts, _, why = rc.parse_state_file(text)
+                cores = {}
+                status, trades, conts, _, why = rc.parse_state_file(text, cores)
                 self.assertEqual(status, p[2], why)
                 self.assertEqual(len(trades), int(p[3]))
                 self.assertEqual(len(conts), int(p[4]))
+                if len(p) > 5:
+                    self.assertEqual(len(cores), int(p[5]))
 
 
 if __name__ == "__main__":

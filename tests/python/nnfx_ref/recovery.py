@@ -105,8 +105,19 @@ def serialize(trades: List[Trade], conts: List[Cont]) -> List[str]:
            [cont_line(c) for c in sorted(conts, key=lambda c: c.sym)]
 
 
-def state_file_text(instance: str, trades: List[Trade], conts: List[Cont], processed: int) -> str:
+CORE_FIELDS = 35   # "CORE|1|" + 33 fields: CNNFXPairCore::Snapshot (MQL5/Include/NNFX/RulesCore.mqh, Phase 6f)
+
+
+def core_line(sym: str, snapshot: str) -> str:
+    """Phase 6f (DESIGN_6F section 5): one pair's rules-core memory, saved at every candle close."""
+    return "PCORE|%s|%s" % (sym, snapshot)
+
+
+def state_file_text(instance: str, trades: List[Trade], conts: List[Cont], processed: int,
+                    cores: Dict[str, str] = None) -> str:
+    """cores: symbol -> core snapshot (6f EA only; the 6c test EA writes none). PCORE lines sorted by symbol."""
     body = ["NNFXSTATE|%s|%s" % (STATE_VERSION, instance), "PROC|%s" % tfmt(processed)] + serialize(trades, conts)
+    body += [core_line(s, cores[s]) for s in sorted(cores or {})]
     text = "\n".join(body) + "\n"
     return text + "CHECKSUM|%08x\n" % fnv1a32(text)
 
@@ -116,8 +127,9 @@ def parse_trade(p: List[str]) -> Trade:
                  float(p[10]), float(p[11]), float(p[12]), float(p[13]), p[14] == "1", p[15] == "1")
 
 
-def parse_state_file(text: str) -> Tuple[str, List[Trade], List[Cont], int, str]:
-    """(status, trades, conts, processed, why): status 'present' or 'corrupt'."""
+def parse_state_file(text: str, cores_out: Dict[str, str] = None) -> Tuple[str, List[Trade], List[Cont], int, str]:
+    """(status, trades, conts, processed, why): status 'present' or 'corrupt'. PCORE lines (6f) go to cores_out
+    (symbol -> snapshot) if given; their content is checked when the core restores it, not here."""
     lines = text.replace("\r\n", "\n").split("\n")
     while lines and lines[-1] == "":
         lines.pop()
@@ -129,7 +141,7 @@ def parse_state_file(text: str) -> Tuple[str, List[Trade], List[Cont], int, str]
     head = lines[0].split("|")
     if len(head) < 2 or head[0] != "NNFXSTATE" or head[1] != STATE_VERSION:
         return "corrupt", [], [], 0, "wrong header or version"
-    trades, conts, proc = [], [], 0
+    trades, conts, proc, cores = [], [], 0, {}
     try:
         for ln in lines[1:-1]:
             p = ln.split("|")
@@ -139,10 +151,14 @@ def parse_state_file(text: str) -> Tuple[str, List[Trade], List[Cont], int, str]
                 trades.append(parse_trade(p))
             elif p[0] == "CONT" and len(p) == 7:
                 conts.append(Cont(p[1], int(p[2]), p[3] == "1", p[4] == "1", int(p[5]), tparse(p[6])))
+            elif p[0] == "PCORE" and len(p) == 2 + CORE_FIELDS and p[2] == "CORE":
+                cores[p[1]] = "|".join(p[2:])
             else:
                 return "corrupt", [], [], 0, "unreadable line %r" % ln
     except (ValueError, IndexError):
         return "corrupt", [], [], 0, "unreadable number"
+    if cores_out is not None:
+        cores_out.update(cores)
     return "present", trades, conts, proc, ""
 
 
