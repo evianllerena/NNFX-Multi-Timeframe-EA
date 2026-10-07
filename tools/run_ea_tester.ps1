@@ -29,7 +29,8 @@ param(
     [string]$Tag     = "run",
     [string[]]$Set   = @(),                 # "InpName=value" overrides
     [int]$TimeoutMin = 120,
-    [int]$MinTrades  = 1
+    [int]$MinTrades  = 1,
+    [switch]$NoCopy                         # compile and run the MT5 copy as it is (planted-bug runs, run_planted_6f.ps1)
 )
 $ErrorActionPreference = "Continue"
 $Terminal = Join-Path $Install "terminal64.exe"
@@ -89,8 +90,10 @@ $open = Get-Process terminal64 -ErrorAction SilentlyContinue | Where-Object { $_
 if ($open) { Step "0 MT5 closed" "FAIL" "terminal64 is running (pid $($open.Id -join ',')); not touched"; $Summary | Set-Content "$Out\SUMMARY.txt"; exit 1 }
 
 # 1. copy and compile
-Copy-Item "$Repo\MQL5\Include\NNFX\*.mqh" "$MT5\MQL5\Include\NNFX\" -Force
-Copy-Item "$Repo\MQL5\Experts\NNFX\*.mq5" "$MT5\MQL5\Experts\NNFX\" -Force
+if (-not $NoCopy) {
+    Copy-Item "$Repo\MQL5\Include\NNFX\*.mqh" "$MT5\MQL5\Include\NNFX\" -Force
+    Copy-Item "$Repo\MQL5\Experts\NNFX\*.mq5" "$MT5\MQL5\Experts\NNFX\" -Force
+} else { Say "NoCopy: the MT5 copy of the code is compiled and run as it is" }
 Copy-Item "$Repo\profiles\*.txt" "$Common\NNFX\profiles\" -Force
 $srcEa = "$MT5\MQL5\Experts\NNFX\NNFX_EA.mq5"; $clog = "$MT5\MQL5\Experts\NNFX\NNFX_EA.log"
 if (Test-Path $clog) { Remove-Item $clog -Force }
