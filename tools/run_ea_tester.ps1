@@ -138,23 +138,25 @@ $tlogs = "$env:APPDATA\MetaQuotes\Tester\D0E8209F77C8CF37AD8BF550E51FF075"
 Get-ChildItem $tlogs -Recurse -Filter "*.log" -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -ge $t0 } |
     ForEach-Object { Copy-Item $_.FullName ("$Out\tester_" + $_.Directory.Parent.Name + "_" + $_.Name) -Force }
 
+# Runs one Python checker and writes its Step. No RESULT line (a crash, a usage error) is a FAIL, never a silent skip
+# (run planted_6f_20261006_220837: an empty "--blackouts" argument was dropped by PowerShell, check_news_inputs
+# stopped with a usage error, $null.Trim() threw, and no step was written).
+function Check([string]$step, [string]$file, [string[]]$pyArgs) {
+    $r = & $Python -B @pyArgs 2>&1 | Out-String
+    $r | Set-Content "$Out\$file" -Encoding ASCII
+    $l = "" + ([regex]::Matches($r, "(?m)^RESULT.*$") | Select-Object -Last 1).Value
+    Step $step $(if ($l -match "PASS") { "PASS" } else { "FAIL" }) $(if ($l) { $l.Trim() } else { "no RESULT line (see $file)" })
+}
 if (Test-Path "$Out\trades_$name") {
     $tf = @{ "M30" = "30"; "H1" = "60"; "H4" = "240" }[$Period]
-    $r1 = & $Python -B "$Repo\tools\check_trades.py" "$Out\trades_$name" --min-trades $MinTrades 2>&1 | Out-String
-    $r1 | Set-Content "$Out\check_trades.txt" -Encoding ASCII
-    $l1 = ([regex]::Matches($r1, "(?m)^RESULT.*$") | Select-Object -Last 1).Value
-    Step "4 check_trades" $(if ($l1 -match "PASS") { "PASS" } else { "FAIL" }) $l1.Trim()
-    $r2 = & $Python -B "$Repo\tools\check_decision_log.py" "$Out\decisions_$name" --tf $tf --pairs $inputs["InpPairs"] --trades "$Out\trades_$name" 2>&1 | Out-String
-    $r2 | Set-Content "$Out\check_decision_log.txt" -Encoding ASCII
-    $l2 = ([regex]::Matches($r2, "(?m)^RESULT.*$") | Select-Object -Last 1).Value
-    Step "4 check_decision_log" $(if ($l2 -match "PASS") { "PASS" } else { "FAIL" }) $l2.Trim()
+    Check "4 check_trades" "check_trades.txt" @("$Repo\tools\check_trades.py", "$Out\trades_$name", "--min-trades", "$MinTrades")
+    Check "4 check_decision_log" "check_decision_log.txt" @("$Repo\tools\check_decision_log.py", "$Out\decisions_$name",
+          "--tf", $tf, "--pairs", $inputs["InpPairs"], "--trades", "$Out\trades_$name")
     if ($inputs["InpNewsBlock"] -eq "true") {
-        $bo = if ($inputs["InpBlackouts"] -eq "none") { "" } else { $inputs["InpBlackouts"] }
-        $r3 = & $Python -B "$Repo\tools\check_news_inputs.py" "$Out\decisions_$name" --events ("$Common\" + $inputs["InpNewsFile"]) `
-                --tf $tf --winter $inputs["InpServerWinterOffset"] --dst $inputs["InpServerDst"] --blackouts $bo 2>&1 | Out-String
-        $r3 | Set-Content "$Out\check_news_inputs.txt" -Encoding ASCII
-        $l3 = ([regex]::Matches($r3, "(?m)^RESULT.*$") | Select-Object -Last 1).Value
-        Step "4 check_news_inputs" $(if ($l3 -match "PASS") { "PASS" } else { "FAIL" }) $l3.Trim()
+        $na = @("$Repo\tools\check_news_inputs.py", "$Out\decisions_$name", "--events", ("$Common\" + $inputs["InpNewsFile"]),
+                "--tf", $tf, "--winter", $inputs["InpServerWinterOffset"], "--dst", $inputs["InpServerDst"])
+        if ($inputs["InpBlackouts"] -ne "none") { $na += @("--blackouts", $inputs["InpBlackouts"]) }
+        Check "4 check_news_inputs" "check_news_inputs.txt" $na
     }
     $rows = Get-Content -LiteralPath "$Out\trades_$name"
     $div = @($rows | Where-Object { $_ -match "^[^,]*,DIVERGE," }).Count

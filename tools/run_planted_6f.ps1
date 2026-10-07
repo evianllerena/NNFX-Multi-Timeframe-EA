@@ -120,7 +120,7 @@ $plants = @(
        Kind = "restart_master"; Expect = "no missed-candle row" },
     @{ Id = "E10"; What = "a restart skips the broker trail of the missed candle"; File = $ea;
        Old = "g_orders.OnBarClose(sym, b.c, b.atr);   // open trades stay managed (S-2): the T4 trail at this close"
-       New = "// trail left out (planted)"
+       New = ";   // trail left out (planted; an empty statement keeps the if/else)"
        Kind = "restart_open"; Expect = "trade log differs" }
 )
 foreach ($p in $plants) {
@@ -149,18 +149,20 @@ foreach ($p in $plants) {
             $o = & $Python -B "$Repo\tools\check_ea_restart.py" "$($r.Dir)\decisions_EA_H1_26060_tester.csv" "$($r.Dir)\trades_EA_H1_26060_tester.csv" `
                     --master-off "2026.06.02 12:00;2026.06.03 00:00" --replay-differs EURGBP --baseline "$($b2.Dir)\decisions_EA_H1_26060_tester.csv" 2>&1 | Out-String
             if ($r.Dir) { $o | Set-Content "$($r.Dir)\check_ea_restart.txt" -Encoding ASCII }
-            $text = $o
+            $text = $r.Text + "`n" + $o
         }
         "restart_open" {
             $r = Tester "planted_$($p.Id)" @("InpRestartAt=2026.06.02 21:00")
             $o = & $Python -B "$Repo\tools\check_ea_restart.py" "$($r.Dir)\decisions_EA_H1_26060_tester.csv" "$($r.Dir)\trades_EA_H1_26060_tester.csv" `
                     --baseline $Base --baseline-trades $BaseT 2>&1 | Out-String
             if ($r.Dir) { $o | Set-Content "$($r.Dir)\check_ea_restart.txt" -Encoding ASCII }
-            $text = $o
+            $text = $r.Text + "`n" + $o
         }
     }
+    # a plant that breaks the build tests nothing (run planted_6f_20261006_220837, E10)
+    if ($text -match "1 compile NNFX_EA\s+FAIL") { Result $p.Id $p.What $false "NOT PLANTED: the planted code does not compile"; continue }
     $hit = First-Match $text $p.Expect
-    Result $p.Id $p.What ([bool]$hit) $(if ($hit) { $hit.Substring(0, [Math]::Min(150, $hit.Length)) } else { "expected '$($p.Expect)' not found" })
+    Result $p.Id $p.What ([bool]$hit)$(if ($hit) { $hit.Substring(0, [Math]::Min(150, $hit.Length)) } else { "expected '$($p.Expect)' not found" })
 }
 
 # Python plants: the repo file is changed for one test run, then restored from git (git diff must be clean)
