@@ -55,6 +55,9 @@
 #include <NNFX\News.mqh>
 #include <NNFX\Exposure.mqh>
 #include <NNFX\DecisionLog.mqh>
+#include <NNFX\CalendarExport.mqh>
+
+#define EA_NEWS_LIVE "NNFX\\calendar\\events_live.txt"
 
 input long   InpMagic         = 26060;   // Magic number (OD-16: 30M 26030, 1H 26060, 4H 26240)
 input string InpPairs         = "EURUSD,AUDNZD,EURGBP,AUDCAD,CHFJPY";   // Pairs, in the fixed processing order
@@ -88,7 +91,11 @@ input double InpWeekendHours  = 0;       // S-7: block the last N hours before t
 input double InpMaxSpread     = 0;       // points; 0 = off
 // News (6e). The event file is written by NNFX_CalendarExport (times in UTC); "none" = no blackouts.
 input bool   InpNewsBlock     = true;    // N1 on/off (SPEC Settings)
-input string InpNewsFile      = "NNFX\\calendar\\events_2019.01_2026.09.txt";   // Common\Files
+// "auto" (the presets): live, the EA exports the calendar itself at start and every day into
+// Common\Files\NNFX\calendar\events_live.txt with the same code as NNFX_CalendarExport (CalendarExport.mqh) and reads
+// it back like the tester (OD-12) [C]; refused in the tester, which must name an exported history file.
+input string InpNewsFile      = "auto";
+input string InpNewsList      = "NNFX\\news\\news_events.txt";   // the approved event list (MQL5\Files, OD-11, D6e-1)
 input string InpBlackouts     = "none";  // N2 (OD-19): CUR:YYYY.MM.DD-YYYY.MM.DD;... or none
 input double InpNewsMaxAgeHours = 24;    // live: alarm when the file is older (OD-12)
 input int    InpWarmupBars    = 300;     // candles fed at start (warm-up, cross-check, longest restore gap)
@@ -722,33 +729,67 @@ void LiveChecks(void)
       Row("INFO", "", "ALGO TRADING IS OFF (terminal or EA): orders will be refused by MT5");
       NNFXNotify("Algo Trading is off: no orders can be sent");
      }
-   NewsCheckAge();
+   NewsRefresh();
   }
+
+string NewsPath(void) { return (InpNewsFile == "auto") ? EA_NEWS_LIVE : InpNewsFile; }
 
 void NewsLoad(void)
   {
    datetime gen;
-   int n = NNFXNewsLoad(InpNewsFile, true, g_broker, g_news, gen);
+   int n = NNFXNewsLoad(NewsPath(), true, g_broker, g_news, gen);
    g_news_ok = (n >= 0);
    g_news_loaded = TimeCurrent();
-   Row("INFO", "", g_news_ok ? StringFormat("news file %s: %d events, generated %s GMT", InpNewsFile, n, NNFXTime(gen))
-                             : "NEWS FILE NOT READ: " + InpNewsFile + " (entries blocked with \"newsfile\")");
+   Row("INFO", "", g_news_ok ? StringFormat("news file %s: %d events, generated %s GMT", NewsPath(), n, NNFXTime(gen))
+                             : "NEWS FILE NOT READ: " + NewsPath() + " (entries blocked with \"newsfile\")");
   }
 
-// Live only: the file's age (OD-12) and whether it reaches the next 24 hours (recency, G1_phase6e_1 F2)
-void NewsCheckAge(void)
+// Live, InpNewsFile "auto" (OD-12): the calendar from last month to next month, with the export's own code
+// (CalendarExport.mqh), into events_live.txt. Once at start and then once per GMT day.
+datetime g_news_exported_day = 0;
+
+void NewsExportLive(void)
+  {
+   if(g_mode == "tester" || InpNewsFile != "auto")
+      return;
+   datetime day = TimeGMT() - TimeGMT() % 86400;
+   if(day == g_news_exported_day)
+      return;
+   string cur[] = {"USD", "EUR", "GBP", "CAD", "AUD", "NZD", "JPY", "CHF"};
+   MqlDateTime s;
+   TimeToStruct(TimeTradeServer() - 7 * 86400, s);
+   datetime first = NNFXMonthStart(StringFormat("%04d.%02d", s.year, s.mon));
+   TimeToStruct(TimeTradeServer() + 31 * 86400, s);
+   datetime last = NNFXMonthStart(StringFormat("%04d.%02d", s.year, s.mon));
+   string log[];
+   int ok, months, errors;
+   int n = NNFXCalendarExport(InpNewsList, cur, first, last, EA_NEWS_LIVE, log, ok, months, errors);
+   string res = (ArraySize(log) > 0) ? log[ArraySize(log) - 1] : "";
+   Row("INFO", "", StringFormat("live calendar export (OD-12) %s to %s: %s", NNFXMonthText(first), NNFXMonthText(last),
+                                n >= 0 ? res : "FAILED: " + res));
+   if(n < 0 || errors > 0)
+      NNFXNotify("live calendar export: " + res);
+   else
+      g_news_exported_day = day;
+  }
+
+// Live: export (when due), load, then the file's age (OD-12) and whether it reaches the next 24 hours (recency,
+// G1_phase6e_1 F2)
+void NewsRefresh(void)
   {
    if(g_mode == "tester" || !InpNewsBlock)
       return;
+   NewsExportLive();
+   NewsLoad();
    datetime gen = 0;
    NNFXNewsEvent ev[];
-   NNFXNewsLoad(InpNewsFile, true, g_broker, ev, gen);
+   NNFXNewsLoad(NewsPath(), true, g_broker, ev, gen);
    double age = NNFXNewsAgeHours(gen);
    datetime lastEv = (ArraySize(ev) > 0) ? ev[ArraySize(ev) - 1].time : 0;
    if(age < 0 || age > InpNewsMaxAgeHours)
-      NNFXNotify(StringFormat("news file %s is %.1f h old (more than %.0f h, OD-12)", InpNewsFile, age, InpNewsMaxAgeHours));
+      NNFXNotify(StringFormat("news file %s is %.1f h old (more than %.0f h, OD-12)", NewsPath(), age, InpNewsMaxAgeHours));
    if(lastEv < TimeCurrent() + 24 * 3600)
-      NNFXNotify("news file " + InpNewsFile + " has no event after " + NNFXTime(lastEv) + ": it may not cover the next 24 h");
+      NNFXNotify("news file " + NewsPath() + " has no event after " + NNFXTime(lastEv) + ": it may not cover the next 24 h");
   }
 
 //--- the visit: every tick and every second --------------------------------
@@ -814,8 +855,7 @@ void Visit(void)
    ProcessGroup(first, ks);
    if(g_mode != "tester" && TimeCurrent() - g_news_loaded >= 3600)
      {
-      NewsLoad();
-      NewsCheckAge();
+      NewsRefresh();   // hourly: reload; the export itself once per GMT day
      }
   }
 
@@ -932,8 +972,9 @@ int OnInit()
    g_orders = new CNNFXOrders();
    if(!g_orders.Init(InpMagic, GetPointer(g_log), g_set.sl_atr, g_set.tp1_atr, g_set.trail_start_atr, g_set.trail_dist_atr))
       return INIT_FAILED;   // section 1: not the tester and not a DEMO account
-   Row("INFO", "", StringFormat("NNFX_EA %s, magic %I64d, pairs %s, risk %.2f%%, exposure %s, terminal build %d, account %I64d on %s",
-                                Tf(), InpMagic, InpPairs, InpRiskPct, InpExposureMode,
+   Row("INFO", "", StringFormat("NNFX_EA %s, magic %I64d, pairs %s, risk %.2f%%, exposure %s, news %s, master input %d, "
+                                "terminal build %d, account %I64d on %s",
+                                Tf(), InpMagic, InpPairs, InpRiskPct, InpExposureMode, InpNewsFile, InpTesterMaster,
                                 (int)TerminalInfoInteger(TERMINAL_BUILD), AccountInfoInteger(ACCOUNT_LOGIN),
                                 AccountInfoString(ACCOUNT_SERVER)));
    ArrayResize(g_bb, n);
@@ -962,7 +1003,13 @@ int OnInit()
          return INIT_FAILED;
         }
      }
-   NewsLoad();
+   if(InpNewsBlock && InpNewsFile == "auto" && g_mode == "tester")
+     {
+      // the live export cannot run in the tester (calendar error 4014): a test must name an exported history file
+      Row("INFO", "", "NOT STARTED: InpNewsFile \"auto\" is the live export; a tester run needs an exported history file");
+      return INIT_FAILED;
+     }
+   NewsLoad();   // live "auto": the last export, until the start-up exports a new one (after login)
    if(InpNewsBlock && !g_news_ok && g_mode == "tester")
       return INIT_FAILED;   // a tester run without its event file would test a different rule set
    if(g_mode != "tester")

@@ -6,8 +6,10 @@ for two days with "ExpertParameters=<preset>" and NO [TesterInputs] section, and
   - "NNFX_EA <tf>, magic <magic>, pairs EURUSD,AUDNZD,EURGBP,AUDCAD,CHFJPY, risk 2.00%, exposure first" (the preset's
     values, not the tester's last-used ones)
   - the trade log and decision log carry the preset's magic in their names
-  - "blocks: master": the preset reads the master switch (InpTesterMaster=-1), and the tester cannot see the
-    terminal's global variables, so it is missing = OFF (D6d-1): no trade
+  - "news auto, master input -1": the preset's live settings (the EA's own calendar export; the master switch read
+    from MT5, missing = OFF, D6d-1)
+  - "NOT STARTED: InpNewsFile "auto" ...": the live export cannot run in the tester, so the EA refuses to start
+    there (a tester run must name an exported history file); no order
 Writes MQL5\Files\NNFX\checks\presets_<stamp>\SUMMARY.txt. D-OPS-1: the full-path terminal only.
 #>
 param(
@@ -43,14 +45,14 @@ foreach ($p in @(@{ Tf = "M30"; Magic = "26030" }, @{ Tf = "H1"; Magic = "26060"
     if (-not $fresh) { Say "$($p.Tf): FAIL no fresh logs named with magic $($p.Magic)"; $AllPass = $false; continue }
     Copy-Item $tlog "$Out\trades_$name" -Force; Copy-Item $dlog "$Out\decisions_$name" -Force
     $rows = Get-Content -LiteralPath $tlog
-    $want = "NNFX_EA $($p.Tf); magic $($p.Magic); pairs EURUSD;AUDNZD;EURGBP;AUDCAD;CHFJPY; risk 2.00%; exposure first"
+    $want = "NNFX_EA $($p.Tf); magic $($p.Magic); pairs EURUSD;AUDNZD;EURGBP;AUDCAD;CHFJPY; risk 2.00%; exposure first; news auto; master input -1"
     $info = @($rows | Where-Object { $_ -match ",INFO," -and $_.Contains($want) }).Count
-    $master = @($rows | Where-Object { $_ -match ",GUARD," -and $_ -match "blocks: master" }).Count
+    $master = @($rows | Where-Object { $_ -match ",INFO," -and $_ -match "NOT STARTED: InpNewsFile" }).Count
     $opens = @($rows | Where-Object { $_ -match "^[^,]*,OPEN," }).Count
     $mag = @($rows | Select-Object -Skip 1 | Where-Object { ($_ -split ",")[6] -ne $p.Magic }).Count
-    $ok = ($info -eq 1 -and $master -ge 1 -and $opens -eq 0 -and $mag -eq 0)
+    $ok = ($info -eq 1 -and $master -eq 1 -and $opens -eq 0 -and $mag -eq 0)
     if (-not $ok) { $AllPass = $false }
-    Say ("{0}: {1} - preset values in the EA's INFO row {2}; 'blocks: master' rows {3}; OPEN rows {4}; rows with another magic {5}" -f
+    Say ("{0}: {1} - preset values in the EA's INFO row {2}; 'NOT STARTED (auto)' rows {3}; OPEN rows {4}; rows with another magic {5}" -f
          $p.Tf, $(if ($ok) { "PASS" } else { "FAIL" }), $info, $master, $opens, $mag)
 }
 Say $(if ($AllPass) { "OVERALL: PASS" } else { "OVERALL: FAIL" })

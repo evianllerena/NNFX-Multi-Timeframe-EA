@@ -55,7 +55,7 @@ Say ""
 # REBUILD rows are counted: the base must have 0, each restart run exactly 1.
 $defaults = [ordered]@{ InpRiskPct = "2.0"; InpEveryBars = "6"; InpMaxTrades = "0"; InpMinLots = "false"; InpMagic = "26999";
     InpStoplessTest = "false"; InpLoseReplyOn = "0"; InpAbortOn = "0"; InpStopsRefuseOn = "0"; InpMarginRefuseOn = "0";
-    InpModifyOn = "0"; InpStopWhenDone = "false"; InpRestartAt = "none"; InpRestartDeleteState = "false";
+    InpModifyOn = "0"; InpAdverseOn = "0"; InpStopWhenDone = "false"; InpRestartAt = "none"; InpRestartDeleteState = "false";
     InpRestartIgnoreComments = "false"; InpCloseLeftovers = "false";
     InpGuard = "false"; InpInstanceOn = "true"; InpServerWinterOffset = "2"; InpServerDst = "US"; InpWeekendHours = "0"; InpMaxSpread = "0"; InpTesterMaster = "-1"; InpTesterPauseAt = "none";
     InpMasterTestTpl = ""; InpMasterTestSymbol = "GBPUSD"; InpMasterOffAfter = "5"; InpMasterOffFor = "5" }

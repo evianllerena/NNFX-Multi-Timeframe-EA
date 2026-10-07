@@ -243,6 +243,32 @@ class TestCheckTrades(unittest.TestCase):
         self.corrupt(lambda rs: rs.append(opened("2026.06.07 10:00:01", "T0006", 1, 1.1, 3.33, 1.097, 1.102, ticket=61)[0]),
                      "REFUSE row but an order was opened")
 
+    def adverse(self, requested):
+        """T0008 long: the stop was planned from `requested` (1.09980 = 20 points better than the fill 1.10000), so
+        the stop sent (1.09680) is wider than 1.5 x ATR from the fill until the MODIFY re-sets it to 1.09700."""
+        rs = good_rows()
+        o = opened("2026.06.09 10:00:00", "T0008", 1, 1.10000, 3.33, 1.09680, 1.10180, ticket=81)
+        for r in o:
+            r["note"] = "requested %s, slippage 0.00020, filling 0" % requested
+        rs += o
+        for h, tp in ((1, 1.10200), (2, 0.0)):
+            m = dict(o[h - 1])
+            m.update(event="MODIFY", sl="1.097", tp=repr(tp), prev_sl="1.0968", note="SL/TP re-set from the fill price (OD-14)")
+            rs.append(m)
+        return run(rs)
+
+    def test_adverse_fill_window_within_the_slippage(self):
+        # stop sent: 2 x 3.33 x 320 ticks = 2131.2 > target 2000, but <= 2000 + slippage 2 x 3.33 x 20 = 2133.2
+        ok, out = self.adverse("1.09980")
+        self.assertTrue(ok, out)
+        self.assertIn("T0008: adverse fill window", out)
+
+    def test_adverse_fill_window_beyond_the_slippage(self):
+        # the same stop with only 10 points of slippage logged: 2131.2 > 2000 + 66.6
+        ok, out = self.adverse("1.09990")
+        self.assertFalse(ok)
+        self.assertIn("T0008: risk with the stop sent", out)
+
     def test_modify_to_wrong_stop(self):
         self.corrupt(lambda rs: [r.update(sl="1.0969") for r in rs if r["event"] == "MODIFY" and r["trade_id"] == "T0007"],
                      "T0007: half 1 SL")

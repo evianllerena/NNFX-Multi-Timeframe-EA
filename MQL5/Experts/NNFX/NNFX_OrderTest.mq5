@@ -58,6 +58,9 @@ input int    InpAbortOn       = 7;      // Tester only: half 2 forced to fail on
 input int    InpStopsRefuseOn = 9;      // Tester only: stops level 100000 points on this trade -> REFUSE (0 = off)
 input int    InpMarginRefuseOn = 11;    // Tester only: free margin 0 on this trade -> REFUSE, OD-5 (0 = off)
 input int    InpModifyOn      = 13;     // Tester only: SL/TP planned 20 points off on this trade -> MODIFY (0 = off)
+// Tester only (6f, G1_phase6b_2 note 3): an ADVERSE fill, SL/TP planned 20 points the wrong way, so the stop sent is
+// wider than 1.5 x ATR until the MODIFY; check_trades bounds that window by the slippage (0 = off)
+input int    InpAdverseOn     = 15;
 input bool   InpStopWhenDone  = false;  // Remove the EA once InpMaxTrades trades were tried and none is open (demo run)
 // "none" = no restart. Not "": the Strategy Tester treats an empty value in [TesterInputs] as not listed and reuses
 // the last-used value (runs restart_20261005_225140 and 20261006_004127 restarted although "InpRestartAt=" was
@@ -121,6 +124,8 @@ bool             g_dl_was = false;      // daily loss blocked at the last candle
 bool             g_pause_forced = false;
 string           g_last_blocks = "-";   // the guard's block reasons at the last candle ("-" = not evaluated yet)
 int              g_master_candles = -1;  // candles since the master-switch test started (-1 = not running)
+double           g_master_prior = -1.0;  // NNFX_MASTER before the test (-1 = missing)
+bool             g_master_restored = false;
 CNNFXPanel       g_panel;               // chart buttons (live charts only)
 bool             g_panel_on = false;
 bool             g_pending_rebuild = false;  // a real restart: no trading until the rebuild has run (OnTimer)
@@ -343,6 +348,20 @@ void CloseLeftovers(void)
                             PositionsTotal()));
   }
 
+// G1_phase6d_1 item 1: put NNFX_MASTER back as it was before the master test (missing stays missing = OFF)
+void MasterTestRestore(void)
+  {
+   if(InpMasterTestTpl == "" || g_master_candles < 0 || g_master_restored)
+      return;
+   if(g_master_prior < 0)
+      GlobalVariableDel(NNFX_GV_MASTER);
+   else
+      GlobalVariableSet(NNFX_GV_MASTER, g_master_prior);
+   g_master_restored = true;
+   Row("GUARD", "TEST master switch: restored to its state before the test: " +
+       (GlobalVariableCheck(NNFX_GV_MASTER) ? DoubleToString(GlobalVariableGet(NNFX_GV_MASTER), 0) : "missing (OFF)"));
+  }
+
 // DEMO master-switch test (instance A only): start, switch off, switch on; one step per candle
 void MasterTestStep(void)
   {
@@ -350,11 +369,20 @@ void MasterTestStep(void)
       return;
    if(g_master_candles < 0)
      {
+      // G1_phase6d_1 item 1: record the switch's state before the test; restored at the end (MasterTestRestore)
+      g_master_prior = GlobalVariableCheck(NNFX_GV_MASTER) ? GlobalVariableGet(NNFX_GV_MASTER) : -1.0;
+      Row("GUARD", "TEST master switch: state before the test " +
+          (g_master_prior < 0 ? "missing (OFF)" : DoubleToString(g_master_prior, 0)) + "; restored at the end");
       GlobalVariableSet(NNFX_GV_MASTER, 1.0);
+      // item 4b: each call's own error (the old row printed a stale 4202 left over from an earlier call)
+      ResetLastError();
       long id = ChartOpen(InpMasterTestSymbol, _Period);
+      int errOpen = GetLastError();
+      ResetLastError();
       bool ok = (id > 0) && ChartApplyTemplate(id, InpMasterTestTpl);
-      Row("GUARD", StringFormat("TEST master switch: NNFX_MASTER = 1; chart %s opened (id %I64d) with template %s: %s, error %d",
-                                InpMasterTestSymbol, id, InpMasterTestTpl, ok ? "applied" : "FAILED", GetLastError()));
+      int errApply = GetLastError();
+      Row("GUARD", StringFormat("TEST master switch: NNFX_MASTER = 1; chart %s opened (id %I64d, error %d) with template %s: %s (error %d)",
+                                InpMasterTestSymbol, id, errOpen, InpMasterTestTpl, ok ? "applied" : "FAILED", errApply));
       g_master_candles = 0;
       return;
      }
@@ -374,6 +402,8 @@ void MasterTestStep(void)
       // then the chart buttons, through the panel's own handlers (test build: custom events, auto-confirmed)
       int k = g_master_candles - (InpMasterOffAfter + InpMasterOffFor);
       int action = (k == 1 || k == 3) ? NNFX_PANEL_INSTANCE : (k == 5 ? NNFX_PANEL_DDRESET : (k == 7 ? NNFX_PANEL_CLOSEALL : 0));
+      if(k == 9)
+         MasterTestRestore();
       if(action != 0)
         {
          Row("GUARD", StringFormat("TEST panel: button %d sent as custom event", action));
@@ -420,8 +450,9 @@ string GuardAtCandle(const bool indicatorOk)
         {
          g_dd.paused = true;
          was = true;   // logged here, not as a real pause
+         NNFXTrade open[];
          Row("GUARD", StringFormat("TEST: drawdown pause forced (InpTesterPauseAt %s, tester only); %d trade(s) open",
-                                   InpTesterPauseAt, g_orders.TradeCount()));
+                                   InpTesterPauseAt, g_orders.ExportTrades(open)));
         }
      }
    NNFXDrawdownSave(g_dd);
@@ -611,6 +642,7 @@ void RealRestartRebuild(void)
 
 void OnDeinit(const int reason)
   {
+   MasterTestRestore();   // stopped before the test's end: never leave the switch changed
    if(g_panel_on)
       g_panel.Remove();
    if(g_orders != NULL)
@@ -689,6 +721,8 @@ void ScheduleStep(const double atr, const string blocks)
          g_orders.TestFreeMarginOverride(0.0);
       if(InpModifyOn > 0 && k == InpModifyOn)
          g_orders.TestFillOffset(20);
+      if(InpAdverseOn > 0 && k == InpAdverseOn)
+         g_orders.TestFillOffset(-20);
      }
    string id = TradeId(k);
    if(g_orders.OpenTrade(_Symbol, dir, atr, InpRiskPct, cap, id, InpMinLots))

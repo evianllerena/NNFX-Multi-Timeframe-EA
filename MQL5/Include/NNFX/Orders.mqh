@@ -74,6 +74,7 @@ private:
    CNNFXTradeLog    *m_log;
    string            m_why;
    bool              m_session_checked;
+   bool              m_algo_alarmed;  // "Algo Trading is off" alarmed (once until it is back on)
    NNFXTrade         m_trades[];
    ulong             m_alarmed[];     // manual stopless positions already alarmed (one alarm each)
    double            m_sl_atr, m_tp1_atr, m_trail_start, m_trail_dist;
@@ -177,6 +178,13 @@ private:
            }
          Note("RETRY", tradeId, req.symbol, "half " + IntegerToString(half) + " attempt " + IntegerToString(attempt + 1) +
               " retcode " + IntegerToString(res.retcode) + " " + res.comment);
+         // Algo Trading off at the terminal (10027) or the server (10026): a retry cannot recover (G1_phase6b_2 note 2)
+         if(res.retcode == TRADE_RETCODE_CLIENT_DISABLES_AT || res.retcode == TRADE_RETCODE_SERVER_DISABLES_AT)
+           {
+            Note("RETRY", tradeId, req.symbol, "Algo Trading is off (retcode " + IntegerToString(res.retcode) + "): not retried");
+            Alert("NNFX: Algo Trading is off (retcode ", res.retcode, "): orders cannot be sent");
+            return 0;
+           }
         }
       return 0;
      }
@@ -292,7 +300,7 @@ private:
      }
 
 public:
-                     CNNFXOrders(void) : m_magic(0), m_log(NULL), m_session_checked(false),
+                     CNNFXOrders(void) : m_magic(0), m_log(NULL), m_session_checked(false), m_algo_alarmed(false),
                      m_sl_atr(1.5), m_tp1_atr(1.0), m_trail_start(2.0), m_trail_dist(1.5)
      {
 #ifdef NNFX_TEST_BUILD
@@ -348,6 +356,17 @@ public:
            }
          m_session_checked = true;
         }
+      // Algo Trading pre-check, live (G1_phase6b_2 note 2): off at the terminal or for this EA = refused, alarm once
+      if(MQLInfoInteger(MQL_TESTER) == 0 &&
+         (!TerminalInfoInteger(TERMINAL_TRADE_ALLOWED) || !MQLInfoInteger(MQL_TRADE_ALLOWED)))
+        {
+         Note("REFUSE", tradeId, sym, "Algo Trading is off (terminal or this EA): nothing sent");
+         if(!m_algo_alarmed)
+            Alert("NNFX: Algo Trading is off: orders are refused until it is switched on");
+         m_algo_alarmed = true;
+         return false;
+        }
+      m_algo_alarmed = false;
       if((dir != 1 && dir != -1) || !(atr > 0))
         {
          Note("REFUSE", tradeId, sym, "bad direction or ATR");
@@ -384,8 +403,11 @@ public:
 #ifdef NNFX_TEST_BUILD
       if(m_fill_offset != 0 && MQLInfoInteger(MQL_TESTER) != 0)
         {
-         basis = price + dir * m_fill_offset * point;   // towards profit: the planned stop is closer, never wider
-         Note("TEST", tradeId, sym, StringFormat("TEST: SL/TP planned from %d points away from the price (fill offset)", m_fill_offset));
+         // > 0: towards profit, the planned stop is closer; < 0: an ADVERSE fill (the fill is worse than the price
+         // the stop was planned from), so the stop sent is wider than 1.5 x ATR until the MODIFY (G1_phase6b_2 note 3)
+         basis = price + dir * m_fill_offset * point;
+         Note("TEST", tradeId, sym, StringFormat("TEST: SL/TP planned from %d points away from the price (fill offset%s)",
+                                                 m_fill_offset, m_fill_offset < 0 ? ", adverse" : ""));
         }
       m_fill_offset = 0;
 #endif
@@ -532,8 +554,10 @@ public:
          double wantTp = (h == 0) ? ftp1 : ftp2;
          double fPlanned = 2.0 * NNFXPlannedRisk(half, entries[h], fsl, tickSize, tickValue);
          LogFill("OPEN", t, h + 1, ids[h], 0.0, fPlanned, size.target_risk_money, balance, riskPct, tickValue,
-                 StringFormat("requested %s, slippage %s, filling %d", DoubleToString(price, (int)SymbolInfoInteger(sym, SYMBOL_DIGITS)),
-                              DoubleToString(entries[h] - price, (int)SymbolInfoInteger(sym, SYMBOL_DIGITS)), (int)req.type_filling));
+                 // "requested" = the price SL/TP were planned from (the price sent, or the test's offset basis), so
+                 // check_trades can bound the window before the MODIFY by the slippage (G1_phase6b_2 note 3)
+                 StringFormat("requested %s, slippage %s, filling %d", DoubleToString(basis, (int)SymbolInfoInteger(sym, SYMBOL_DIGITS)),
+                              DoubleToString(entries[h] - basis, (int)SymbolInfoInteger(sym, SYMBOL_DIGITS)), (int)req.type_filling));
          if(MathAbs(heldSl - fsl) > tickSize * 0.5 || MathAbs(PositionGetDouble(POSITION_TP) - wantTp) > tickSize * 0.5)
            {
             if(ModifyPosition(ids[h], fsl, wantTp))
@@ -912,8 +936,8 @@ public:
       m_margin_override = value;
      }
 
-   // TEST BUILD ONLY: the next trade's SL/TP are planned from `points` away from the price (towards profit), so
-   // the real fill differs and the SL/TP must be re-set from the fill (MODIFY, OD-14).
+   // TEST BUILD ONLY: the next trade's SL/TP are planned from `points` away from the price (> 0 towards profit,
+   // < 0 an adverse fill), so the real fill differs and the SL/TP must be re-set from the fill (MODIFY, OD-14).
    void              TestFillOffset(const int points)
      {
       if(!NNFXOrdersAllowed(m_why))

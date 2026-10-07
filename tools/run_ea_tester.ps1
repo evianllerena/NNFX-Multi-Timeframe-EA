@@ -56,7 +56,8 @@ $inputs = [ordered]@{
     InpBaseline = "ref_baseline_sma20.txt"; InpC1 = "ref_c1_rvi10.txt"; InpC2 = "ref_c2_macd_main.txt";
     InpExit = "ref_exit_macd_cross.txt"; InpVolume = "ref_volume_ticks20.txt";
     InpInstanceOn = "true"; InpServerWinterOffset = "2"; InpServerDst = "US"; InpWeekendHours = "0"; InpMaxSpread = "0";
-    InpNewsBlock = "true"; InpNewsFile = "NNFX\calendar\events_2019.01_2026.09.txt"; InpBlackouts = "none";
+    InpNewsBlock = "true"; InpNewsFile = "NNFX\calendar\events_2019.01_2026.09.txt";
+    InpNewsList = "NNFX\news\news_events.txt"; InpBlackouts = "none";
     InpNewsMaxAgeHours = "24"; InpWarmupBars = "300";
     InpTesterMaster = "1";            # tester: the master switch on (the tester cannot see terminal global variables)
     InpTesterMasterOff = "none"; InpRestartAt = "none"; InpRestartDeleteState = "false"

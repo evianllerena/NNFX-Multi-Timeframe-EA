@@ -24,14 +24,18 @@
 //|   the mismatches.                                                |
 //| InpMode = "depth": the earliest January with USD events, 2000 to |
 //|   2019 (recorded, not pass/fail).                                |
+//| 6f: the export code moved to CalendarExport.mqh unchanged (the   |
+//| EA's live daily export runs the same code); the file is now      |
+//| written as .tmp and moved over the old one.                      |
 //| Status: compiled 2026-10-06 (build 6241, 0 errors, 0 warnings);  |
-//| run calendar_export_20261006_182148 PASS.                        |
+//| run calendar_export_20261006_182148 PASS (before the move).      |
 //+------------------------------------------------------------------+
 // Inputs keep their defaults when run automatically (no input dialog, so unattended runs never wait for a click).
 #property strict
 
 #include <NNFX\Connection.mqh>
 #include <NNFX\News.mqh>
+#include <NNFX\CalendarExport.mqh>
 
 input string InpMode       = "list";                               // "list" (catalogue)
 input string InpCurrencies = "USD,EUR,GBP,CAD,AUD,NZD,JPY,CHF";    // VP's 8 currencies (rulebook)
@@ -96,130 +100,15 @@ void ListEvents(string &cur[])
    Out(StringFormat("RESULT: %d events listed for %d currencies, %d errors", total, ArraySize(cur), errors));
   }
 
-datetime MonthStart(const string ym)
-  {
-   return StringToTime(ym + ".01 00:00");
-  }
-
-datetime NextMonth(const datetime m)
-  {
-   MqlDateTime s;
-   TimeToStruct(m, s);
-   s.mon++;
-   if(s.mon > 12)
-     {
-      s.mon = 1;
-      s.year++;
-     }
-   s.day = 1;
-   s.hour = 0;
-   s.min = 0;
-   s.sec = 0;
-   return StructToTime(s);
-  }
-
+// The export itself is in CalendarExport.mqh (6f), shared with NNFX_EA's live daily export (OD-12).
 void ExportEvents(string &cur[])
   {
-   string listLines[];
-   NNFXNewsEntry entries[];
-   if(!NNFXNewsReadLines(InpList, listLines, false) || NNFXNewsParseList(listLines, entries) == 0)
-     {
-      Out("RESULT: FAIL (cannot read the event list " + InpList + ")");
-      return;
-     }
-   string status = "";
-   for(int i = 0; i < ArraySize(listLines); i++)
-      if(StringFind(listLines[i], "# STATUS:") == 0)
-         status = StringSubstr(listLines[i], 2);
-   Out(StringFormat("event list %s: %d entries; %s", InpList, ArraySize(entries), status));
-   if(StringFind(status, "STATUS: APPROVED") != 0)
-     {
-      Out("RESULT: FAIL (the event list is not approved, OD-11)");
-      return;
-     }
-   // The calendar gives every past event in TODAY's server offset (run calendar_export_20261006_181154, kept in
-   // invalid\: 243 of 246 US releases at exactly +3.00 h, summer and winter). So the file stores UTC = calendar time
-   // - the offset now; News.mqh turns UTC into server time per date with the broker's clock rule (Guard.mqh).
-   int offsetNow = (int)(TimeTradeServer() - TimeGMT());
-   offsetNow = (int)MathRound(offsetNow / 900.0) * 900;   // whole quarter hours
-   NNFXNewsEvent ev[];
-   int months = 0, monthsOk = 0, errors = 0;
-   datetime first = MonthStart(InpFrom), last = MonthStart(InpTo);
-   for(datetime m = first; m <= last; m = NextMonth(m))
-     {
-      months++;
-      int found = 0, errs = 0;
-      for(int c = 0; c < ArraySize(cur); c++)
-        {
-         MqlCalendarValue vals[];
-         ResetLastError();
-         // one month at a time (SPEC: longer requests can time out)
-         if(CalendarValueHistory(vals, m, NextMonth(m) - 1, NULL, cur[c]) < 0)
-           {
-            errs++;
-            Out(StringFormat("%s %s: CalendarValueHistory error %d", TimeToString(m, TIME_DATE), cur[c], GetLastError()));
-            continue;
-           }
-         for(int i = 0; i < ArraySize(vals); i++)
-           {
-            MqlCalendarEvent e;
-            if(!CalendarEventById(vals[i].event_id, e))
-              {
-               errs++;
-               continue;
-              }
-            string id = StringFormat("%I64u", vals[i].event_id);
-            int k = NNFXNewsMatch(entries, cur[c], id, e.name);
-            if(k < 0)
-               continue;
-            int j = ArraySize(ev);
-            ArrayResize(ev, j + 1);
-            ev[j].time = vals[i].time - offsetNow;   // UTC
-            ev[j].cur = cur[c];
-            ev[j].id = id;
-            ev[j].name = e.name;
-            ev[j].vp = entries[k].vp;
-            found++;
-           }
-        }
-      errors += errs;
-      if(errs == 0)
-         monthsOk++;
-      Out(StringFormat("month %s: %d events, %d errors", StringSubstr(TimeToString(m, TIME_DATE), 0, 7), found, errs));
-     }
-   // time order (insertion sort on an index; a few thousand rows)
-   int n = ArraySize(ev);
-   int idx[];
-   ArrayResize(idx, n);
-   for(int i = 0; i < n; i++)
-     {
-      idx[i] = i;
-      for(int j = i; j > 0 && (ev[idx[j - 1]].time > ev[idx[j]].time ||
-                                (ev[idx[j - 1]].time == ev[idx[j]].time && ev[idx[j - 1]].cur + ev[idx[j - 1]].id > ev[idx[j]].cur + ev[idx[j]].id)); j--)
-        {
-         int x = idx[j];
-         idx[j] = idx[j - 1];
-         idx[j - 1] = x;
-        }
-     }
+   string log[];
+   int monthsOk, months, errors;
    string name = StringFormat("NNFX\\calendar\\events_%s_%s.txt", InpFrom, InpTo);
-   FolderCreate("NNFX\\calendar", FILE_COMMON);
-   int h = FileOpen(name, FILE_WRITE | FILE_TXT | FILE_ANSI | FILE_COMMON);
-   if(h == INVALID_HANDLE)
-     {
-      Out("RESULT: FAIL (cannot write Common\\Files\\" + name + ")");
-      return;
-     }
-   FileWriteString(h, StringFormat("# NNFX news events, generated %s GMT, times in UTC (calendar time - server offset %+.2f h at export), months %s to %s, list %s, %s\r\n",
-                                   TimeToString(TimeGMT(), TIME_DATE | TIME_MINUTES), offsetNow / 3600.0, InpFrom, InpTo,
-                                   InpList, status));
-   FileWriteString(h, "time_utc|currency|event_id|name|vp\r\n");
-   for(int i = 0; i < n; i++)
-      FileWriteString(h, StringFormat("%s|%s|%s|%s|%s\r\n", TimeToString(ev[idx[i]].time, TIME_DATE | TIME_MINUTES),
-                                      ev[idx[i]].cur, ev[idx[i]].id, ev[idx[i]].name, ev[idx[i]].vp));
-   FileClose(h);
-   Out(StringFormat("written Common\\Files\\%s: %d events", name, n));
-   Out(StringFormat("RESULT: %d of %d months exported, %d errors", monthsOk, months, errors));
+   NNFXCalendarExport(InpList, cur, NNFXMonthStart(InpFrom), NNFXMonthStart(InpTo), name, log, monthsOk, months, errors);
+   for(int i = 0; i < ArraySize(log); i++)
+      Out(log[i]);
   }
 
 // The live path: the calendar's values around the week, matched to the approved list, calendar time -> UTC (the

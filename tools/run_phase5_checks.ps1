@@ -15,6 +15,8 @@ What it does, in order (each step's result goes in SUMMARY.txt):
        NNFX_GuardTest   pass line  RESULT: 56 passed, 0 failed, 56 total   (Phase 6d)
        NNFX_NewsTest    pass line  RESULT: 61 passed, 0 failed, 61 total   (Phase 6e)
        NNFX_CoreStateTest pass line RESULT: 47 passed, 0 failed, 47 total (Phase 6f: core memory survives a restart)
+     4e. Phase 6f: NNFX_EA on EURUSD H1 trading the 5 pairs over the same dates (tools/run_ea_tester.ps1): its trade
+       log passes check_trades.py (at least 20 trades) and its decision log check_decision_log.py
        NNFX_EnvCheck    information only, but must be read after login: "RESULT: VALID ..."
                         ("RESULT: INVALID (not connected)" is a FAIL)
        NNFX_ExportBars  pass line  RESULT: 5 of 5 pairs complete
@@ -147,7 +149,7 @@ if ($PythonOnly) {
                   "Scripts\NNFX\NNFX_SafetyTest", "Scripts\NNFX\NNFX_OrderMathTest", "Experts\NNFX\NNFX_OrderTest",
                   "Scripts\NNFX\NNFX_RecoveryTest", "Scripts\NNFX\NNFX_DealReport", "Scripts\NNFX\NNFX_GuardTest",
                   "Experts\NNFX\NNFX_TemplateProbe", "Scripts\NNFX\NNFX_GvTool", "Scripts\NNFX\NNFX_NewsTest",
-                  "Scripts\NNFX\NNFX_CalendarExport", "Scripts\NNFX\NNFX_CoreStateTest")
+                  "Scripts\NNFX\NNFX_CalendarExport", "Scripts\NNFX\NNFX_CoreStateTest", "Experts\NNFX\NNFX_EA")
     $compileOk = $true
     foreach ($f in $programs) {
         $src = "$MT5\MQL5\$f.mq5"; $log = "$MT5\MQL5\$f.log"; $ex5 = "$MT5\MQL5\$f.ex5"
@@ -270,7 +272,7 @@ if ($PythonOnly) {
           # EVERY input listed: the tester reuses an EA's last-used value for any input left out
           "[TesterInputs]", "InpRiskPct=2.0", "InpEveryBars=6", "InpMaxTrades=0", "InpMinLots=false", "InpMagic=26999",
           "InpStoplessTest=true", "InpLoseReplyOn=3", "InpAbortOn=7", "InpStopsRefuseOn=9", "InpMarginRefuseOn=11",
-          "InpModifyOn=13", "InpStopWhenDone=false", "InpRestartAt=none", "InpRestartDeleteState=false",
+          "InpModifyOn=13", "InpAdverseOn=15", "InpStopWhenDone=false", "InpRestartAt=none", "InpRestartDeleteState=false",
           "InpRestartIgnoreComments=false", "InpCloseLeftovers=false",
           "InpGuard=false", "InpInstanceOn=true", "InpServerWinterOffset=2", "InpServerDst=US", "InpWeekendHours=0", "InpMaxSpread=0", "InpTesterMaster=-1", "InpTesterPauseAt=none",
           "InpMasterTestTpl=", "InpMasterTestSymbol=GBPUSD", "InpMasterOffAfter=5", "InpMasterOffFor=5") |
@@ -301,7 +303,7 @@ if ($PythonOnly) {
           "Report=NNFX_OrderTest_guard", "ReplaceReport=1", "ShutdownTerminal=1",
           "[TesterInputs]", "InpRiskPct=0.1", "InpEveryBars=1", "InpMaxTrades=0", "InpMinLots=false", "InpMagic=26995",
           "InpStoplessTest=false", "InpLoseReplyOn=0", "InpAbortOn=0", "InpStopsRefuseOn=0", "InpMarginRefuseOn=0",
-          "InpModifyOn=0", "InpStopWhenDone=false", "InpRestartAt=none", "InpRestartDeleteState=false",
+          "InpModifyOn=0", "InpAdverseOn=0", "InpStopWhenDone=false", "InpRestartAt=none", "InpRestartDeleteState=false",
           "InpRestartIgnoreComments=false", "InpCloseLeftovers=false",
           "InpGuard=true", "InpInstanceOn=true", "InpServerWinterOffset=2", "InpServerDst=US", "InpWeekendHours=4",
           "InpMaxSpread=0", "InpTesterMaster=1", "InpTesterPauseAt=none",
@@ -333,7 +335,7 @@ if ($PythonOnly) {
           "Report=NNFX_OrderTest_pause", "ReplaceReport=1", "ShutdownTerminal=1",
           "[TesterInputs]", "InpRiskPct=0.1", "InpEveryBars=1", "InpMaxTrades=0", "InpMinLots=false", "InpMagic=26995",
           "InpStoplessTest=false", "InpLoseReplyOn=0", "InpAbortOn=0", "InpStopsRefuseOn=0", "InpMarginRefuseOn=0",
-          "InpModifyOn=0", "InpStopWhenDone=false", "InpRestartAt=none", "InpRestartDeleteState=false",
+          "InpModifyOn=0", "InpAdverseOn=0", "InpStopWhenDone=false", "InpRestartAt=none", "InpRestartDeleteState=false",
           "InpRestartIgnoreComments=false", "InpCloseLeftovers=false",
           "InpGuard=true", "InpInstanceOn=true", "InpServerWinterOffset=2", "InpServerDst=US", "InpWeekendHours=4",
           "InpMaxSpread=0", "InpTesterMaster=1", "InpTesterPauseAt=2026.06.09 13:00",
@@ -351,6 +353,15 @@ if ($PythonOnly) {
             Step "4d pause run (tester)" "NOT RUN" "$why (automation did not engage)"
         }
         Get-ChildItem "$MT5\NNFX_OrderTest_pause*" -ErrorAction SilentlyContinue | Copy-Item -Destination $Out -Force
+
+        # 4e. Phase 6f: the EA itself on the 1H preset's values, the 5 pairs, the same dates (tools/run_ea_tester.ps1:
+        # every input listed; check_trades and check_decision_log on its logs; its own folder checks\ea_runner_<stamp>_*)
+        $ea = & powershell -ExecutionPolicy Bypass -File "$Repo\tools\run_ea_tester.ps1" -Period H1 -From $TesterFrom `
+                -To $TesterTo -Tag "runner_$Stamp" -TimeoutMin 60 -MinTrades 20 2>&1 | Out-String
+        $ea | Set-Content "$Out\ea_run.txt" -Encoding ASCII
+        foreach ($l in ([regex]::Matches($ea, "(?m)^4 check_\w+.*$") | ForEach-Object { $_.Value.Trim() })) { Say ("   " + $l) }
+        $eaOk = $ea -match "(?m)^OVERALL: PASS"
+        Step "4e EA run (tester, 1H, 5 pairs)" $(if ($eaOk) { "PASS" } else { "FAIL" }) "checks\ea_runner_$($Stamp)_*; see ea_run.txt"
     }
 }
 
@@ -432,7 +443,7 @@ if (-not $script:PyExe) {
         $o = Run-Py @("$Repo\tools\check_trades.py", $script:OrderLogThisRun, "--min-trades", "20",
                       "--require", "SL,TP1,BE,TRAILON,TRAIL,TP2,EXIT,RETRY,TESTSTOPLESS,ABORT,REFUSE,MODIFY",
                       "--require-note", "free margin", "--require-note", "minimum distance",
-                      "--require-note", "via=")
+                      "--require-note", "via=", "--require-note", "fill offset, adverse")
         $code = $LASTEXITCODE
         $o | Set-Content "$Out\check_trades.txt" -Encoding ASCII
         $res = ([regex]::Matches($o, "(?m)^RESULT .*$") | Select-Object -Last 1).Value
