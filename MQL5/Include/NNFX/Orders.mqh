@@ -431,7 +431,9 @@ public:
          Note("REFUSE", tradeId, sym, "stop or target inside the broker's minimum distance (" + IntegerToString(stopsLevel) + " points)");
          return false;
         }
-      double planned = 2.0 * NNFXPlannedRisk(half, price, sl, tickSize, tickValue);
+      // the risk as planned: from the price the stop was planned from (basis = price, except in the test build's
+      // fill-offset test, where it plays the requested price and the fill comes 20 points away; G1_phase6b_2 note 3)
+      double planned = 2.0 * NNFXPlannedRisk(half, basis, sl, tickSize, tickValue);
       if(planned > size.target_risk_money + 1e-6)
         {
          Note("REFUSE", tradeId, sym, StringFormat("planned risk %.2f above target %.2f", planned, size.target_risk_money));

@@ -443,7 +443,7 @@ if (-not $script:PyExe) {
         $o = Run-Py @("$Repo\tools\check_trades.py", $script:OrderLogThisRun, "--min-trades", "20",
                       "--require", "SL,TP1,BE,TRAILON,TRAIL,TP2,EXIT,RETRY,TESTSTOPLESS,ABORT,REFUSE,MODIFY",
                       "--require-note", "free margin", "--require-note", "minimum distance",
-                      "--require-note", "via=", "--require-note", "fill offset, adverse")
+                      "--require-note", "via=", "--require-note", "fill offset; adverse")
         $code = $LASTEXITCODE
         $o | Set-Content "$Out\check_trades.txt" -Encoding ASCII
         $res = ([regex]::Matches($o, "(?m)^RESULT .*$") | Select-Object -Last 1).Value

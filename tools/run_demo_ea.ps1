@@ -255,7 +255,7 @@ if ($Mode -eq "kill_tp1" -or $Mode -eq "kill_pause") {
         Stop-Process -Id $p.Id -Force
         $p.WaitForExit(30000) | Out-Null
         $killedAt = Get-Date
-        Say ("hard kill of pid {0} at {1} (Stop-Process -Force: no OnDeinit)" -f $p.Id, (Get-Date $killedAt -Format "HH:mm:ss"))
+        Say ("hard kill of pid {0} at {1} (forced, by its id: no OnDeinit)" -f $p.Id, (Get-Date $killedAt -Format "HH:mm:ss"))
         $before = (Rows).Count
         Start-Sleep -Seconds 10
         $p = Start-EA
