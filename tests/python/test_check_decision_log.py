@@ -94,6 +94,26 @@ class TestCheckDecisionLog(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("out of the fixed order", out)
 
+    def test_late_pair_in_a_later_batch(self):
+        """A pair whose candle arrived later is processed after the others, noted "batch 2": allowed. The same row
+        without the note, or a batch-2 row placed before batch-1 rows, is out of order."""
+        rs = good()
+        k = next(i for i, r in enumerate(rs) if r[0] == "2026.06.05 00:00" and r[1] == "EURUSD")
+        late = rs.pop(k)
+        late[18] = "batch 2; -"
+        rs.insert(k + 2, late)
+        ok, out = self.run_check(rs)
+        self.assertTrue(ok, out)
+        self.assertIn("1 row(s) processed in a later batch", out)
+        late[18] = "-"
+        ok, out = self.run_check(rs)
+        self.assertFalse(ok)
+        self.assertIn("2026.06.05 00:00: pairs out of the fixed order", out)
+        rs = good()
+        rs[k + 1][18] = "batch 2; -"   # AUDNZD noted batch 2 but written before EURGBP of batch 1
+        ok, out = self.run_check(rs)
+        self.assertFalse(ok)
+
     def test_enter_without_trade_log_open(self):
         ok, out = self.run_check(good(), trades(ids=()))
         self.assertFalse(ok)

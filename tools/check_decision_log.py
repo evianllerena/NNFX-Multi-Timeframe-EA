@@ -7,7 +7,9 @@ Over a decision log written by NNFX_EA (MQL5/Include/NNFX/DecisionLog.mqh) and, 
   - no gaps:    every pair has a row at every candle time that any pair has (between its first and last row), and a
                 pair's consecutive rows are --tf apart except across a weekend (Friday to Sunday/Monday, at most
                 2 days + one candle + 1 hour)
-  - order:      within one candle time the pairs appear in the --pairs order
+  - order:      within one candle time the pairs appear in the --pairs order, batch by batch: a pair whose new
+                candle arrived after the others' is processed in a later visit and its note starts "batch N;"
+                (N >= 2); rows must be sorted by (batch, place in --pairs)
   - trades:     (with --trades) every ENTER event's row has an action "OPEN <id>" or "REFUSE ..."; every "OPEN <id>"
                 action has an OPEN row (half 1) for that id in the trade log, and every trade-log OPEN (half 1) has
                 its decision row
@@ -26,6 +28,7 @@ from datetime import datetime, timedelta
 
 HEADER = "time,symbol,tf,o,h,l,c,atr,base,c1,c2,ex,vol,ind_ok,block,news,events,action,note".split(",")
 EVENT = re.compile(r"^[A-Z_0-9]+:[A-Z0-9]+:-?[01]$")
+BATCH = re.compile(r"^batch (\d+);")
 
 
 def weekend_gap(a, b, tf):
@@ -85,15 +88,22 @@ def check(path, tf, pairs, trades_path=None):
         missing = [t for t in all_times if ts[0] <= t <= ts[-1] and t not in set(ts)]
         for t in missing[:5]:
             fails.append("%s: no row at %s (other pairs have one)" % (p, t.strftime("%Y.%m.%d %H:%M")))
-    # fixed order within a candle time
+    # fixed order within a candle time, per batch: a pair whose new candle arrived after the others' was processed
+    # in a later visit, noted "batch N" (each pair keeps its own clock; SPEC Candle timing)
     order = {p: k for k, p in enumerate(pairs)}
     by_time = defaultdict(list)
     for i, t, r in parsed:
-        by_time[t].append((i, r[1]))
+        m = BATCH.match(r[18])
+        by_time[t].append((int(m.group(1)) if m else 1, r[1]))
     for t, lst in by_time.items():
-        ranks = [order.get(s, 99) for _, s in lst]
+        ranks = [(b, order.get(s, 99)) for b, s in lst]
         if ranks != sorted(ranks):
-            fails.append("%s: pairs out of the fixed order: %s" % (t.strftime("%Y.%m.%d %H:%M"), [s for _, s in lst]))
+            fails.append("%s: pairs out of the fixed order: %s" % (t.strftime("%Y.%m.%d %H:%M"),
+                                                                   ["%s(batch %d)" % (s, b) for b, s in lst]))
+    late = sum(1 for _, _, r in parsed if BATCH.match(r[18]))
+    if late:
+        info.append("%d row(s) processed in a later batch than their candle time's first (their candle arrived later)"
+                    % late)
     # trades
     enters = sum(1 for _, _, r in parsed if "ENTER:" in r[16])
     opens_decided = {}

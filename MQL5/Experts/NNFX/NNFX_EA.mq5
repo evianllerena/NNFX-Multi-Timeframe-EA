@@ -339,10 +339,32 @@ string GuardPair(const int k, const bool indicatorOk)
                           spread, InpMaxSpread, indicatorOk);
   }
 
+// Which batch of candle time t this is: 1 for the first visit that processes t, 2 for pairs whose candle arrived
+// later (each pair keeps its own clock, so a late pair never holds the others back), ... The decision log notes
+// "batch N" for N > 1, so the fixed order can be checked within each batch.
+datetime g_batch_t[4];
+int      g_batch_n[4];
+
+int BatchOf(const datetime t)
+  {
+   for(int i = 0; i < 4; i++)
+      if(g_batch_t[i] == t)
+         return ++g_batch_n[i];
+   int old = 0;
+   for(int i = 1; i < 4; i++)
+      if(g_batch_t[i] < g_batch_t[old])
+         old = i;
+   g_batch_t[old] = t;
+   g_batch_n[old] = 1;
+   return 1;
+  }
+
 //--- one candle time, every due pair (DESIGN_6F sections 3 and 4) ------
 void ProcessGroup(const datetime t, const int &ks[])
   {
    int n = ArraySize(ks);
+   int batch = BatchOf(t);
+   string batchNote = (batch > 1) ? StringFormat("batch %d; ", batch) : "";
    string global = GuardGlobal();
    NNFXBar bars[];
    NNFXRaw raws[];
@@ -422,7 +444,7 @@ void ProcessGroup(const datetime t, const int &ks[])
         {
          // the core is never fed a candle with missing values; logged with ind_ok 0
          bars[j].block = "indicator";
-         g_dlog.Write(sym, Tf(), bars[j], false, "", "-", "not fed to the core: " + raws[j].why);
+         g_dlog.Write(sym, Tf(), bars[j], false, "", "-", batchNote + "not fed to the core: " + raws[j].why);
          g_proc[k] = t;
          g_prevClose[k] = tc;
          continue;
@@ -491,7 +513,7 @@ void ProcessGroup(const datetime t, const int &ks[])
          g_waitAlarm[k] = false;
       if(g_orphan[k])
          note += "broker trade " + bid + " not known to the core: left to its stops [C] ";
-      g_dlog.Write(sym, Tf(), bars[j], true, NNFXEventsText(g_core[k], 0), action == "" ? "-" : action, note);
+      g_dlog.Write(sym, Tf(), bars[j], true, NNFXEventsText(g_core[k], 0), action == "" ? "-" : action, batchNote + note);
       g_proc[k] = t;
       g_prevClose[k] = tc;
      }
@@ -953,19 +975,42 @@ int OnInit()
    return INIT_SUCCEEDED;
   }
 
+string g_not_ready = "";
+
 bool ReadyToStart(void)
   {
+   g_not_ready = "";
    if(g_mode != "tester")
      {
       if(!TerminalInfoInteger(TERMINAL_CONNECTED) || AccountInfoInteger(ACCOUNT_LOGIN) == 0)
+        {
+         g_not_ready = "not connected / logged in";
          return false;
+        }
       for(int k = 0; k < ArraySize(g_pairs); k++)
          if(!(SymbolInfoDouble(g_pairs[k], SYMBOL_TRADE_TICK_VALUE) > 0.0))
+           {
+            g_not_ready = g_pairs[k] + ": no tick value";
             return false;
+           }
      }
    for(int k = 0; k < ArraySize(g_pairs); k++)
-      if(!g_bb[k].AllCalculated() || iTime(g_pairs[k], (ENUM_TIMEFRAMES)_Period, 1) == 0)
+     {
+      if(iTime(g_pairs[k], (ENUM_TIMEFRAMES)_Period, 1) == 0)
+        {
+         g_not_ready = g_pairs[k] + ": no closed candle";
          return false;
+        }
+      // every indicator value present on the last closed candle (AllCalculated, used by the scripts, never becomes
+      // true in the Strategy Tester: run ea_dbg_start_20261006, "EURUSD: indicators not calculated" for 2 days)
+      NNFXBar b;
+      NNFXRaw raw;
+      if(!g_bb[k].Build(1, b, raw))
+        {
+         g_not_ready = g_pairs[k] + ": last closed candle not built (" + raw.why + ")";
+         return false;
+        }
+     }
    return true;
   }
 
@@ -975,6 +1020,12 @@ void TryStart(void)
       return;
    if(!ReadyToStart())
      {
+      static datetime said = 0;
+      if(TimeCurrent() - said >= 60)
+        {
+         Print("NNFX_EA: waiting to start: ", g_not_ready);
+         said = TimeCurrent();
+        }
       g_ready_since = 0;
       return;
      }
@@ -1039,7 +1090,7 @@ void OnDeinit(const int reason)
    if(g_orders != NULL)
      {
       SaveState();
-      Row("PRESTOP", "", StringFormat("deinit reason %d; %s", reason, g_ready ? "state saved" : "stopped before the start-up ran"));
+      Row("PRESTOP", "", StringFormat("deinit reason %d; %s", reason, g_ready ? "state saved" : "stopped before the start-up ran (" + g_not_ready + ")"));
       delete g_orders;
       g_orders = NULL;
      }
