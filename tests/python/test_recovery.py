@@ -100,9 +100,10 @@ class TestStateFile(unittest.TestCase):
         checksum; a file without PCORE lines (the 6c test EA's) still reads as before."""
         t, c = self.sample()
         snap = "CORE|1|" + "|".join(["0"] * (rc.CORE_FIELDS - 2))
-        cores = {"GBPUSD": snap, "AUDNZD": snap.replace("CORE|1|0|", "CORE|1|7|")}
+        cores = {"GBPUSD": (rc.tparse("2026.06.02 13:00"), snap),
+                 "AUDNZD": (rc.tparse("2026.06.02 12:00"), snap.replace("CORE|1|0|", "CORE|1|7|"))}
         text = rc.state_file_text("26060", [t], [c], 0, cores)
-        self.assertLess(text.index("PCORE|AUDNZD|"), text.index("PCORE|GBPUSD|"))
+        self.assertLess(text.index("PCORE|AUDNZD|2026.06.02 12:00|CORE|1|7|"), text.index("PCORE|GBPUSD|"))
         got = {}
         status, trades, conts, _, why = rc.parse_state_file(text, got)
         self.assertEqual(status, "present", why)

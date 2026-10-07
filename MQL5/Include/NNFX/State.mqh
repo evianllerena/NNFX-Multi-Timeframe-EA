@@ -59,12 +59,14 @@ struct NNFXDealRec
    string            comment;
   };
 
-// Phase 6f (DESIGN_6F section 5): one pair's rules-core memory, "PCORE|<sym>|" + CNNFXPairCore::Snapshot().
-// The snapshot's own content is checked by CNNFXPairCore::Restore, not by the state file parser.
+// Phase 6f (DESIGN_6F section 5): one pair's rules-core memory, "PCORE|<sym>|<last processed candle>|" +
+// CNNFXPairCore::Snapshot() (each pair keeps its own clock). The snapshot's own content is checked by
+// CNNFXPairCore::Restore, not by the state file parser.
 #define NNFX_CORE_FIELDS 35
 struct NNFXCoreRec
   {
    string            sym;
+   datetime          proc;     // open time of the last candle this pair processed
    string            snap;
   };
 
@@ -183,7 +185,7 @@ string NNFXStateText(const string instance, const NNFXTrade &trades[], const NNF
    for(int i = 0; i < ArraySize(syms); i++)
      {
       int k = (int)StringToInteger(StringSubstr(syms[i], StringFind(syms[i], "\t") + 1));
-      text += "PCORE|" + cores[k].sym + "|" + cores[k].snap + "\n";
+      text += "PCORE|" + cores[k].sym + "|" + NNFXTime(cores[k].proc) + "|" + cores[k].snap + "\n";
      }
    return text + StringFormat("CHECKSUM|%08x\n", NNFXFnv1a32(text));
   }
@@ -274,12 +276,13 @@ string NNFXStateParse(const string &lines[], NNFXTrade &trades[], NNFXCont &cont
          conts[m].last_exit_dir = (int)StringToInteger(p[5]);
          conts[m].since = StringToTime(p[6]);
         }
-      else if(k == 2 + NNFX_CORE_FIELDS && p[0] == "PCORE" && p[2] == "CORE")
+      else if(k == 3 + NNFX_CORE_FIELDS && p[0] == "PCORE" && p[3] == "CORE")
         {
          int m = ArraySize(cores);
          ArrayResize(cores, m + 1);
          cores[m].sym = p[1];
-         cores[m].snap = StringSubstr(lines[i], StringLen("PCORE|" + p[1] + "|"));
+         cores[m].proc = StringToTime(p[2]);
+         cores[m].snap = StringSubstr(lines[i], StringLen("PCORE|" + p[1] + "|" + p[2] + "|"));
         }
       else
         {
