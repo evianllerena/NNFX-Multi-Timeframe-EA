@@ -64,8 +64,9 @@ and D6f-1 would then close a live trade on a restart.)
   that is logged.
 - **At start-up a disagreement never closes a broker trade.** It is logged as `DIVERGE` with an alarm (`NNFXNotify`).
   D6f-1 applies only from the **first live candle after the restart**, using the restored memory.
-- **A missing or corrupt state file** (6c status `absent` / `corrupt`): the core starts from the replay, and the same
-  rule holds. A disagreement at start-up is logged and alarmed, never acted on.
+- **A missing or corrupt state file** (6c status `absent` / `corrupt`): ~~the core starts from the replay~~ **as built
+  (section 8.4): the core starts flat**, warmed up over recent candles with entries blocked ("start"), so it never
+  invents a position; the same rule holds. A disagreement at start-up is logged and alarmed, never acted on.
 - **Test:** restart with the master switch having blocked an entry earlier. The restored core and the broker agree
   (no trade), nothing is closed, and the replay cross-check shows the difference it would have made, logged as
   information.
@@ -91,3 +92,70 @@ One CSV row per pair per closed candle, in `Common\Files\NNFX\decisions\<preset>
 ## 7. What stays out (plan)
 
 Bar-by-bar comparison with the answer key (Phase 7), the shootout (Phase 8), tuning.
+
+## 8. As built (2026-10-06): what the build settled
+
+Each item says where it is and how it was checked. **[C]** = my reading, for the reviewer and the owner.
+
+1. **Visits.** Live: every tick and a 1-second timer. Tester: the chart symbol's ticks only (1 minute OHLC gives one
+   at least every minute; a 1-second timer would add millions of empty events to a 3-month run). Start-up is "ready"
+   when every pair's last closed candle builds (all indicator values present): `AllCalculated`, used by the scripts,
+   never becomes true in the tester (run `ea_dbg_start_20261006_*`).
+2. **Batches [C].** Each pair keeps its own clock, so a pair whose new candle arrives after the others' (typically
+   at the daily rollover) is processed in a later visit. Its decision row's note starts `batch N;`. The fixed order
+   holds within each batch, and `check_decision_log.py` checks rows sorted by (batch, place in the preset's list).
+   Waiting for every pair before processing a candle time was not chosen: SPEC says no pair waits for another.
+3. **Block reasons in the decision log:** the guard's words (master, instance, drawdown, dailyloss, rollover, weekend,
+   spread, indicator) + `N1 <cur> <event> <time>` / `N2 <cur>` + `exposure` + `diverge` (below) + `missed` (a candle
+   not seen live) + `newsfile` (the event file could not be read: no entry, safe side). `start` is used only for the
+   warm-up candles, which are not logged.
+4. **Exposure (section 4) as built:** a trial run of each pair's core on a copy (Snapshot/Restore) finds the ENTERs;
+   `NNFXAllocate` allocates them over every open position on the account; a signal allocated 0 gets the block reason
+   `exposure` and the real core run then SKIPs it, so the decision log's block explains it and Phase 7 can replay it.
+   Split mode's half risk is passed to `OpenTrade` and noted on the row.
+5. **D6f-1 as built.** After the actions: core flat (no position, or an exit pending at the next open) and the broker
+   holds a trade on the pair -> `CloseRemaining`, action `DIVERGE close <id>`, a DIVERGE trade-log row and an alarm.
+   Core holding (or entering) and the broker flat -> action `DIVERGE wait` on every such row, one alarm per episode.
+   Before the core runs, a pair whose broker trade is open while the core is flat gets the block reason `diverge`,
+   so a second trade on that pair can never open (e.g. a D6f-1 close that failed). Seen in the tester: a broker stop
+   hit by the spread at the Friday rollover while the core's simulated stop was not (EURGBP 2026-08-07, the 4-month
+   H1 run; a 30M case 2026-09-24). Both "wait" episodes ended when the core closed.
+6. **Restart as built.** The state file gained one line per pair, `PCORE|<sym>|<last candle it processed>|<core
+   snapshot>`, inside the same checksum and atomic write (Python and MQL5 alike; 6c files without PCORE read as
+   before; RecoveryTest adds the PCORE files and byte-for-byte rewrites). On start each pair is restored with its own
+   clock; the candles it missed, including the one waiting now, are fed to its core with block `missed` and logged
+   ("missed while stopped (OD-7 (b))"), never acted on, but **open trades stay managed**: the broker trail
+   (`Orders.OnBarClose`) runs for those candles too (S-2; found by the open-trade restart test, which skipped one
+   trail step before the fix). More missed candles than `InpWarmupBars` (300): the saved memory is treated as too old
+   and the pair starts flat. The same "missed" path is used if a pair ever falls more than one candle behind live.
+7. **The cross-check replay** feeds the last 300 closed candles to a separate core with no block except news (it
+   cannot know the master switch, the pause, the daily loss or exposure) and is information only: `the replay
+   agrees` / `the replay differs: information only` on the start-up row.
+8. **A broker trade the core does not know [C, open question for the owner].** After a start WITHOUT saved memory
+   (no state file, a corrupt one, or memory too old), the broker may hold a trade the flat core knows nothing about.
+   D6f-1 would close it at the first live candle, because the core is "flat" only for lack of memory. As built, that
+   trade is left to its broker-held stop, TP1, breakeven and trail (Orders.mqh), and the pair takes no new entry
+   while it is open (block `diverge`); the start-up row and an alarm say so. The other choice is to close it at once.
+9. **Trade IDs** are `T<yymmddhhmm of the decision candle>_<place in the preset's list>`: one entry per pair per
+   candle, deterministic, so two runs give the same IDs. Nothing keys on them after a restart (a "deal history only"
+   rebuild gives `R<ticket>`; 6c carry-over).
+10. **News live [C].** OD-12 says the CSV is "refreshed daily by the export script". The script cannot be started by
+    `/config` while the same terminal runs the EA, so the export code moved into `CalendarExport.mqh` unchanged
+    (Aug-Sep 2026 rows byte-identical, run `calendar_export_20261006_205916`) and the EA, live only, runs it at start
+    (after login) and once per GMT day into `Common\Files\NNFX\calendar\events_live.txt` (last month to next month),
+    then reads that file back through `NNFXNewsLoad`, the tester's path. The 24-hour age alarm and the recency alarm
+    (no event in the next 24 hours) run hourly. `InpNewsFile=auto` (the presets) means this; the tester refuses
+    `auto` and must name an exported history file. If the file cannot be read, entries are blocked (`newsfile`).
+11. **Presets [C].** The plan says to save them from MT5's settings dialog; an agent cannot click it. They are written
+    by `tools/make_presets.py` in the format MT5 itself writes (copied from MT5's own `Profiles\Tester\NNFX_EA.set`),
+    every input listed, the EA's defaults, own magic, and proved by loading each in the tester with
+    `ExpertParameters=` and no `[TesterInputs]` (`tools/check_presets_mt5.ps1`). The owner may re-save them from the
+    dialog at any time.
+12. **Carry-overs closed in 6f:** state after every trade event (`OnTradeTransaction`); the Algo Trading pre-check and
+    no retry on 10026/10027 (Orders.mqh); the slippage window, approach (b) of G1_phase6b_2 note 3: a forced adverse
+    fill in the test EA (`InpAdverseOn`) and the `check_trades.py` window rule "risk with the stop sent <= target +
+    the slippage"; the drawdown pause, peak, reset and instance switch flushed to disk on change
+    (`GlobalVariablesFlush`), proved by a demo hard kill with the pause on; the master test records and restores
+    `NNFX_MASTER`; the test-EA log texts; a second M5 recovery case; the account-flat step in `run_demo_restarts.ps1`
+    (judged on this magic and the test magics; the whole account is reported, since the 1H smoke EA's own trades may
+    be open on the same demo account [C]); news into the core checked end to end (`check_news_inputs.py`).
