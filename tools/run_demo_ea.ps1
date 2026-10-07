@@ -345,7 +345,12 @@ Restore-Gvs
 if ($Mode -ne "smoke") {
     $c = & powershell -ExecutionPolicy Bypass -Command "& '$Repo\tools\close_test_leftovers.ps1' -Magics $Magic" 2>&1 | Out-String
     $c | Set-Content "$Out\cleanup.txt" -Encoding ASCII
-    Step "test trades closed (D-OPS-1)" ($c -match "OVERALL: PASS") (([regex]::Matches($c, "(?m)^OVERALL.*$") | Select-Object -Last 1).Value)
+    # judged on this magic and the test magics (G1_phase6c_2 note 2); the whole account may hold the 1H smoke EA's
+    # own trades (magic 26060), reported only
+    $m = [regex]::Match($c, "this magic (\d+)[,;] test magics 26990-26999 (\d+)[,;] whole account (\d+)")
+    Step "test trades closed, account flat of tests (D-OPS-1)" ($m.Success -and $m.Groups[1].Value -eq "0" -and $m.Groups[2].Value -eq "0") $(
+        if ($m.Success) { "this magic $($m.Groups[1].Value), test magics $($m.Groups[2].Value), whole account $($m.Groups[3].Value)" }
+        else { "no positions line from close_test_leftovers" })
 } else {
     $open = @($rows | Where-Object { $_ -match "^[^,]*,OPEN," }).Count
     Say "1H preset trades opened in this run: $open OPEN rows; open trades stay with their broker-held stops (not closed by the driver)"

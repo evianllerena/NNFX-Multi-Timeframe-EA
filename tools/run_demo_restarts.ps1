@@ -264,4 +264,16 @@ foreach ($c in @(@{ N = "rebuilt = before (compare_runs rebuilds)"; A = @("$Repo
             if ($hard.Count -eq 1) { $hard[0] } else { "$($hard.Count) restarts without PRESTOP (must be 1); killed: $($script:HardKilled)" })
     }
 }
+
+# 6. account flat (G1_phase6c_2 note 2): close_test_leftovers (D-OPS-1) rebuilds this magic's trades from the broker,
+# closes any left, and reports the positions left: this magic, the test magics 26990-26999, the whole account. PASS:
+# this magic and every test magic 0. The whole account's count is reported with the magics it holds: positions of
+# a non-test magic (e.g. 26060, the 1H EA's demo smoke run on the same account) are not this test's [C].
+$cl = & powershell -ExecutionPolicy Bypass -Command "& '$Repo\tools\close_test_leftovers.ps1' -Magics 26996" 2>&1 | Out-String
+$cl | Set-Content "$Out\account_flat.txt" -Encoding ASCII
+$m = [regex]::Match($cl, "this magic (\d+)[,;] test magics 26990-26999 (\d+)[,;] whole account (\d+)")
+Step "account flat (note 2)" ($m.Success -and $m.Groups[1].Value -eq "0" -and $m.Groups[2].Value -eq "0") $(
+    if ($m.Success) { "this magic $($m.Groups[1].Value), test magics $($m.Groups[2].Value), whole account $($m.Groups[3].Value)" +
+                      $(if ($m.Groups[3].Value -ne "0") { " (not test positions; see account_flat.txt)" } else { "" }) }
+    else { "no positions line from close_test_leftovers" })
 Done

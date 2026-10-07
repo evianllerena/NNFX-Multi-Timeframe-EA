@@ -145,6 +145,14 @@ if (Test-Path "$Out\trades_$name") {
     $r2 | Set-Content "$Out\check_decision_log.txt" -Encoding ASCII
     $l2 = ([regex]::Matches($r2, "(?m)^RESULT.*$") | Select-Object -Last 1).Value
     Step "4 check_decision_log" $(if ($l2 -match "PASS") { "PASS" } else { "FAIL" }) $l2.Trim()
+    if ($inputs["InpNewsBlock"] -eq "true") {
+        $bo = if ($inputs["InpBlackouts"] -eq "none") { "" } else { $inputs["InpBlackouts"] }
+        $r3 = & $Python -B "$Repo\tools\check_news_inputs.py" "$Out\decisions_$name" --events ("$Common\" + $inputs["InpNewsFile"]) `
+                --tf $tf --winter $inputs["InpServerWinterOffset"] --dst $inputs["InpServerDst"] --blackouts $bo 2>&1 | Out-String
+        $r3 | Set-Content "$Out\check_news_inputs.txt" -Encoding ASCII
+        $l3 = ([regex]::Matches($r3, "(?m)^RESULT.*$") | Select-Object -Last 1).Value
+        Step "4 check_news_inputs" $(if ($l3 -match "PASS") { "PASS" } else { "FAIL" }) $l3.Trim()
+    }
     $rows = Get-Content -LiteralPath "$Out\trades_$name"
     $div = @($rows | Where-Object { $_ -match "^[^,]*,DIVERGE," }).Count
     $info = @($rows | Where-Object { $_ -match "^[^,]*,INFO," -and $_ -match "start \(" })
