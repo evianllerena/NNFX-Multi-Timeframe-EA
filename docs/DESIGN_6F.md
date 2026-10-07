@@ -46,19 +46,29 @@ share (mode first/split, OD-4) using every open position on the account. A signa
 "exposure". [C] The allocation is per candle time across the pairs processed at that tick; pairs whose candle arrives
 on a later tick are allocated with the positions then open.
 
-## 5. Restart: broker rebuild plus core replay [C]
+## 5. Restart: broker rebuild plus saved core memory [C]
+
+(Revised after the reviewer's note on the first draft, 2026-10-06. A replay alone cannot reproduce past block inputs:
+the master switch, the drawdown pause, the daily loss, news and exposure. It could rebuild a different core position,
+and D6f-1 would then close a live trade on a restart.)
 
 - **The broker side** is 6c unchanged: `Orders.mqh`'s trade map is rebuilt from the broker, the state file and the
   candles (`NNFXRebuildPure`). It waits until MT5 is connected and logged in, +3 s (6c carry-over). Nothing trades
   before that.
-- **The core side** is new. The core's memory (previous candle, C1 run, E3/E4 waits, continuation, its simulated
-  position) is not in the state file. After the broker rebuild, each pair's core is **replayed** over the closed
-  candles from a start point to the last closed candle, with no orders sent. The core is deterministic, so this
-  restores the memory an uninterrupted run would have.
-- **Start point:** the decision candle of the oldest open trade of that pair minus a warm-up of 50 candles, or a
-  warm-up of 300 candles when flat.
-- If the replayed core still disagrees with the broker, that is a `DIVERGE` handled as in section 3.4. It is logged,
-  never silent.
+- **The core side: saved, not re-derived.** At every candle close, each pair's core memory is written into the state
+  file, with the same atomic write and checksum as 6c (`NNFXSTATE`, FNV-1a). The memory covers: the previous candle's
+  signals, the C1 run, E3/E4 waits, the order pending for the next open, continuation, and the simulated position.
+  On start, it is restored from there (`CNNFXPairCore::Snapshot` / `Restore`).
+- **The replay is a cross-check only.** After the restore, each pair's core is also replayed over recent closed
+  candles in a separate copy, with no orders sent. If the replayed copy, the restored memory or the broker disagree,
+  that is logged.
+- **At start-up a disagreement never closes a broker trade.** It is logged as `DIVERGE` with an alarm (`NNFXNotify`).
+  D6f-1 applies only from the **first live candle after the restart**, using the restored memory.
+- **A missing or corrupt state file** (6c status `absent` / `corrupt`): the core starts from the replay, and the same
+  rule holds. A disagreement at start-up is logged and alarmed, never acted on.
+- **Test:** restart with the master switch having blocked an entry earlier. The restored core and the broker agree
+  (no trade), nothing is closed, and the replay cross-check shows the difference it would have made, logged as
+  information.
 
 ## 6. Decision log (`DecisionLog.mqh`, F2, for Phase 7)
 
