@@ -61,7 +61,11 @@ $inputs = [ordered]@{
     InpTesterMaster = "1";            # tester: the master switch on (the tester cannot see terminal global variables)
     InpTesterMasterOff = "none"; InpRestartAt = "none"; InpRestartDeleteState = "false"
 }
+# 'powershell -File' hands an array to the script as ONE string "InpA=x,InpB=y" (run ea_restart_master_20261006_204349,
+# kept in checks\invalid\): split at ",Inp" boundaries
+$Set = @($Set | ForEach-Object { $_ -split ',(?=Inp\w+=)' } | Where-Object { $_ -ne "" })
 foreach ($s in $Set) {
+    if ($s -match ',Inp\w+=') { Write-Host "STOP: an override still holds two inputs: $s"; exit 2 }
     $i = $s.IndexOf("=")
     $k = $s.Substring(0, $i); $v = $s.Substring($i + 1)
     if (-not $inputs.Contains($k)) { Write-Host "STOP: unknown input $k"; exit 2 }

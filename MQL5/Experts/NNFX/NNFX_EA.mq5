@@ -642,7 +642,9 @@ void Start(const string why)
            {
             g_core[k].ClearEvents();
             bool ok = FeedFixed(k, g_core[k], times[i], EA_MISSED, g_prevClose[k], b, raw);
-            if(!ok)
+            if(ok)
+               g_orders.OnBarClose(sym, b.c, b.atr);   // open trades stay managed (S-2): the T4 trail at this close
+            else
                b.block = "indicator";
             g_dlog.Write(sym, Tf(), b, ok, ok ? NNFXEventsText(g_core[k], 0) : "", "-",
                          ok ? "missed while stopped (OD-7 (b))" : "missed while stopped; not fed: " + raw.why);
@@ -780,7 +782,9 @@ void Visit(void)
          NNFXRaw raw;
          g_core[k].ClearEvents();
          bool ok = FeedFixed(k, g_core[k], times[i], EA_MISSED, g_prevClose[k], b, raw);
-         if(!ok)
+         if(ok)
+            g_orders.OnBarClose(g_pairs[k], b.c, b.atr);   // open trades stay managed (S-2)
+         else
             b.block = "indicator";
          g_dlog.Write(g_pairs[k], Tf(), b, ok, ok ? NNFXEventsText(g_core[k], 0) : "", "-",
                       ok ? "missed (stall; OD-7 (b))" : "missed (stall); not fed: " + raw.why);
