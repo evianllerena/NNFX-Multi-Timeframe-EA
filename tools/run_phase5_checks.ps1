@@ -14,6 +14,7 @@ What it does, in order (each step's result goes in SUMMARY.txt):
        NNFX_RecoveryTest pass line RESULT: 30 passed, 0 failed, 30 total   (Phase 6c)
        NNFX_GuardTest   pass line  RESULT: 56 passed, 0 failed, 56 total   (Phase 6d)
        NNFX_NewsTest    pass line  RESULT: 61 passed, 0 failed, 61 total   (Phase 6e)
+       NNFX_CoreStateTest pass line RESULT: 47 passed, 0 failed, 47 total (Phase 6f: core memory survives a restart)
        NNFX_EnvCheck    information only, but must be read after login: "RESULT: VALID ..."
                         ("RESULT: INVALID (not connected)" is a FAIL)
        NNFX_ExportBars  pass line  RESULT: 5 of 5 pairs complete
@@ -146,7 +147,7 @@ if ($PythonOnly) {
                   "Scripts\NNFX\NNFX_SafetyTest", "Scripts\NNFX\NNFX_OrderMathTest", "Experts\NNFX\NNFX_OrderTest",
                   "Scripts\NNFX\NNFX_RecoveryTest", "Scripts\NNFX\NNFX_DealReport", "Scripts\NNFX\NNFX_GuardTest",
                   "Experts\NNFX\NNFX_TemplateProbe", "Scripts\NNFX\NNFX_GvTool", "Scripts\NNFX\NNFX_NewsTest",
-                  "Scripts\NNFX\NNFX_CalendarExport")
+                  "Scripts\NNFX\NNFX_CalendarExport", "Scripts\NNFX\NNFX_CoreStateTest")
     $compileOk = $true
     foreach ($f in $programs) {
         $src = "$MT5\MQL5\$f.mq5"; $log = "$MT5\MQL5\$f.log"; $ex5 = "$MT5\MQL5\$f.ex5"
@@ -198,6 +199,7 @@ if ($PythonOnly) {
         @{ Name = "NNFX_RecoveryTest"; Report = "$MT5\MQL5\Files\NNFX_RecoveryTest.txt";  Pass = "RESULT: 30 passed, 0 failed, 30 total"; Min = 5 },
         @{ Name = "NNFX_GuardTest";  Report = "$MT5\MQL5\Files\NNFX_GuardTest.txt";        Pass = "RESULT: 56 passed, 0 failed, 56 total"; Min = 5 },
         @{ Name = "NNFX_NewsTest";   Report = "$MT5\MQL5\Files\NNFX_NewsTest.txt";         Pass = "RESULT: 61 passed, 0 failed, 61 total"; Min = 5 },
+        @{ Name = "NNFX_CoreStateTest"; Report = "$MT5\MQL5\Files\NNFX_CoreStateTest.txt";    Pass = "RESULT: 47 passed, 0 failed, 47 total"; Min = 5 },
         @{ Name = "NNFX_EnvCheck";   Report = "$MT5\MQL5\Files\NNFX_EnvCheck.txt";         Pass = "RESULT: VALID";                          Min = 20; Info = $true },
         @{ Name = "NNFX_ExportBars"; Report = "$MT5\MQL5\Files\NNFX\export\_summary.txt";  Pass = "RESULT: 5 of 5 pairs complete";          Min = 30 }
     )
