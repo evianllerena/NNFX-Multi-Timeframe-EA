@@ -79,6 +79,7 @@ private:
         {
          bool on = !NNFXInstanceOn(m_sym, m_magic, m_setting);
          GlobalVariableSet(NNFXInstanceGv(m_sym, m_magic), on ? 1.0 : 0.0);
+         GlobalVariablesFlush();   // the owner's switch survives a crash (G1_phase6d_1 item 2)
          Draw();
          return action;
         }
@@ -90,6 +91,7 @@ private:
          if(!Confirm("Reset the 10% drawdown pause (all instances)? New entries resume.", autoYes))
             return NNFX_PANEL_NONE;
          GlobalVariableSet(NNFX_GV_DD_RESET, 1.0);
+         GlobalVariablesFlush();
          return action;
         }
       return NNFX_PANEL_NONE;
