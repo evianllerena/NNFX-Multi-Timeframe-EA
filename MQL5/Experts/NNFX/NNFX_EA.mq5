@@ -259,10 +259,10 @@ bool FeedFixed(const int k, CNNFXPairCore &core, const datetime t, const string 
    if(!BuildAt(k, t, b, raw))
       return false;
    datetime tc = t + Period_();
+   // the fixed reason plus news, so a missed candle's row lists every reason (run final_restart_open_20261006_223852:
+   // the row said only "missed" while N1 also applied); the replay ("") gets news only (it cannot know the rest)
    b.block = block;
-   string nb = NewsBlock(k, tc);
-   if(block == "")
-      b.block = nb;   // the replay: news only (it cannot know the other block inputs)
+   AddReason(b.block, NewsBlock(k, tc));
    b.news = g_news_ok && NNFXNewsFirstClose(g_pairs[k], tc, prevClose, g_news, g_broker);
    prevClose = tc;
    core.OnBar(b);
