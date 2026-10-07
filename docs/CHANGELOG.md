@@ -2,6 +2,25 @@
 
 Newest first.
 
+## 2026-10-06 — Phase 6f: the EA (`NNFX_EA.mq5`) and the decision log
+
+- `docs/DESIGN_6F.md`: the design written before the build (the reviewer's restart note recorded as [C] in section 5),
+  and section 8 "as built", with each new reading marked [C].
+- The EA: one instance per timeframe trades the preset's basket in a fixed order, each pair on its own clock (a late
+  pair is a later "batch"). Block = guard + news N1/N2 + exposure (a trial run, then the allocation) + `diverge`; the
+  X5 flag from News.mqh; ENTER/EXIT through `Orders.mqh` only; D6f-1 (`DIVERGE close` / `DIVERGE wait`).
+- Decision log (`DecisionLog.mqh`): one row per pair per candle, for Phase 7; `check_decision_log.py`.
+- Restart: each pair's core memory in the state file (`PCORE` lines, Python and MQL5), restored with its own clock;
+  missed candles fed and logged, never acted on, open trades still managed; the replay is a cross-check only; a
+  start-up disagreement is an alarm, never a close. `check_ea_restart.py`; the reviewer's master-switch restart test.
+- Presets `NNFX_M30/H1/H4.set` written in MT5's own format (`make_presets.py`) and proved to load.
+- Live news: the export code moved to `CalendarExport.mqh`; the EA exports the calendar itself, at start and daily
+  (OD-12 [C]). `check_news_inputs.py`: the news inputs equal the Python reference on every row.
+- Carry-overs closed: state after every trade event; Algo Trading pre-check and no retry on 10026/10027; the slippage
+  window (forced adverse fill + the `check_trades` window rule); global variables flushed to disk (the pause survives
+  a hard kill on the demo); the master test restores `NNFX_MASTER`; test-EA log texts; a second M5 case; the
+  account-flat step.
+
 ## 2026-10-06 — Phase 6e: review G1_phase6e_1 fixes (F1 -> D6e-3, F2)
 
 - F1, replaced by the owner's rule **D6e-3**. Each news event blocks new entries on its currency's pairs from the
