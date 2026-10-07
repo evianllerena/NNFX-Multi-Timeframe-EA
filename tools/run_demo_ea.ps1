@@ -28,7 +28,7 @@ Output: <MT5 data folder>\MQL5\Files\NNFX\checks\demo_ea_<mode>_<date-time>\
 Usage:  powershell -ExecutionPolicy Bypass -File tools\run_demo_ea.ps1 -Mode kill_tp1
 #>
 param(
-    [ValidateSet("kill_tp1", "kill_pause", "smoke")] [string]$Mode = "kill_tp1",
+    [ValidateSet("kill_tp1", "kill_pause", "smoke", "news_alarm")] [string]$Mode = "kill_tp1",
     [string]$Repo    = "C:\Users\Evision\NNFX-Multi-Timeframe-EA",
     [string]$MT5     = "C:\Users\Evision\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075",
     [string]$Common  = "C:\Users\Evision\AppData\Roaming\MetaQuotes\Terminal\Common\Files",
@@ -192,7 +192,16 @@ if ($Mode -eq "smoke") {
     $want = @((Get-Content "$Repo\MQL5\Presets\NNFX_H1.set" -Encoding Unicode) | Where-Object { $_ -match "^Inp" }).Count
 } else {
     $lines = @((Get-Content "$Repo\MQL5\Presets\NNFX_H1.set" -Encoding Unicode) | Where-Object { $_ -match "^Inp" } |
-               ForEach-Object { if ($_ -match "^InpMagic=") { "InpMagic=$Magic" } elseif ($_ -match "^InpRiskPct=") { "InpRiskPct=$Risk" } else { ($_ -split "\|\|")[0] } })
+               ForEach-Object { if ($_ -match "^InpMagic=") { "InpMagic=$Magic" } elseif ($_ -match "^InpRiskPct=") { "InpRiskPct=$Risk" }
+                                elseif ($_ -match "^InpNewsFile=" -and $Mode -eq "news_alarm") { "InpNewsFile=NNFX\calendar\events_stale_test.txt" }
+                                else { ($_ -split "\|\|")[0] } })
+    if ($Mode -eq "news_alarm") {
+        # D6f-3: a deliberately stale event file (generated 2026-09-01, last event 2026-09-02): both live alarms must fire
+        @("# NNFX news events, generated 2026.09.01 00:00 GMT, times in UTC (TEST FILE for the live news alarms, D6f-3)",
+          "time_utc|currency|event_id|name|vp", "2026.09.02 12:30|USD|840030016|Nonfarm Payrolls|Non-Farm Payrolls") |
+            Set-Content "$Common\NNFX\calendar\events_stale_test.txt" -Encoding ASCII
+        Copy-Item "$Common\NNFX\calendar\events_stale_test.txt" "$Out\" -Force
+    }
     $setName = "NNFX_EA_$Mode.set"
     Write-Set $setName $lines
     $want = $lines.Count
@@ -302,6 +311,10 @@ if ($Mode -eq "kill_tp1" -or $Mode -eq "kill_pause") {
                  ("first blocks row: " + $(if ($first) { ($first -split ",")[-1] } else { "none" }) + "; new pause trips: $($trip.Count)")
         }
     }
+} elseif ($Mode -eq "news_alarm") {
+    # the start-up runs the news checks once after login; give it 3 minutes, then read the Experts log
+    $end = (Get-Date).AddMinutes(3)
+    while ((Get-Date) -lt $end) { Start-Sleep -Seconds 10; $p = Keep-Alive $p }
 } else {
     $end = (Get-Date).AddHours($Hours)
     while ((Get-Date) -lt $end) {
@@ -344,6 +357,13 @@ foreach ($lf in @(Get-ChildItem "$Out\experts_*.log" -ErrorAction SilentlyContin
 }
 $errs | Set-Content "$Out\error_lines.txt" -Encoding ASCII
 Step "no error lines from NNFX_EA (Experts log)" ($errs.Count -eq 0) "$($errs.Count) lines (error_lines.txt)"
+if ($Mode -eq "news_alarm") {
+    $all = @(); foreach ($lf in @(Get-ChildItem "$Out\experts_*.log" -ErrorAction SilentlyContinue)) { $all += @(Get-Content $lf.FullName -Encoding Unicode) }
+    $age = @($all | Where-Object { $_ -match "news file .*events_stale_test.txt is [0-9.]+ h old \(more than 24 h, OD-12\)" }) | Select-Object -First 1
+    $rec = @($all | Where-Object { $_ -match "news file .*events_stale_test.txt has no event after .*may not cover the next 24 h" }) | Select-Object -First 1
+    Step "live alarm: news file older than 24 h (D6f-3, OD-12)" ([bool]$age) $(if ($age) { ($age -split "\t")[-1] } else { "not in the Experts log" })
+    Step "live alarm: no event in the next 24 h (D6f-3, recency)" ([bool]$rec) $(if ($rec) { ($rec -split "\t")[-1] } else { "not in the Experts log" })
+}
 Restore-Gvs
 if ($Mode -ne "smoke") {
     $c = & powershell -ExecutionPolicy Bypass -Command "& '$Repo\tools\close_test_leftovers.ps1' -Magics $Magic" 2>&1 | Out-String

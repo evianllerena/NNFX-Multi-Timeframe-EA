@@ -131,22 +131,22 @@ Each item says where it is and how it was checked. **[C]** = my reading, for the
 7. **The cross-check replay** feeds the last 300 closed candles to a separate core with no block except news (it
    cannot know the master switch, the pause, the daily loss or exposure) and is information only: `the replay
    agrees` / `the replay differs: information only` on the start-up row.
-8. **A broker trade the core does not know [C, open question for the owner].** After a start WITHOUT saved memory
+8. **A broker trade the core does not know: owner decision D6f-2 (2026-10-07), as built.** After a start WITHOUT saved memory
    (no state file, a corrupt one, or memory too old), the broker may hold a trade the flat core knows nothing about.
    D6f-1 would close it at the first live candle, because the core is "flat" only for lack of memory. As built, that
    trade is left to its broker-held stop, TP1, breakeven and trail (Orders.mqh), and the pair takes no new entry
-   while it is open (block `diverge`); the start-up row and an alarm say so. The other choice is to close it at once.
+   while it is open (block `diverge`); the start-up row and an alarm say so. The other choice (close it at once) was not chosen.
 9. **Trade IDs** are `T<yymmddhhmm of the decision candle>_<place in the preset's list>`: one entry per pair per
    candle, deterministic, so two runs give the same IDs. Nothing keys on them after a restart (a "deal history only"
    rebuild gives `R<ticket>`; 6c carry-over).
-10. **News live [C].** OD-12 says the CSV is "refreshed daily by the export script". The script cannot be started by
+10. **News live: owner decision D6f-3 (2026-10-07), as built.** OD-12 says the CSV is "refreshed daily by the export script". The script cannot be started by
     `/config` while the same terminal runs the EA, so the export code moved into `CalendarExport.mqh` unchanged
     (Aug-Sep 2026 rows byte-identical, run `calendar_export_20261006_205916`) and the EA, live only, runs it at start
     (after login) and once per GMT day into `Common\Files\NNFX\calendar\events_live.txt` (last month to next month),
     then reads that file back through `NNFXNewsLoad`, the tester's path. The 24-hour age alarm and the recency alarm
     (no event in the next 24 hours) run hourly. `InpNewsFile=auto` (the presets) means this; the tester refuses
     `auto` and must name an exported history file. If the file cannot be read, entries are blocked (`newsfile`).
-11. **Presets [C].** The plan says to save them from MT5's settings dialog; an agent cannot click it. They are written
+11. **Presets: owner decision D6f-4 (2026-10-07), as written.** The plan says to save them from MT5's settings dialog; an agent cannot click it. They are written
     by `tools/make_presets.py` in the format MT5 itself writes (copied from MT5's own `Profiles\Tester\NNFX_EA.set`),
     every input listed, the EA's defaults, own magic, and proved by loading each in the tester with
     `ExpertParameters=` and no `[TesterInputs]` (`tools/check_presets_mt5.ps1`). The owner may re-save them from the
