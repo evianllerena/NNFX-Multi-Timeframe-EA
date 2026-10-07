@@ -503,6 +503,7 @@ public:
    bool              HasPosition(void) const          { return m_has_pos; }
    int               PositionDir(void) const          { return m_has_pos ? m_p_dir : 0; }
    int               PendingKind(void) const          { return m_pa_kind; }   // 0 none, 1 enter, 2 exit at the next open
+   int               PendingDir(void) const           { return m_pa_kind == 1 ? m_pa_dir : 0; }   // the entry's direction
 
    // ------------------------------------------------------------ memory (6f, DESIGN_6F section 5)
    // Added for the real EA's restart; the decision logic above is unchanged (still the port of core.py).
