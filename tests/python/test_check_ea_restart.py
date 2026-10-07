@@ -92,6 +92,13 @@ class TestCheckEaRestart(unittest.TestCase):
         self.assertIn("the core memory was restored exactly", out)
         self.assertIn("managed through the restart", out)
 
+    def test_missed_row_with_news_reasons(self):
+        # a missed candle inside a news block: "missed;N1 ..." is still a missed row (run final_restart_open_20261006 on d80dd0e)
+        d, t = restart_run()
+        next(r for r in d if r[14] == "missed" and r[1] == "EURGBP")[14] = "missed;N1 GBP GDP 2026.06.03 09:00"
+        ok, out = self.full(d, t)
+        self.assertTrue(ok, out)
+
     def test_no_restart(self):
         d, t = restart_run()
         t = [x for x in t if x["event"] not in ("PRESTOP", "REBUILD")]

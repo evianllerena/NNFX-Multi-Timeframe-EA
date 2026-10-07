@@ -65,7 +65,7 @@ def check(dec_path, trades_path, master_off=None, replay_sym=None, baseline=None
         closes = [r for r in trows if r["time"] == restart_time and r["event"] in ("EXIT", "CLOSE")]
         for r in closes:
             fails.append("closed at the restart: %s %s %s" % (r["event"], r["trade_id"], r["note"]))
-    missed = [r for r in drows if r[14] == "missed"]
+    missed = [r for r in drows if "missed" in r[14].split(";")]   # "missed" may come with news reasons (N1 ...)
     for r in missed:
         if r[17] != "-":
             fails.append("%s %s: a missed candle was acted on: %s" % (r[0], r[1], r[17]))
