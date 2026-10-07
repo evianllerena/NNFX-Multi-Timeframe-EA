@@ -147,11 +147,18 @@ $gvNames = @("NNFX_MASTER", "NNFX_DD_PEAK", "NNFX_DD_PAUSED", "NNFX_DD_RESET")
 Write-Set "NNFX_GvTool_list.set" @("InpDelete=", "InpSet=")
 Run-Script "NNFX_GvTool" "NNFX_GvTool_list.set" 5
 Copy-Item "$MT5\MQL5\Files\NNFX_GvTool.txt" "$Out\gv_before.txt" -Force
-$prior = @{}
-foreach ($l in (Get-Content "$Out\gv_before.txt")) {
-    $m = [regex]::Match($l, "^\s+(NNFX_\w+) = (\S+) ")
-    if ($m.Success) { $prior[$m.Groups[1].Value] = $m.Groups[2].Value }
+# NNFX_GvTool.txt lists the variables "before:" and "after:" its changes; read one section only (run
+# demo_ea_kill_pause_20261006_210518 read both and reported a restored NNFX_MASTER as still 1)
+function Gv-Section([string]$file, [string]$section) {
+    $vals = @{}; $in = $false
+    foreach ($l in (Get-Content $file)) {
+        if ($l -match "^(before|after):") { $in = ($l -like "$($section):*"); continue }
+        $m = [regex]::Match($l, "^\s+(NNFX_\w+) = (\S+) ")
+        if ($in -and $m.Success) { $vals[$m.Groups[1].Value] = $m.Groups[2].Value }
+    }
+    return $vals
 }
+$prior = Gv-Section "$Out\gv_before.txt" "before"
 Say ("global variables before: " + (($gvNames | ForEach-Object { "$_=" + $(if ($prior.ContainsKey($_)) { $prior[$_] } else { "missing" }) }) -join ", "))
 $set = @("NNFX_MASTER=1")
 if ($Mode -eq "kill_pause") { $set += @("NNFX_DD_PEAK=1000000000", "NNFX_DD_PAUSED=0", "NNFX_DD_RESET=0") }
@@ -168,11 +175,7 @@ function Restore-Gvs {
     Write-Set "NNFX_GvTool_restore.set" @("InpDelete=$($del -join ',')", "InpSet=$($put -join ',')")
     Run-Script "NNFX_GvTool" "NNFX_GvTool_restore.set" 5
     Copy-Item "$MT5\MQL5\Files\NNFX_GvTool.txt" "$Out\gv_after.txt" -Force
-    $after = @{}
-    foreach ($l in (Get-Content "$Out\gv_after.txt")) {
-        $m = [regex]::Match($l, "^\s+(NNFX_\w+) = (\S+) ")
-        if ($m.Success) { $after[$m.Groups[1].Value] = $m.Groups[2].Value }
-    }
+    $after = Gv-Section "$Out\gv_after.txt" "after"
     $same = $true
     foreach ($n in $gvNames) {
         $a = if ($after.ContainsKey($n)) { $after[$n] } else { "missing" }
