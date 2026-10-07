@@ -330,7 +330,9 @@ if (Test-Path "$Out\decisions_$Name") {
     Step "check_decision_log" ($r -match "PASS") $r.Trim()
 }
 if (Test-Path "$Out\trades_$Name") {
-    $o = & $Python -B "$Repo\tools\check_trades.py" "$Out\trades_$Name" 2>&1 | Out-String
+    # live: the breakeven move from the TP1 transaction can land 1-2 s after TP1 (6c/6d demo drivers; run
+    # demo_ea_kill_tp1_20261006_212051 left this option out and FAILed on a 1 s lag)
+    $o = & $Python -B "$Repo\tools\check_trades.py" "$Out\trades_$Name" --be-lag-seconds 2 2>&1 | Out-String
     $o | Set-Content "$Out\check_trades.txt" -Encoding ASCII
     $r = ([regex]::Matches($o, "(?m)^RESULT.*$") | Select-Object -Last 1).Value
     $none = $o -match "\(0 trades"
