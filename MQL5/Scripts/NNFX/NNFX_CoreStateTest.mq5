@@ -7,6 +7,8 @@
 //| into a NEW core, run candles k..end. Every event from k on must  |
 //| equal the uninterrupted run's (candle index, event, rule, dir,   |
 //| price, note), and Restore(Snapshot()) must give the same line.   |
+//| Also: NNFXEventsText (the decision log's events column) lists    |
+//| exactly the core's events in order.                              |
 //| Places NO orders. Writes MQL5\Files\NNFX_CoreStateTest.txt       |
 //| Status: not yet compiled.                                        |
 //+------------------------------------------------------------------+
@@ -14,6 +16,7 @@
 #property strict
 
 #include <NNFX\RulesCore.mqh>
+#include <NNFX\DecisionLog.mqh>
 
 input string InpFolder = "NNFX\\fixtures";   // the rule fixtures (MQL5\Files)
 
@@ -91,9 +94,19 @@ bool RunFixture(const string file, string &name, int &splits)
    string ref[];
    ArrayResize(ref, full.EventCount());
    NNFXEvent e;
+   string evText = "";
    for(int k = 0; k < full.EventCount(); k++)
       if(full.GetEvent(k, e))
+        {
          ref[k] = EventText(e);
+         evText += (evText == "" ? "" : ";") + StringFormat("%s:%s:%d", e.ev, e.rule, e.dir);
+        }
+   // the decision log's events column (DecisionLog.mqh) lists exactly the core's events, in order
+   if(NNFXEventsText(full, 0) != evText)
+     {
+      Out("FAIL " + name + ": NNFXEventsText differs from the core's events");
+      return false;
+     }
    for(int split = 1; split < n; split++)
      {
       CNNFXPairCore a;
