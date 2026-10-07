@@ -39,7 +39,8 @@ param(
     [string]$Period  = "M1",
     [long]$Magic     = 26995,
     [int]$Minutes   = 180,
-    [double]$Hours  = 26
+    [double]$Hours  = 26,
+    [double]$Risk   = 0.1    # kill modes only (M1: at 2% every entry is refused for margin, OD-5; run demo_ea_kill_tp1_20261006_210939 in invalid). The smoke mode uses the preset as it is
 )
 $ErrorActionPreference = "Continue"
 $Terminal = Join-Path $Install "terminal64.exe"
@@ -62,7 +63,7 @@ function Step([string]$name, [bool]$ok, [string]$detail) {
 $running = @(Get-Process -Name terminal64 -ErrorAction SilentlyContinue | Where-Object { $_.Path })
 if (@($running | Where-Object { $_.Path -ieq $Terminal }).Count -gt 0) { Write-Host "STOP: the tested MT5 is open; not touched"; exit 2 }
 New-Item -ItemType Directory -Force $Out, "$MT5\MQL5\Presets" | Out-Null
-Say "NNFX_EA demo run, mode $Mode, $Period, magic $Magic  $Stamp"
+Say "NNFX_EA demo run, mode $Mode, $Period, magic $Magic$(if ($Mode -ne "smoke") { ", risk $Risk%" })  $Stamp"
 Say "Repo: $Repo  (commit $(& git -C $Repo rev-parse --short HEAD 2>$null))"
 foreach ($f in @($TradeLog, $DecLog, $StateFile)) {
     if (Test-Path $f) { Move-Item $f "$Out\before_this_run_$(Split-Path $f -Leaf)" -Force }   # kept, never deleted
@@ -191,7 +192,7 @@ if ($Mode -eq "smoke") {
     $want = @((Get-Content "$Repo\MQL5\Presets\NNFX_H1.set" -Encoding Unicode) | Where-Object { $_ -match "^Inp" }).Count
 } else {
     $lines = @((Get-Content "$Repo\MQL5\Presets\NNFX_H1.set" -Encoding Unicode) | Where-Object { $_ -match "^Inp" } |
-               ForEach-Object { if ($_ -match "^InpMagic=") { "InpMagic=$Magic" } else { ($_ -split "\|\|")[0] } })
+               ForEach-Object { if ($_ -match "^InpMagic=") { "InpMagic=$Magic" } elseif ($_ -match "^InpRiskPct=") { "InpRiskPct=$Risk" } else { ($_ -split "\|\|")[0] } })
     $setName = "NNFX_EA_$Mode.set"
     Write-Set $setName $lines
     $want = $lines.Count
