@@ -22,6 +22,9 @@ Reads a trade log written by MQL5/Include/NNFX/TradeLog.mqh and checks, trade by
   ABORT    a trade with an ABORT row has no half 2 and half 1 is closed (a CLOSE/SL row for
            half 1 after its OPEN; the ABORT note does not say the close failed): no lone half
   REFUSE   a trade id with a REFUSE row has no OPEN row: nothing was sent (stops level, OD-5 margin)
+  window   (G1_phase6b_2 note 3, approach (b)) the risk with the stop SENT (the OPEN rows, before any MODIFY)
+           is at most target + the slippage risk (lots x |fill - requested| in money, "requested" = the price the stop
+           was planned from); an adverse window is reported as INFO
   info     realised loss larger than planned (a gap through the stop) is reported, never
            a pass or a fail; REFUSE and RETRY rows are counted
 
@@ -33,11 +36,13 @@ Exit code 0 = every file PASS.
 import argparse
 import csv
 import os
+import re
 import sys
 from datetime import datetime
 from collections import defaultdict
 
 RISK_BOUND = 1e-6          # account currency: float noise only (verdict note 1)
+REQUESTED = re.compile(r"requested ([0-9.]+)")
 SL_ATR, TP1_ATR = 1.5, 1.0
 TRAIL_START, TRAIL_DIST = 2.0, 1.5
 
@@ -64,6 +69,7 @@ def near(a, b, tol):
 def check(path, min_trades=0, require=(), require_notes=(), be_lag=0):
     rows = read_log(path)
     fails, info = [], []
+    windows = []   # (trade, excess over target with the stop sent, slippage risk): adverse fills before the MODIFY
     counts = defaultdict(int)
     for r in rows:
         counts[r["event"]] += 1
@@ -145,6 +151,21 @@ def check(path, min_trades=0, require=(), require_notes=(), be_lag=0):
         target = o1["balance"] * o1["risk_pct"] / 100.0
         if planned > target + RISK_BOUND:
             fails.append("%s: planned risk %.8f above target %.8f (by %.3g)" % (tid, planned, target, planned - target))
+        # window (G1_phase6b_2 note 3, approach (b)): the stop sent with the order is planned from the requested
+        # price; until the MODIFY re-sets it from the fill, the risk with that stop may exceed the target by the
+        # slippage only
+        held, slip_risk = 0.0, 0.0
+        for o in (o1, o2):
+            m = REQUESTED.search(o["note"])
+            req = float(m.group(1)) if m else (o["entry"] or o["price"])
+            entry = o["entry"] or o["price"]
+            held += o["lots"] * (abs(entry - o["sl"]) / o["tick_size"]) * o1["tick_value"]
+            slip_risk += o["lots"] * (abs(entry - req) / o["tick_size"]) * o1["tick_value"]
+        if held > target + slip_risk + RISK_BOUND:
+            fails.append("%s: risk with the stop sent %.8f above target %.8f plus the slippage %.8f (window)"
+                         % (tid, held, target, slip_risk))
+        elif held > target + RISK_BOUND:
+            windows.append((tid, held - target, slip_risk))
         # T2 breakeven
         tp1_rows = [(i, r) for i, r in evs if r["event"] == "TP1"]
         be_rows = [(i, r) for i, r in evs if r["event"] == "BE"]
@@ -235,6 +256,10 @@ def check(path, min_trades=0, require=(), require_notes=(), be_lag=0):
     for text in require_notes:
         if not any(text in r["note"] for r in rows):
             fails.append("coverage: no row with %r in its note" % text)
+
+    for tid, excess, slip in windows:
+        info.append("%s: adverse fill window: the stop sent risked %.6f above target until the MODIFY, within the "
+                    "slippage %.6f (G1_phase6b_2 note 3)" % (tid, excess, slip))
 
     name = os.path.basename(path)
     print("=" * 70)

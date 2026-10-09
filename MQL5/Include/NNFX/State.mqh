@@ -5,7 +5,8 @@
 //|                                                                  |
 //|  state file  MQL5\Files\NNFX\state\<instance>.txt (OD-9 (a)):    |
 //|              NNFXSTATE|1|<instance>, PROC|<last processed        |
-//|              candle>, TRADE lines, CONT lines, CHECKSUM|<FNV-1a> |
+//|              candle>, TRADE lines, CONT lines, PCORE lines (6f: |
+//|              each pair's rules-core memory), CHECKSUM|<FNV-1a>   |
 //|              Written atomically: a .tmp file, then a rename.     |
 //|  rebuild     broker first (positions + deal history); the state  |
 //|              file only for the entry ATR, the runner cap and the |
@@ -56,6 +57,17 @@ struct NNFXDealRec
    double            volume, price;
    string            reason;   // EXPERT, SL, TP, CLIENT, OTHER
    string            comment;
+  };
+
+// Phase 6f (DESIGN_6F section 5): one pair's rules-core memory, "PCORE|<sym>|<last processed candle>|" +
+// CNNFXPairCore::Snapshot() (each pair keeps its own clock). The snapshot's own content is checked by
+// CNNFXPairCore::Restore, not by the state file parser.
+#define NNFX_CORE_FIELDS 35
+struct NNFXCoreRec
+  {
+   string            sym;
+   datetime          proc;     // open time of the last candle this pair processed
+   string            snap;
   };
 
 struct NNFXCandleRec
@@ -156,14 +168,33 @@ string NNFXJoin(const string &lines[], const string sep)
   }
 
 //--- state file ---------------------------------------------------
-string NNFXStateText(const string instance, const NNFXTrade &trades[], const NNFXCont &conts[], const datetime processed)
+// cores: the 6f EA's PCORE lines, written sorted by symbol after the CONT lines (recovery.state_file_text)
+string NNFXStateText(const string instance, const NNFXTrade &trades[], const NNFXCont &conts[], const NNFXCoreRec &cores[],
+                     const datetime processed)
   {
    string lines[];
    NNFXSerialize(trades, conts, lines);
    string text = "NNFXSTATE|" + NNFX_STATE_VERSION + "|" + instance + "\n" + "PROC|" + NNFXTime(processed) + "\n";
    for(int i = 0; i < ArraySize(lines); i++)
       text += lines[i] + "\n";
+   string syms[];
+   ArrayResize(syms, ArraySize(cores));
+   for(int i = 0; i < ArraySize(cores); i++)
+      syms[i] = cores[i].sym + "\t" + IntegerToString(i);
+   NNFXSortStrings(syms);
+   for(int i = 0; i < ArraySize(syms); i++)
+     {
+      int k = (int)StringToInteger(StringSubstr(syms[i], StringFind(syms[i], "\t") + 1));
+      text += "PCORE|" + cores[k].sym + "|" + NNFXTime(cores[k].proc) + "|" + cores[k].snap + "\n";
+     }
    return text + StringFormat("CHECKSUM|%08x\n", NNFXFnv1a32(text));
+  }
+
+// The 6c form (no core lines): the test EA NNFX_OrderTest
+string NNFXStateText(const string instance, const NNFXTrade &trades[], const NNFXCont &conts[], const datetime processed)
+  {
+   NNFXCoreRec none[];
+   return NNFXStateText(instance, trades, conts, none, processed);
   }
 
 bool NNFXParseTradeFields(const string &p[], const int at, NNFXTrade &t)
@@ -188,11 +219,13 @@ bool NNFXParseTradeFields(const string &p[], const int at, NNFXTrade &t)
    return true;
   }
 
-// lines: the file's lines without line ends. Returns "present" or "corrupt" (why says why).
-string NNFXStateParse(const string &lines[], NNFXTrade &trades[], NNFXCont &conts[], datetime &processed, string &why)
+// lines: the file's lines without line ends. Returns "present" or "corrupt" (why says why). cores: the PCORE lines.
+string NNFXStateParse(const string &lines[], NNFXTrade &trades[], NNFXCont &conts[], NNFXCoreRec &cores[],
+                      datetime &processed, string &why)
   {
    ArrayResize(trades, 0);
    ArrayResize(conts, 0);
+   ArrayResize(cores, 0);
    processed = 0;
    why = "";
    int n = ArraySize(lines);
@@ -243,15 +276,31 @@ string NNFXStateParse(const string &lines[], NNFXTrade &trades[], NNFXCont &cont
          conts[m].last_exit_dir = (int)StringToInteger(p[5]);
          conts[m].since = StringToTime(p[6]);
         }
+      else if(k == 3 + NNFX_CORE_FIELDS && p[0] == "PCORE" && p[3] == "CORE")
+        {
+         int m = ArraySize(cores);
+         ArrayResize(cores, m + 1);
+         cores[m].sym = p[1];
+         cores[m].proc = StringToTime(p[2]);
+         cores[m].snap = StringSubstr(lines[i], StringLen("PCORE|" + p[1] + "|" + p[2] + "|"));
+        }
       else
         {
          ArrayResize(trades, 0);
          ArrayResize(conts, 0);
+         ArrayResize(cores, 0);
          why = "unreadable line " + lines[i];
          return "corrupt";
         }
      }
    return "present";
+  }
+
+// The 6c form: PCORE lines are accepted and left out
+string NNFXStateParse(const string &lines[], NNFXTrade &trades[], NNFXCont &conts[], datetime &processed, string &why)
+  {
+   NNFXCoreRec cores[];
+   return NNFXStateParse(lines, trades, conts, cores, processed, why);
   }
 
 string NNFXStatePath(const string instance)

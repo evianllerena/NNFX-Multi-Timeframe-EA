@@ -489,3 +489,43 @@ CANDLE|EURUSD|2026.06.02 10:00|1.1005|0.002|1|1
 CANDLE|EURUSD|2026.06.02 11:00|1.1015|0.002|1|1
 NOTE|state file: absent
 END
+
+# 6f (G1_phase6c_2 note 3, a second case for planted bug M5 "fallback pairing by symbol only"): no comments, no
+# state file. GBPUSD: an aborted SHORT lone half (position 71, 09:00:05, closed at once), then a LONG trade at
+# 11:00:05 (positions 81 and 82, 0.25 each, entry 1.2700, decision candle 10:00 with ATR 0.003, stop 1.2655);
+# EURUSD: a short trade in the same second (91 and 92, 0.33, entry 1.1000, ATR 0.002, stop 1.1030), its deals
+# interleaved with GBPUSD's. Same symbol + second + direction + volume pairs 81+82 and 91+92; 71 stays alone.
+# (By symbol only, 71 would pair with 81.) Continuation: GBPUSD long since 11:00, closes above the baseline, C1
+# long: armed, not flipped; last exit = the aborted short (-1). EURUSD short since 11:00, armed; no exit yet (0).
+CASE|fallback_pairing_by_second_and_direction
+MAGIC|26999
+PERIOD|3600
+UPTO|2026.06.02 12:00
+IGNORE_COMMENTS|1
+STATE|absent
+POS|81|GBPUSD|26999|1|0.25|1.27|1.2655|1.273|
+POS|82|GBPUSD|26999|1|0.25|1.27|1.2655|0|
+POS|91|EURUSD|26999|-1|0.33|1.1|1.103|1.098|
+POS|92|EURUSD|26999|-1|0.33|1.1|1.103|0|
+DEAL|701|2026.06.02 09:00:05|71|GBPUSD|26999|IN|-1|0.25|1.268|EXPERT|
+DEAL|702|2026.06.02 09:00:06|71|GBPUSD|26999|OUT|-1|0.25|1.26805|EXPERT|
+DEAL|801|2026.06.02 11:00:05|81|GBPUSD|26999|IN|1|0.25|1.27|EXPERT|
+DEAL|901|2026.06.02 11:00:05|91|EURUSD|26999|IN|-1|0.33|1.1|EXPERT|
+DEAL|802|2026.06.02 11:00:05|82|GBPUSD|26999|IN|1|0.25|1.27|EXPERT|
+DEAL|902|2026.06.02 11:00:05|92|EURUSD|26999|IN|-1|0.33|1.1|EXPERT|
+CANDLE|GBPUSD|2026.06.02 08:00|1.2685|0.003|-1|-1
+CANDLE|GBPUSD|2026.06.02 09:00|1.2690|0.003|1|1
+CANDLE|GBPUSD|2026.06.02 10:00|1.2700|0.003|1|1
+CANDLE|GBPUSD|2026.06.02 11:00|1.2710|0.003|1|1
+CANDLE|GBPUSD|2026.06.02 12:00|1.2720|0.003|1|1
+CANDLE|EURUSD|2026.06.02 10:00|1.1000|0.002|-1|-1
+CANDLE|EURUSD|2026.06.02 11:00|1.0995|0.002|-1|-1
+CANDLE|EURUSD|2026.06.02 12:00|1.0990|0.002|-1|-1
+EXP|TRADE|R81|GBPUSD|1|81|82|1|1|0.25|1.27|1.27|0.003|-1|1.2655|0|0
+EXP|TRADE|R91|EURUSD|-1|91|92|1|1|0.33|1.1|1.1|0.002|-1|1.103|0|0
+EXP|CONT|EURUSD|-1|1|0|0|2026.06.02 11:00
+EXP|CONT|GBPUSD|1|1|0|-1|2026.06.02 11:00
+NOTE|fallback id R71 = position 71
+NOTE|fallback id R81 = positions 81+82
+NOTE|fallback id R91 = positions 91+92
+END

@@ -246,10 +246,16 @@ void NNFXDrawdownLoad(NNFXDrawdown &dd)
    dd.paused = GlobalVariableCheck(NNFX_GV_DD_PAUSED) && GlobalVariableGet(NNFX_GV_DD_PAUSED) != 0.0;
   }
 
+// The pause and its peak must survive a crash (G1_phase6d_1 item 2): MT5 writes global variables to disk only from
+// time to time, so on any change they are flushed at once (GlobalVariablesFlush).
 void NNFXDrawdownSave(const NNFXDrawdown &dd)
   {
+   bool changed = !GlobalVariableCheck(NNFX_GV_DD_PEAK) || GlobalVariableGet(NNFX_GV_DD_PEAK) != dd.peak ||
+                  !GlobalVariableCheck(NNFX_GV_DD_PAUSED) || (GlobalVariableGet(NNFX_GV_DD_PAUSED) != 0.0) != dd.paused;
    GlobalVariableSet(NNFX_GV_DD_PEAK, dd.peak);
    GlobalVariableSet(NNFX_GV_DD_PAUSED, dd.paused ? 1.0 : 0.0);
+   if(changed)
+      GlobalVariablesFlush();
   }
 
 // The owner's reset by hand (S-6, D6d-3): NNFX_DD_RESET = 1, set by the owner (or by the chart button after its
@@ -265,6 +271,7 @@ bool NNFXDrawdownResetRequested(NNFXDrawdown &dd, const double equity, string &l
    NNFXDrawdownReset(dd, equity);
    NNFXDrawdownSave(dd);
    GlobalVariableSet(NNFX_GV_DD_RESET, 0.0);
+   GlobalVariablesFlush();
    logText = StringFormat("drawdown reset by hand (D6d-3): was %s, peak %.2f -> %.2f (equity now %.2f)",
                           wasPaused ? "paused" : "not paused", oldPeak, dd.peak, equity);
    Print("NNFX: ", logText);

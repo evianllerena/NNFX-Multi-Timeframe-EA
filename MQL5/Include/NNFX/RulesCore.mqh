@@ -501,6 +501,73 @@ public:
    int               ClosedCount(void) const          { return m_n_closed; }
    double            ClosedR(const int k) const       { return (k >= 0 && k < m_n_closed) ? m_closed[k].r : 0.0; }
    bool              HasPosition(void) const          { return m_has_pos; }
+   int               PositionDir(void) const          { return m_has_pos ? m_p_dir : 0; }
+   int               PendingKind(void) const          { return m_pa_kind; }   // 0 none, 1 enter, 2 exit at the next open
+   int               PendingDir(void) const           { return m_pa_kind == 1 ? m_pa_dir : 0; }   // the entry's direction
+
+   // ------------------------------------------------------------ memory (6f, DESIGN_6F section 5)
+   // Added for the real EA's restart; the decision logic above is unchanged (still the port of core.py).
+   // The events emitted so far are forgotten (the EA reads them each candle); the memory is kept.
+   void              ClearEvents(void)                { ArrayFree(m_events); m_n_events = 0; }
+
+   // Everything the core remembers between candles, as one line: "CORE|1|<33 fields>". Doubles in %.17g so the
+   // restore is exact. The settings are not in it: they come from the preset.
+   string            Snapshot(void) const
+     {
+      return StringFormat("CORE|1|%d|%d|%d|%d|%d|%d|%d|%d|%d|%d|%.17g|%.17g|%.17g|%.17g|%.17g|%d|%s|%d|%d|%d|%d|%.17g|%d|%d|%s|%.17g|%d|%d|%s|%d|%d|%d|%d",
+                          m_i, m_warm ? 1 : 0, m_prev_side, m_prev_c1, m_prev_c2, m_prev_ex, m_c1_run_dir, m_c1_run_len,
+                          m_has_pos ? 1 : 0, m_p_dir, m_p_entry, m_p_atr, m_p_sl, m_p_tp1, m_p_tp2, m_p_has_tp2 ? 1 : 0,
+                          m_p_rule == "" ? "-" : m_p_rule, m_p_h1_open ? 1 : 0, m_p_h2_open ? 1 : 0, m_p_tp1_done ? 1 : 0,
+                          m_p_trail_active ? 1 : 0, m_p_r, m_pa_kind, m_pa_dir, m_pa_rule == "" ? "-" : m_pa_rule, m_pa_atr,
+                          m_pe_active ? 1 : 0, m_pe_dir, m_pe_rule == "" ? "-" : m_pe_rule, m_trend_dir, m_armed ? 1 : 0,
+                          m_c1_flipped ? 1 : 0, m_last_exit_dir);
+     }
+
+   // Restores a Snapshot() line; false (and nothing changed) if it is not one.
+   bool              Restore(const string line)
+     {
+      string p[];
+      if(StringSplit(line, '|', p) != 35 || p[0] != "CORE" || p[1] != "1")
+         return false;
+      int k = 2;
+      m_i = (int)StringToInteger(p[k++]);
+      m_warm = (p[k++] == "1");
+      m_prev_side = (int)StringToInteger(p[k++]);
+      m_prev_c1 = (int)StringToInteger(p[k++]);
+      m_prev_c2 = (int)StringToInteger(p[k++]);
+      m_prev_ex = (int)StringToInteger(p[k++]);
+      m_c1_run_dir = (int)StringToInteger(p[k++]);
+      m_c1_run_len = (int)StringToInteger(p[k++]);
+      m_has_pos = (p[k++] == "1");
+      m_p_dir = (int)StringToInteger(p[k++]);
+      m_p_entry = StringToDouble(p[k++]);
+      m_p_atr = StringToDouble(p[k++]);
+      m_p_sl = StringToDouble(p[k++]);
+      m_p_tp1 = StringToDouble(p[k++]);
+      m_p_tp2 = StringToDouble(p[k++]);
+      m_p_has_tp2 = (p[k++] == "1");
+      m_p_rule = (p[k] == "-") ? "" : p[k];
+      k++;
+      m_p_h1_open = (p[k++] == "1");
+      m_p_h2_open = (p[k++] == "1");
+      m_p_tp1_done = (p[k++] == "1");
+      m_p_trail_active = (p[k++] == "1");
+      m_p_r = StringToDouble(p[k++]);
+      m_pa_kind = (int)StringToInteger(p[k++]);
+      m_pa_dir = (int)StringToInteger(p[k++]);
+      m_pa_rule = (p[k] == "-") ? "" : p[k];
+      k++;
+      m_pa_atr = StringToDouble(p[k++]);
+      m_pe_active = (p[k++] == "1");
+      m_pe_dir = (int)StringToInteger(p[k++]);
+      m_pe_rule = (p[k] == "-") ? "" : p[k];
+      k++;
+      m_trend_dir = (int)StringToInteger(p[k++]);
+      m_armed = (p[k++] == "1");
+      m_c1_flipped = (p[k++] == "1");
+      m_last_exit_dir = (int)StringToInteger(p[k++]);
+      return true;
+     }
   };
 
 #endif

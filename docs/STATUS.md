@@ -2,7 +2,7 @@
 
 Where the project stands. Update this file in every PR.
 
-Last updated: 2026-10-06.
+Last updated: 2026-10-09.
 
 ## Phases
 
@@ -13,7 +13,7 @@ Last updated: 2026-10-06.
 | 3 Python answer key | Merged |
 | 4 MQL5 rules core | Merged (PR #3) |
 | 5 Indicator slots and profiles | Merged: PR #4 (at `58e2994`, before the G1_phase5_1 fixes; see note below) and PR #5 (the reviewed fixes, `0e701dd`) |
-| 6 Orders, risk, recovery, guard, news, EA | Plan: gate G2 **PASS** (`G2_phase6_1`), `docs/PLAN_PHASE6.md`; owner decisions OD-1 to OD-21 (OD-3 updated), D6c-1 to D6c-3, D6d-1 to D6d-4 and D-OPS-1 in `docs/DECISIONS.md`. **6a** merged (PR #6). **6b** merged (PR #7). **6c state and recovery** merged (PR #8, `G1_phase6c_2` PASS, merge `016bc3f`). **6d guard:** merged (PR #9, `G1_phase6d_1` PASS, merge `0e542f2`); daily loss account-wide (D6d-5). **6e news:** draft PR #10 (branch `phase-6e-news`). Review `G1_phase6e_1`: CHANGES REQUESTED; F1 replaced by the owner's news block D6e-3, F2 fixed; packet `G1_phase6e_2` in review. NewsTest 61/61; planted bugs 14 of 14; calendar export PASS; the Fed chair's speeches are missing from MT5's calendar since June 2026 (WARN). The MT5-offline check is deferred to the 6f G1 gate (D6b-1). 6f not started |
+| 6 Orders, risk, recovery, guard, news, EA | Plan: gate G2 **PASS** (`G2_phase6_1`), `docs/PLAN_PHASE6.md`; owner decisions OD-1 to OD-21 (OD-3 updated), D6c-1 to D6c-3, D6d-1 to D6d-4 and D-OPS-1 in `docs/DECISIONS.md`. **6a** merged (PR #6). **6b** merged (PR #7). **6c state and recovery** merged (PR #8, `G1_phase6c_2` PASS, merge `016bc3f`). **6d guard:** merged (PR #9, `G1_phase6d_1` PASS, merge `0e542f2`); daily loss account-wide (D6d-5). **6e news:** merged (PR #10, `G1_phase6e_2` PASS, merge `49ddad5`). **6f the EA:** branch `phase-6f-ea` (draft PR #11). Done and passing on d80dd0e: runner `20261006_224137`, planted bugs 12 of 12, two identical 4-month runs, presets, both restart tests, demo crash tests (TP1, pause). The first 1H demo smoke test (from 2026-10-06 22:57) was cut by a PC power loss after 24.0 h (logs PASS up to the cut; in `invalid\`); the EA's restart after that hard stop restored its memory and closed nothing (`demo_ea_powercut_restart_20261007_234154`). The 1H demo smoke test from the start passed (26 h, `demo_ea_smoke_20261008_000411`, `OVERALL: PASS`; its start-up exercised D6f-2 on the open AUDNZD trade). The MT5-offline check (D6b-1) passed on 2026-10-09 with the owner's firewall rule (runner part `20261009_104221`, EA part `demo_ea_offline_20261009_103426`; rule removed). Next, with the owner: the chart buttons clicked by hand; then packet G1_phase6f_1. The MT5-offline check is deferred to the 6f G1 gate (D6b-1).  |
 | 7 onward | See `docs/SPEC.md` |
 
 **Note (2026-10-04):** PR #4 was merged at `58e2994` on 2026-10-04 15:47 UTC, 4.5 minutes after review
@@ -39,10 +39,8 @@ Read-only EnvCheck on demo 62316800 (`docs/ENVIRONMENT.md`): hedging, EUR accoun
 - Tick I-1, I-2, I-3, I-7, I-9 in the living rulebook doc; then refresh the `docs/RULEBOOK.md` snapshot.
 - Review D5-1 to D5-5 (`docs/DECISIONS.md`).
 - Choose the live broker (`docs/ENVIRONMENT.md`; MetaQuotes-Demo is not a retail broker).
-- MT5-offline check (carry-over 1; G1_phase6b_1 F3): **deferred to the 6f G1 gate** (decision D6b-1): required
-  before the real EA is accepted and before any demo forward-test. Then: add the firewall rule in
-  `tools/run_offline_check.ps1` (admin PowerShell), run it with MT5 closed (plus the order-path part on a live chart),
-  remove the rule.
+- MT5-offline check (carry-over 1; G1_phase6b_1 F3, D6b-1): **done 2026-10-09**, both parts PASS (`docs/VERIFICATION.md`);
+  the firewall rule was added and removed through admin prompts the owner approved.
 
 ## Answered by the Phase 5b runs (2026-10-04)
 

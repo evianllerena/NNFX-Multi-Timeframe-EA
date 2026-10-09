@@ -226,13 +226,28 @@ void RunStateFiles()
         }
       NNFXTrade trades[];
       NNFXCont conts[];
+      NNFXCoreRec cores[];
       datetime proc;
       string why;
-      string status = NNFXStateParse(lines, trades, conts, proc, why);
+      string status = NNFXStateParse(lines, trades, conts, cores, proc, why);
+      // optional 6th field (6f): the number of PCORE lines
+      int wantCores = (ArraySize(p) > 5) ? (int)StringToInteger(p[5]) : ArraySize(cores);
       bool ok = (status == p[2] && ArraySize(trades) == (int)StringToInteger(p[3]) &&
-                 ArraySize(conts) == (int)StringToInteger(p[4]));
-      Result(ok, StringFormat("state file %s: expected %s %s/%s, got %s %d/%d %s", p[1], p[2], p[3], p[4], status,
-                              ArraySize(trades), ArraySize(conts), why));
+                 ArraySize(conts) == (int)StringToInteger(p[4]) && ArraySize(cores) == wantCores);
+      Result(ok, StringFormat("state file %s: expected %s %s/%s/%d, got %s %d/%d/%d %s", p[1], p[2], p[3], p[4], wantCores,
+                              status, ArraySize(trades), ArraySize(conts), ArraySize(cores), why));
+      // a valid file written again by NNFXStateText gives the same bytes (PCORE lines included)
+      if(status == "present")
+        {
+         string text = "";
+         for(int k = 0; k < ArraySize(lines); k++)
+            if(lines[k] != "")
+               text += lines[k] + "\n";
+         string inst[];
+         StringSplit(lines[0], '|', inst);
+         string again = NNFXStateText(inst[2], trades, conts, cores, proc);
+         Result(again == text, "state file " + p[1] + ": written again byte for byte");
+        }
      }
   }
 

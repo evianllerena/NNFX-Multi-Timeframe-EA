@@ -1,4 +1,4 @@
-# Shared state-file cases: SFTEST|file|expected status|trades|continuation lines.
+# Shared state-file cases: SFTEST|file|expected status|trades|continuation lines[|core lines (6f PCORE)].
 # The valid files were written by nnfx_ref/recovery.state_file_text (checksum: FNV-1a 32-bit, checked against
 # its published test vectors in test_recovery.py); each corrupt file is a valid one with one change:
 # a changed digit (0.0011 -> 0.0012), the last 30 bytes cut off, or the version 1 -> 2 with a re-computed checksum.
@@ -7,3 +7,7 @@ SFTEST|valid_flat.txt|present|0|1
 SFTEST|corrupt_changed_byte.txt|corrupt|0|0
 SFTEST|corrupt_truncated.txt|corrupt|0|0
 SFTEST|corrupt_wrong_version.txt|corrupt|0|0
+# 6f: valid_flat.txt plus two PCORE lines (rules-core memory, DESIGN_6F section 5), and the same with one
+# PCORE field dropped and the checksum re-computed (an unreadable line).
+SFTEST|valid_with_cores.txt|present|0|1|2
+SFTEST|corrupt_core_short.txt|corrupt|0|0|0

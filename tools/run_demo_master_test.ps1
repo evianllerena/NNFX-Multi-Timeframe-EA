@@ -113,14 +113,14 @@ Copy-Item $probeTpl "$Out\" -Force
 
 # every NNFX_OrderTest input listed (test_input_lists.py); A and B differ in magic, symbol and the test inputs
 $inputsB = @("InpRiskPct=2.0", "InpEveryBars=1", "InpMaxTrades=0", "InpMinLots=true", "InpMagic=26994", "InpStoplessTest=false",
-    "InpLoseReplyOn=0", "InpAbortOn=0", "InpStopsRefuseOn=0", "InpMarginRefuseOn=0", "InpModifyOn=0", "InpStopWhenDone=false",
+    "InpLoseReplyOn=0", "InpAbortOn=0", "InpStopsRefuseOn=0", "InpMarginRefuseOn=0", "InpModifyOn=0", "InpAdverseOn=0", "InpStopWhenDone=false",
     "InpRestartAt=none", "InpRestartDeleteState=false", "InpRestartIgnoreComments=false", "InpCloseLeftovers=false",
     "InpGuard=true", "InpInstanceOn=true", "InpServerWinterOffset=2", "InpServerDst=US", "InpWeekendHours=0",
     "InpMaxSpread=0", "InpTesterMaster=-1", "InpTesterPauseAt=none",
     "InpMasterTestTpl=", "InpMasterTestSymbol=GBPUSD", "InpMasterOffAfter=10", "InpMasterOffFor=5")
 
 $inputsA = @("InpRiskPct=2.0", "InpEveryBars=1", "InpMaxTrades=0", "InpMinLots=true", "InpMagic=26993", "InpStoplessTest=false",
-    "InpLoseReplyOn=0", "InpAbortOn=0", "InpStopsRefuseOn=0", "InpMarginRefuseOn=0", "InpModifyOn=0", "InpStopWhenDone=false",
+    "InpLoseReplyOn=0", "InpAbortOn=0", "InpStopsRefuseOn=0", "InpMarginRefuseOn=0", "InpModifyOn=0", "InpAdverseOn=0", "InpStopWhenDone=false",
     "InpRestartAt=none", "InpRestartDeleteState=false", "InpRestartIgnoreComments=false", "InpCloseLeftovers=false",
     "InpGuard=true", "InpInstanceOn=true", "InpServerWinterOffset=2", "InpServerDst=US", "InpWeekendHours=0",
     "InpMaxSpread=0", "InpTesterMaster=-1", "InpTesterPauseAt=none",
