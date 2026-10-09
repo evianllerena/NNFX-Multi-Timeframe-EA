@@ -2,7 +2,7 @@
 
 Where the project stands. Update this file in every PR.
 
-Last updated: 2026-10-08.
+Last updated: 2026-10-09.
 
 ## Phases
 
@@ -13,7 +13,7 @@ Last updated: 2026-10-08.
 | 3 Python answer key | Merged |
 | 4 MQL5 rules core | Merged (PR #3) |
 | 5 Indicator slots and profiles | Merged: PR #4 (at `58e2994`, before the G1_phase5_1 fixes; see note below) and PR #5 (the reviewed fixes, `0e701dd`) |
-| 6 Orders, risk, recovery, guard, news, EA | Plan: gate G2 **PASS** (`G2_phase6_1`), `docs/PLAN_PHASE6.md`; owner decisions OD-1 to OD-21 (OD-3 updated), D6c-1 to D6c-3, D6d-1 to D6d-4 and D-OPS-1 in `docs/DECISIONS.md`. **6a** merged (PR #6). **6b** merged (PR #7). **6c state and recovery** merged (PR #8, `G1_phase6c_2` PASS, merge `016bc3f`). **6d guard:** merged (PR #9, `G1_phase6d_1` PASS, merge `0e542f2`); daily loss account-wide (D6d-5). **6e news:** merged (PR #10, `G1_phase6e_2` PASS, merge `49ddad5`). **6f the EA:** branch `phase-6f-ea` (draft PR #11). Done and passing on d80dd0e: runner `20261006_224137`, planted bugs 12 of 12, two identical 4-month runs, presets, both restart tests, demo crash tests (TP1, pause). The first 1H demo smoke test (from 2026-10-06 22:57) was cut by a PC power loss after 24.0 h (logs PASS up to the cut; in `invalid\`); the EA's restart after that hard stop restored its memory and closed nothing (`demo_ea_powercut_restart_20261007_234154`). Running: the 1H demo smoke test from the start (26 h, from 2026-10-08 00:04, `demo_ea_smoke_20261008_000411`; its start-up exercised D6f-2 on the open AUDNZD trade). Then, with the owner: the MT5-offline check (firewall rule) and the chart buttons clicked by hand; then packet G1_phase6f_1. The MT5-offline check is deferred to the 6f G1 gate (D6b-1).  |
+| 6 Orders, risk, recovery, guard, news, EA | Plan: gate G2 **PASS** (`G2_phase6_1`), `docs/PLAN_PHASE6.md`; owner decisions OD-1 to OD-21 (OD-3 updated), D6c-1 to D6c-3, D6d-1 to D6d-4 and D-OPS-1 in `docs/DECISIONS.md`. **6a** merged (PR #6). **6b** merged (PR #7). **6c state and recovery** merged (PR #8, `G1_phase6c_2` PASS, merge `016bc3f`). **6d guard:** merged (PR #9, `G1_phase6d_1` PASS, merge `0e542f2`); daily loss account-wide (D6d-5). **6e news:** merged (PR #10, `G1_phase6e_2` PASS, merge `49ddad5`). **6f the EA:** branch `phase-6f-ea` (draft PR #11). Done and passing on d80dd0e: runner `20261006_224137`, planted bugs 12 of 12, two identical 4-month runs, presets, both restart tests, demo crash tests (TP1, pause). The first 1H demo smoke test (from 2026-10-06 22:57) was cut by a PC power loss after 24.0 h (logs PASS up to the cut; in `invalid\`); the EA's restart after that hard stop restored its memory and closed nothing (`demo_ea_powercut_restart_20261007_234154`). The 1H demo smoke test from the start passed (26 h, `demo_ea_smoke_20261008_000411`, `OVERALL: PASS`; its start-up exercised D6f-2 on the open AUDNZD trade). Then, with the owner: the MT5-offline check (firewall rule) and the chart buttons clicked by hand; then packet G1_phase6f_1. The MT5-offline check is deferred to the 6f G1 gate (D6b-1).  |
 | 7 onward | See `docs/SPEC.md` |
 
 **Note (2026-10-04):** PR #4 was merged at `58e2994` on 2026-10-04 15:47 UTC, 4.5 minutes after review
