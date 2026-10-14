@@ -62,6 +62,37 @@ class TestCheckNewsInputs(unittest.TestCase):
             ok = c.check(dp, ep, 60, require_x5=require_x5)
         return ok, buf.getvalue()
 
+    def test_first_row_after_a_gap_uses_the_warmup(self):
+        # Phase 7 (run ea_explore2_M30_20261014_165013): EURUSD's rows before the first close inside the NFP block go to a
+        # warm-up file, the next three candles are missing (a gap), and the log starts after them. The EA's previous
+        # close is the last warm-up candle's, so the first logged row is the first close inside the block (flag 1).
+        rows = build()
+        eur = [r for r in rows if r[1] == "EURUSD"]
+        i = next(k for k, r in enumerate(eur) if r[15] == "1")
+        warm, first = eur[:i], eur[i + 3]
+        first[15] = "1"
+        log = [r for r in rows if r[1] != "EURUSD" or r[0] >= first[0]]
+        d = tempfile.mkdtemp()
+        wp = os.path.join(d, "warm.csv")
+        with open(wp, "w", encoding="ascii", newline="") as f:
+            w = csv.writer(f, lineterminator="\r\n")
+            w.writerow(HEADER)
+            w.writerows(warm)
+        ok, out = self.run_check(log)
+        self.assertFalse(ok, out)   # without the warm-up file the first row is judged as if no candle was missing
+        self.assertIn("news flag 1, the reference says 0", out)
+        dp, ep = os.path.join(d, "dec.csv"), os.path.join(d, "events.txt")
+        with open(dp, "w", encoding="ascii", newline="") as f:
+            w = csv.writer(f, lineterminator="\r\n")
+            w.writerow(HEADER)
+            w.writerows(log)
+        with open(ep, "w", encoding="ascii", newline="") as f:
+            f.write("\r\n".join(EVENTS) + "\r\n")
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            ok = c.check(dp, ep, 60, warmup_path=wp)
+        self.assertTrue(ok, buf.getvalue())
+
     def test_reference_inputs_pass(self):
         rows = build()
         ok, out = self.run_check(rows)

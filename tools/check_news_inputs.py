@@ -36,7 +36,7 @@ def news_part(block):
     return ";".join(p for p in block.split(";") if p not in GUARD_WORDS)
 
 
-def check(dec_path, events_path, tf, winter=2, dst="US", blackouts="", require_x5=False):
+def check(dec_path, events_path, tf, winter=2, dst="US", blackouts="", require_x5=False, warmup_path=None):
     b = guard.Broker("check", winter, dst)
     with open(events_path, encoding="ascii", errors="replace") as f:
         events = news.load_export(f, b)
@@ -54,6 +54,16 @@ def check(dec_path, events_path, tf, winter=2, dst="US", blackouts="", require_x
     by_pair = defaultdict(list)
     for r in rows:
         by_pair[r[1]].append(r)
+    # Phase 7: the EA's last warm-up candle per pair (its close is the previous close of the first logged row). Without
+    # it, the first row assumes the candle before was there (wrong after a gap: run ea_explore2_M30_20261014_165013,
+    # AUDNZD 2019.01.02 06:00 after the New Year gap)
+    last_warm = {}
+    if warmup_path:
+        with open(warmup_path, encoding="ascii", newline="") as f:
+            for r in list(csv.reader(f))[1:]:
+                t_w = datetime.strptime(r[0], "%Y.%m.%d %H:%M")
+                if r[1] not in last_warm or t_w > last_warm[r[1]]:
+                    last_warm[r[1]] = t_w
     fails, info = [], []
     n_checked = n_n1 = n_news = n_x5 = n_n1_skip = 0
     for sym, rs in by_pair.items():
@@ -63,7 +73,8 @@ def check(dec_path, events_path, tf, winter=2, dst="US", blackouts="", require_x
             t_open = datetime.strptime(r[0], "%Y.%m.%d %H:%M")
             t = t_open + timedelta(minutes=tf)
             if prev is None:
-                prev = t_open   # the EA's warm-up ended with the candle before: its close is this candle's open
+                # the close of the EA's last warm-up candle; without the warm-up file, assume the candle before
+                prev = last_warm[sym] + timedelta(minutes=tf) if sym in last_warm else t_open
             if r[13] == "1":
                 n_checked += 1
                 cand = near(t)
@@ -116,8 +127,9 @@ def main(argv=None):
     ap.add_argument("--dst", default="US")
     ap.add_argument("--blackouts", default="")
     ap.add_argument("--require-x5", action="store_true")
+    ap.add_argument("--warmup", default=None, help="the EA's warm-up log (<log>_warmup.csv): the previous close of each pair's first row")
     a = ap.parse_args(argv)
-    return 0 if check(a.decisions, a.events, a.tf, a.winter, a.dst, a.blackouts, a.require_x5) else 1
+    return 0 if check(a.decisions, a.events, a.tf, a.winter, a.dst, a.blackouts, a.require_x5, a.warmup) else 1
 
 
 if __name__ == "__main__":

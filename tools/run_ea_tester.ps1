@@ -29,6 +29,7 @@ param(
     [string]$Symbol  = "EURUSD",            # the chart symbol (the basket is InpPairs)
     [int]$Model      = 1,                   # 1 = 1 minute OHLC
     [double]$Deposit = 0,                   # 0 = the tester's own; > 0 = [Tester] Deposit= (P7-4: long backtests)
+    [string]$BarsDir = "",                  # NNFX_ExportBars files: check_decision_log --bars (holiday / history gaps, V3)
     [string]$Tag     = "run",
     [string[]]$Set   = @(),                 # "InpName=value" overrides
     [int]$TimeoutMin = 120,
@@ -160,11 +161,14 @@ if (Test-Path "$Out\trades_$name") {
     $ctArgs = @("$Repo\tools\check_trades.py", "$Out\trades_$name", "--min-trades", "$MinTrades")
     if ($inputs["InpTrailOn"] -eq "false") { $ctArgs += "--trail-off" }
     Check "4 check_trades" "check_trades.txt" $ctArgs
-    Check "4 check_decision_log" "check_decision_log.txt" @("$Repo\tools\check_decision_log.py", "$Out\decisions_$name",
-          "--tf", $tf, "--pairs", $inputs["InpPairs"], "--trades", "$Out\trades_$name")
+    $dla = @("$Repo\tools\check_decision_log.py", "$Out\decisions_$name", "--tf", $tf, "--pairs", $inputs["InpPairs"],
+             "--trades", "$Out\trades_$name")
+    if ($BarsDir) { $dla += @("--bars", $BarsDir) }   # gaps where the broker has no candle are INFO (V3)
+    Check "4 check_decision_log" "check_decision_log.txt" $dla
     if ($inputs["InpNewsBlock"] -eq "true") {
         $na = @("$Repo\tools\check_news_inputs.py", "$Out\decisions_$name", "--events", ("$Common\" + $inputs["InpNewsFile"]),
                 "--tf", $tf, "--winter", $inputs["InpServerWinterOffset"], "--dst", $inputs["InpServerDst"])
+        if (Test-Path "$Out\warmup_$name") { $na += @("--warmup", "$Out\warmup_$name") }   # the first row after a gap
         if ($inputs["InpBlackouts"] -ne "none") { $na += @("--blackouts", $inputs["InpBlackouts"]) }
         Check "4 check_news_inputs" "check_news_inputs.txt" $na
     }
