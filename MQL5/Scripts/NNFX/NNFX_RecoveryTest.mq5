@@ -79,6 +79,7 @@ void RunCases()
    int period = 3600;
    datetime upto = 0;
    bool ignore = false;
+   double trailStart = 2.0;   // A2 (set 3): TRAILSTART lines
    string status = "absent";
    NNFXTrade st[];
    NNFXPosRec pos[];
@@ -101,6 +102,7 @@ void RunCases()
          period = 3600;
          upto = 0;
          ignore = false;
+         trailStart = 2.0;
          status = "absent";
          ArrayResize(st, 0);
          ArrayResize(pos, 0);
@@ -117,6 +119,8 @@ void RunCases()
          upto = StringToTime(p[1]);
       else if(kind == "IGNORE_COMMENTS")
          ignore = (p[1] == "1");
+      else if(kind == "TRAILSTART")
+         trailStart = StringToDouble(p[1]);
       else if(kind == "STATE")
          status = p[1];
       else if(kind == "STRADE")
@@ -184,7 +188,7 @@ void RunCases()
          NNFXTrade out[];
          NNFXCont conts[];
          string notes;
-         NNFXRebuildPure(pos, deals, status, st, candles, period, magic, upto, ignore, out, conts, notes);
+         NNFXRebuildPure(pos, deals, status, st, candles, period, magic, upto, ignore, out, conts, notes, trailStart);
          string got[];
          NNFXSerialize(out, conts, got);
          bool ok = (ArraySize(got) == ArraySize(exp));

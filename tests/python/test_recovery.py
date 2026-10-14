@@ -25,7 +25,7 @@ def load_cases(path=CASES):
             p = line.split("|")
             if p[0] == "CASE":
                 cur = {"name": p[1], "pos": [], "deal": [], "candle": [], "strade": [], "exp": [], "note": [],
-                       "ignore": False, "state": "absent"}
+                       "ignore": False, "state": "absent", "trail_start": 2.0}
             elif p[0] == "END":
                 cases.append(cur)
                 cur = None
@@ -35,6 +35,8 @@ def load_cases(path=CASES):
                 cur["period"] = int(p[1])
             elif p[0] == "UPTO":
                 cur["upto"] = rc.tparse(p[1])
+            elif p[0] == "TRAILSTART":   # A2 (set 3): the T4 switch-on setting, default 2
+                cur["trail_start"] = float(p[1])
             elif p[0] == "IGNORE_COMMENTS":
                 cur["ignore"] = p[1] == "1"
             elif p[0] == "STATE":
@@ -60,7 +62,7 @@ def load_cases(path=CASES):
 
 def run_case(c):
     trades, conts, notes = rc.rebuild(c["pos"], c["deal"], c["state"], c["strade"], c["candle"], c["period"],
-                                      c["magic"], c["upto"], c["ignore"])
+                                      c["magic"], c["upto"], c["ignore"], c["trail_start"])
     return rc.serialize(trades, conts), notes
 
 

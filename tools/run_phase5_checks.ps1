@@ -11,7 +11,7 @@ What it does, in order (each step's result goes in SUMMARY.txt):
                         are information only)
        NNFX_SafetyTest  pass line  RESULT: 43 passed, 0 failed, 43 total   (Phase 6b, S1; A7 + B3 cases 2026-10-14)
        NNFX_OrderMathTest pass line RESULT: 51 passed, 0 failed, 51 total  (Phase 6b; A1/A8 BA + PD cases, set 2; A5 OS cases, set 3)
-       NNFX_RecoveryTest pass line RESULT: 36 passed, 0 failed, 36 total   (Phase 6c; 6f PCORE lines, 2nd M5 case)
+       NNFX_RecoveryTest pass line RESULT: 41 passed, 0 failed, 41 total   (Phase 6c; 6f PCORE lines, 2nd M5 case; A2/A3 cases, set 3)
        NNFX_GuardTest   pass line  RESULT: 56 passed, 0 failed, 56 total   (Phase 6d)
        NNFX_NewsTest    pass line  RESULT: 61 passed, 0 failed, 61 total   (Phase 6e)
        NNFX_CoreStateTest pass line RESULT: 47 passed, 0 failed, 47 total (Phase 6f: core memory survives a restart)
@@ -198,7 +198,7 @@ if ($PythonOnly) {
         @{ Name = "NNFX_SizingTest"; Report = "$MT5\MQL5\Files\NNFX_SizingTest.txt";       Pass = "RESULT: 46 passed, 0 failed, 46 total"; Min = 5 },
         @{ Name = "NNFX_SafetyTest"; Report = "$MT5\MQL5\Files\NNFX_SafetyTest.txt";       Pass = "RESULT: 43 passed, 0 failed, 43 total"; Min = 5 },
         @{ Name = "NNFX_OrderMathTest"; Report = "$MT5\MQL5\Files\NNFX_OrderMathTest.txt"; Pass = "RESULT: 51 passed, 0 failed, 51 total"; Min = 5 },
-        @{ Name = "NNFX_RecoveryTest"; Report = "$MT5\MQL5\Files\NNFX_RecoveryTest.txt";  Pass = "RESULT: 36 passed, 0 failed, 36 total"; Min = 5 },
+        @{ Name = "NNFX_RecoveryTest"; Report = "$MT5\MQL5\Files\NNFX_RecoveryTest.txt";  Pass = "RESULT: 41 passed, 0 failed, 41 total"; Min = 5 },
         @{ Name = "NNFX_GuardTest";  Report = "$MT5\MQL5\Files\NNFX_GuardTest.txt";        Pass = "RESULT: 56 passed, 0 failed, 56 total"; Min = 5 },
         @{ Name = "NNFX_NewsTest";   Report = "$MT5\MQL5\Files\NNFX_NewsTest.txt";         Pass = "RESULT: 61 passed, 0 failed, 61 total"; Min = 5 },
         @{ Name = "NNFX_CoreStateTest"; Report = "$MT5\MQL5\Files\NNFX_CoreStateTest.txt";    Pass = "RESULT: 47 passed, 0 failed, 47 total"; Min = 5 },

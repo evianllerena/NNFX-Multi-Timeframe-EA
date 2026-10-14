@@ -3,7 +3,7 @@
 # Every expected line is worked out by hand from the rules; the code must produce exactly these lines.
 #
 # CASE|name                  starts a case; END ends it
-# MAGIC|n  PERIOD|seconds  UPTO|last processed candle (open time)  IGNORE_COMMENTS|0/1
+# MAGIC|n  PERIOD|seconds  UPTO|last processed candle (open time)  IGNORE_COMMENTS|0/1  TRAILSTART|x (T4 switch-on, default 2)
 # STATE|present|absent|corrupt    STRADE|<the 15 TRADE fields>  (the state file's trades; ignored unless present)
 # POS|pos|sym|magic|dir|volume|price|sl|tp|comment                         (open positions now)
 # DEAL|deal|time|pos|sym|magic|IN/OUT|dir|volume|price|reason|comment      (deal history)
@@ -528,4 +528,110 @@ EXP|CONT|GBPUSD|1|1|0|-1|2026.06.02 11:00
 NOTE|fallback id R71 = position 71
 NOTE|fallback id R81 = positions 81+82
 NOTE|fallback id R91 = positions 91+92
+END
+
+# ---- Review fixes set 3 (A2, A3), 2026-10-14 ----
+# A2a: as R3 (13:00 closed at 1.1045, 0.0045 beyond the 1.10000 entry) but no state file, so the trail comes from the
+# candles: with TRAILSTART 3 the switch-on needs 3 x 0.002 = 0.006 beyond entry: 0.0045 < 0.006, the trail is off.
+# ATR from the 09:00 decision candle (0.002), cap off (half 2 has no TP), sl2 from the position (1.1015).
+CASE|a2_trail_start_3_no_state
+MAGIC|26999
+PERIOD|3600
+UPTO|2026.06.02 13:00
+IGNORE_COMMENTS|0
+TRAILSTART|3
+STATE|absent
+POS|12|EURUSD|26999|1|0.33|1.1|1.1015|0|NNFX T0001 h2
+DEAL|101|2026.06.02 10:00:05|11|EURUSD|26999|IN|1|0.33|1.1|EXPERT|NNFX T0001 h1
+DEAL|102|2026.06.02 10:00:05|12|EURUSD|26999|IN|1|0.33|1.1|EXPERT|NNFX T0001 h2
+DEAL|103|2026.06.02 11:30:20|11|EURUSD|26999|OUT|1|0.33|1.102|TP|[tp 1.10200]
+CANDLE|EURUSD|2026.06.02 09:00|1.0995|0.002|1|1
+CANDLE|EURUSD|2026.06.02 10:00|1.1005|0.002|1|1
+CANDLE|EURUSD|2026.06.02 11:00|1.1015|0.002|1|1
+CANDLE|EURUSD|2026.06.02 12:00|1.103|0.002|1|1
+CANDLE|EURUSD|2026.06.02 13:00|1.1045|0.002|1|1
+EXP|TRADE|T0001|EURUSD|1|11|12|0|1|0.33|1.1|1.1|0.002|-1|1.1015|1|0
+EXP|CONT|EURUSD|1|1|0|0|2026.06.02 10:00
+NOTE|state file: absent
+END
+
+# A2a control: the same with TRAILSTART 2 (2 x 0.002 = 0.004 <= 0.0045): the trail is on, as R3.
+CASE|a2_trail_start_2_no_state
+MAGIC|26999
+PERIOD|3600
+UPTO|2026.06.02 13:00
+IGNORE_COMMENTS|0
+TRAILSTART|2
+STATE|absent
+POS|12|EURUSD|26999|1|0.33|1.1|1.1015|0|NNFX T0001 h2
+DEAL|101|2026.06.02 10:00:05|11|EURUSD|26999|IN|1|0.33|1.1|EXPERT|NNFX T0001 h1
+DEAL|102|2026.06.02 10:00:05|12|EURUSD|26999|IN|1|0.33|1.1|EXPERT|NNFX T0001 h2
+DEAL|103|2026.06.02 11:30:20|11|EURUSD|26999|OUT|1|0.33|1.102|TP|[tp 1.10200]
+CANDLE|EURUSD|2026.06.02 09:00|1.0995|0.002|1|1
+CANDLE|EURUSD|2026.06.02 10:00|1.1005|0.002|1|1
+CANDLE|EURUSD|2026.06.02 11:00|1.1015|0.002|1|1
+CANDLE|EURUSD|2026.06.02 12:00|1.103|0.002|1|1
+CANDLE|EURUSD|2026.06.02 13:00|1.1045|0.002|1|1
+EXP|TRADE|T0001|EURUSD|1|11|12|0|1|0.33|1.1|1.1|0.002|-1|1.1015|1|1
+EXP|CONT|EURUSD|1|1|0|0|2026.06.02 10:00
+END
+
+# A2b: as R2 (closes only 1.1030 / 1.1035: the candles say the trail is off) but the state file says trail_active 1
+# (the EA switched it on, e.g. on a close the candle list here does not hold): the state file wins, with a note.
+CASE|a2_state_trail_wins
+MAGIC|26999
+PERIOD|3600
+UPTO|2026.06.02 13:00
+IGNORE_COMMENTS|0
+STATE|present
+STRADE|T0001|EURUSD|1|11|12|0|1|0.33|1.1|1.1|0.002|-1|1.1|1|1
+POS|12|EURUSD|26999|1|0.33|1.1|1.1|0|NNFX T0001 h2
+DEAL|101|2026.06.02 10:00:05|11|EURUSD|26999|IN|1|0.33|1.1|EXPERT|NNFX T0001 h1
+DEAL|102|2026.06.02 10:00:05|12|EURUSD|26999|IN|1|0.33|1.1|EXPERT|NNFX T0001 h2
+DEAL|103|2026.06.02 11:30:20|11|EURUSD|26999|OUT|1|0.33|1.102|TP|[tp 1.10200]
+CANDLE|EURUSD|2026.06.02 09:00|1.0995|0.002|1|1
+CANDLE|EURUSD|2026.06.02 10:00|1.1005|0.002|1|1
+CANDLE|EURUSD|2026.06.02 11:00|1.1015|0.002|1|1
+CANDLE|EURUSD|2026.06.02 12:00|1.103|0.002|1|1
+CANDLE|EURUSD|2026.06.02 13:00|1.1035|0.002|1|1
+EXP|TRADE|T0001|EURUSD|1|11|12|0|1|0.33|1.1|1.1|0.002|-1|1.1|1|1
+EXP|CONT|EURUSD|1|1|0|0|2026.06.02 10:00
+NOTE|disagree T0001 trail_active: state 1, candles 0; state used
+END
+
+# A3a: an open position of this magic (21) whose IN deal is not in the history given: no trade owns it. Nothing is
+# rebuilt (no TRADE, no CONT line) and the note names the position.
+CASE|a3_orphan_position
+MAGIC|26999
+PERIOD|3600
+UPTO|2026.06.02 13:00
+IGNORE_COMMENTS|0
+STATE|absent
+POS|21|EURUSD|26999|1|0.33|1.1|1.097|1.102|NNFX T0002 h1
+CANDLE|EURUSD|2026.06.02 12:00|1.103|0.002|1|1
+CANDLE|EURUSD|2026.06.02 13:00|1.1035|0.002|1|1
+NOTE|position 21 of this magic belongs to no rebuilt trade
+END
+
+# A3b: half 1's deals are outside the history (only half 2's IN deal 102 is in it); the state file has T0001 with
+# TP1 done and half 1 closed. tp1_done comes from the state file (1, with a note) instead of the deals (would be 0).
+# No half 1 in the history: pos1 0, entry1 0, lots from half 2 (0.33). ATR, cap from the state; sl2 1.1 from the
+# position; the trail replay needs TP1's deal (not there), the state's trail_active 0 is used, no disagreement.
+CASE|a3_tp1_from_state
+MAGIC|26999
+PERIOD|3600
+UPTO|2026.06.02 13:00
+IGNORE_COMMENTS|0
+STATE|present
+STRADE|T0001|EURUSD|1|11|12|0|1|0.33|1.1|1.1|0.002|-1|1.1|1|0
+POS|12|EURUSD|26999|1|0.33|1.1|1.1|0|NNFX T0001 h2
+DEAL|102|2026.06.02 10:00:05|12|EURUSD|26999|IN|1|0.33|1.1|EXPERT|NNFX T0001 h2
+CANDLE|EURUSD|2026.06.02 09:00|1.0995|0.002|1|1
+CANDLE|EURUSD|2026.06.02 10:00|1.1005|0.002|1|1
+CANDLE|EURUSD|2026.06.02 11:00|1.1015|0.002|1|1
+CANDLE|EURUSD|2026.06.02 12:00|1.103|0.002|1|1
+CANDLE|EURUSD|2026.06.02 13:00|1.1035|0.002|1|1
+EXP|TRADE|T0001|EURUSD|1|0|12|0|1|0.33|0|1.1|0.002|-1|1.1|1|0
+EXP|CONT|EURUSD|1|1|0|0|2026.06.02 10:00
+NOTE|T0001 tp1_done from the state file
 END

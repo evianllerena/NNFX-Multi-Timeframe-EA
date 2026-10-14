@@ -595,7 +595,16 @@ void Start(const string why)
    // broker side (6c, unchanged): positions, deals, candles back to the entries
    NNFXPosRec pos[];
    NNFXDealRec deals[];
-   datetime from = (g_mode == "tester") ? 0 : TimeCurrent() - 30 * 86400;
+   datetime from = 0;
+   if(g_mode != "tester")
+     {
+      from = TimeCurrent() - 30 * 86400;
+      // A3 (review fixes set 3): back to a day before the oldest open position of this magic, so its IN deals (and half
+      // 1's TP1) are always in the window (a 4H runner can be older than 30 days; it was rebuilt as no trade)
+      for(int i = PositionsTotal() - 1; i >= 0; i--)
+         if(PositionGetTicket(i) != 0 && PositionGetInteger(POSITION_MAGIC) == InpMagic)
+            from = MathMin(from, (datetime)PositionGetInteger(POSITION_TIME) - 86400);
+     }
    NNFXGatherBroker(InpMagic, from, pos, deals);
    datetime upto = (proc > 0) ? proc : iTime(_Symbol, (ENUM_TIMEFRAMES)_Period, 1);
    datetime minTime = upto;
@@ -608,7 +617,8 @@ void Start(const string why)
    NNFXTrade out[];
    NNFXCont conts[];
    string notes;
-   NNFXRebuildPure(pos, deals, status, st, candles, Period_(), InpMagic, upto, false, out, conts, notes);
+   NNFXRebuildPure(pos, deals, status, st, candles, Period_(), InpMagic, upto, false, out, conts, notes,
+                   g_set.trail_start_atr);   // A2 (set 3): the setting, not 2.0
    if(bad != "")
       NNFXAddNote(notes, "state file problem: " + bad);
    g_orders.ImportTrades(out);
