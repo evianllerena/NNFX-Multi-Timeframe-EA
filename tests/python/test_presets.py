@@ -52,6 +52,7 @@ class TestPresets(unittest.TestCase):
                         self.assertEqual(vals[n], d, n)
                 # live safety: the master switch is read from MT5 (missing = OFF, D6d-1); tester-only inputs off
                 self.assertEqual(vals["InpTesterMaster"], "-1")
+                self.assertEqual(vals["InpTesterDdPause"], "1")   # P7-2: live, the R-12 pause always blocks
                 self.assertEqual(vals["InpTesterMasterOff"], "none")
                 self.assertEqual(vals["InpRestartAt"], "none")
                 self.assertTrue(text.endswith("\r\n"))

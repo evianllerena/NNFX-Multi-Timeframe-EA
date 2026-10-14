@@ -9,6 +9,8 @@ run_ea_tester.ps1 - one Strategy Tester run of NNFX_EA (Phase 6f; docs/PLAN_PHAS
      MQL5\Files\NNFX\checks\ea_<Tag>_<stamp>\ and runs:
        tools/check_trades.py <trade log> [--trail-off when InpTrailOn=false] RESULT ...: PASS (0 failures)
        tools/check_decision_log.py <decision log> --tf --pairs --trades    RESULT ...: PASS (0 failures)
+       tools/check_replay.py <decision log> --warmup <warm-up log> --inputs (Phase 7, Check 1b; not for restart runs)
+                                                                           RESULT replay ...: PASS (0 mismatches ...)
   5. SUMMARY.txt with every step; OVERALL: PASS only if every step passed.
 
 Usage:
@@ -61,6 +63,7 @@ $inputs = [ordered]@{
     InpNewsList = "NNFX\news\news_events.txt"; InpBlackouts = "none";
     InpNewsMaxAgeHours = "24"; InpWarmupBars = "300";
     InpTesterMaster = "1";            # tester: the master switch on (the tester cannot see terminal global variables)
+    InpTesterDdPause = "1";           # tester: the R-12 drawdown pause blocks (approved); 0 for long backtests (P7-2)
     InpTesterMasterOff = "none"; InpRestartAt = "none"; InpRestartDeleteState = "false"
 }
 # 'powershell -File' hands an array to the script as ONE string "InpA=x,InpB=y" (run ea_restart_master_20261006_204349,
@@ -108,6 +111,7 @@ if (-not (Test-Path ("$Common\" + $inputs["InpNewsFile"]))) { Step "1 news file"
 # 2. config
 $name = "EA_$($Period)_$($magic)_tester.csv"
 $tradeLog = "$Common\NNFX\trades\$name"; $decLog = "$Common\NNFX\decisions\$name"
+$warmLog = "$Common\NNFX\decisions\" + $name.Replace(".csv", "_warmup.csv")   # Phase 7: the flat warm-up's candles
 $report = "NNFX_EA_$Tag"
 $ini = "$Out\run_NNFX_EA.ini"
 $lines = @("[Tester]", "Expert=NNFX\NNFX_EA", "Symbol=$Symbol", "Period=$Period", "Model=$Model",
@@ -129,6 +133,7 @@ $mins = [math]::Round(((Get-Date) - $t0).TotalMinutes, 1)
 if ((Fresh $tradeLog $t0) -and (Fresh $decLog $t0)) {
     Copy-Item $tradeLog "$Out\trades_$name" -Force
     Copy-Item $decLog "$Out\decisions_$name" -Force
+    if (Fresh $warmLog $t0) { Copy-Item $warmLog "$Out\warmup_$name" -Force }
     Step "3 tester run" "PASS" "$mins min; both logs written"
 } else {
     Step "3 tester run" "FAIL" "no fresh trade log and decision log ($mins min)"
@@ -150,9 +155,9 @@ function Check([string]$step, [string]$file, [string[]]$pyArgs) {
 if (Test-Path "$Out\trades_$name") {
     $tf = @{ "M30" = "30"; "H1" = "60"; "H4" = "240" }[$Period]
     # InpTrailOn=false: no TRAILON/TRAIL row may appear (review fixes set 2; G1_review1_1 gap: plant M3 passed without it)
-$ctArgs = @("$Repo\tools\check_trades.py", "$Out\trades_$name", "--min-trades", "$MinTrades")
-if ($inputs["InpTrailOn"] -eq "false") { $ctArgs += "--trail-off" }
-Check "4 check_trades" "check_trades.txt" $ctArgs
+    $ctArgs = @("$Repo\tools\check_trades.py", "$Out\trades_$name", "--min-trades", "$MinTrades")
+    if ($inputs["InpTrailOn"] -eq "false") { $ctArgs += "--trail-off" }
+    Check "4 check_trades" "check_trades.txt" $ctArgs
     Check "4 check_decision_log" "check_decision_log.txt" @("$Repo\tools\check_decision_log.py", "$Out\decisions_$name",
           "--tf", $tf, "--pairs", $inputs["InpPairs"], "--trades", "$Out\trades_$name")
     if ($inputs["InpNewsBlock"] -eq "true") {
@@ -160,6 +165,17 @@ Check "4 check_trades" "check_trades.txt" $ctArgs
                 "--tf", $tf, "--winter", $inputs["InpServerWinterOffset"], "--dst", $inputs["InpServerDst"])
         if ($inputs["InpBlackouts"] -ne "none") { $na += @("--blackouts", $inputs["InpBlackouts"]) }
         Check "4 check_news_inputs" "check_news_inputs.txt" $na
+    }
+    # Phase 7 (SPEC Check 1b): the core's inputs replayed through the Python answer key, every pair, every candle.
+    # Only a continuous run can be replayed (a restart rebuilds the core from its snapshot: check_ea_restart's job).
+    if ($inputs["InpRestartAt"] -ne "none") {
+        Step "4 check_replay" "INFO" "not run: a restart run (InpRestartAt $($inputs["InpRestartAt"]))"
+    } elseif (Test-Path "$Out\warmup_$name") {
+        $inputText = ($inputs.Keys | ForEach-Object { "$_=$($inputs[$_])" }) -join " "
+        Check "4 check_replay" "check_replay.txt" @("$Repo\tools\check_replay.py", "$Out\decisions_$name",
+              "--warmup", "$Out\warmup_$name", "--inputs", $inputText)
+    } else {
+        Step "4 check_replay" "FAIL" "no fresh warm-up log ($warmLog)"
     }
     $rows = Get-Content -LiteralPath "$Out\trades_$name"
     $div = @($rows | Where-Object { $_ -match "^[^,]*,DIVERGE," }).Count

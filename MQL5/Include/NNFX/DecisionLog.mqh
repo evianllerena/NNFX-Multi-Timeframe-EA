@@ -82,10 +82,13 @@ public:
       if(m_h == INVALID_HANDLE)
          return;
       int dg = (int)SymbolInfoInteger(sym, SYMBOL_DIGITS);
-      FileWriteString(m_h, StringFormat("%s,%s,%s,%s,%s,%s,%s,%.10g,%s,%d,%d,%d,%d,%d,%s,%d,%s,%s,%s\r\n",
+      // Phase 7: atr and base with 17 significant digits, so the replay reads back the exact doubles the core used
+      // (with %.10g / digits + 2 a close equal to the rounded baseline replayed as "on the baseline": run
+      // ea_trailoff_h1_4m_20261014_152457, EURGBP 2026.09.24 13:00). Prices stay at the symbol's digits (on the tick grid).
+      FileWriteString(m_h, StringFormat("%s,%s,%s,%s,%s,%s,%s,%.17g,%.17g,%d,%d,%d,%d,%d,%s,%d,%s,%s,%s\r\n",
                                         TimeToString((datetime)b.t, TIME_DATE | TIME_MINUTES), sym, tf,
                                         DoubleToString(b.o, dg), DoubleToString(b.h, dg), DoubleToString(b.l, dg),
-                                        DoubleToString(b.c, dg), b.atr, DoubleToString(b.base, dg + 2), b.c1, b.c2, b.ex,
+                                        DoubleToString(b.c, dg), b.atr, b.base, b.c1, b.c2, b.ex,
                                         b.vol ? 1 : 0, indOk ? 1 : 0, Clean(b.block), b.news ? 1 : 0, Clean(events),
                                         Clean(action), Clean(note)));
       FileFlush(m_h);
