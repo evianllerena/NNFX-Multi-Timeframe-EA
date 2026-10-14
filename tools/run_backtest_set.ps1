@@ -19,6 +19,7 @@ param(
     [string]$Tag     = "explore",
     [string[]]$Set   = @("InpTesterDdPause=0"),
     [int]$Model      = 1,
+    [double]$Deposit = 1000000,              # P7-4: large enough that 2% of the balance never meets the minimum lot
     [int]$TimeoutMin = 240
 )
 $ErrorActionPreference = "Continue"
@@ -31,11 +32,11 @@ $AllPass = $true
 function Say([string]$t) { Write-Host $t; $script:Summary.Add($t) }
 $Periods = @($Periods | ForEach-Object { $_ -split "," } | Where-Object { $_ -ne "" })
 Say "Backtest set $Tag  $Stamp  repo $Repo (commit $(& git -C $Repo rev-parse --short HEAD 2>$null))"
-Say "window $From - $To, model $Model, periods $($Periods -join ' '), overrides $($Set -join ' ')"
+Say "window $From - $To, model $Model, deposit $Deposit, periods $($Periods -join ' '), overrides $($Set -join ' ')"
 foreach ($p in $Periods) {
     $tag = "$($Tag)_$($p)"
     $a = @("-ExecutionPolicy", "Bypass", "-File", "$Repo\tools\run_ea_tester.ps1", "-Repo", $Repo, "-Period", $p, "-From", $From,
-           "-To", $To, "-Model", "$Model", "-Tag", $tag, "-TimeoutMin", "$TimeoutMin", "-MinTrades", "1")
+           "-To", $To, "-Model", "$Model", "-Deposit", "$Deposit", "-Tag", $tag, "-TimeoutMin", "$TimeoutMin", "-MinTrades", "1")
     if ($Set.Count -gt 0) { $a += @("-Set", ($Set -join ",")) }
     $o = & powershell @a 2>&1 | Out-String
     $dir = (Get-ChildItem "$Checks\ea_$($tag)_*" -Directory | Sort-Object Name | Select-Object -Last 1).FullName
