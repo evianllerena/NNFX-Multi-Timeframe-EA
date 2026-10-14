@@ -97,7 +97,7 @@ def events_text(evs):
     return ";".join("%s:%s:%d" % (e["event"], e["rule"], e["dir"]) for e in evs)
 
 
-def replay(dec_path, warm_path, settings, max_list=40):
+def replay(dec_path, warm_path, settings, max_list=40, trades_out=None):
     rows = read_rows(dec_path)
     warm = read_rows(warm_path) if warm_path else []
     fails, info, mism = [], [], []
@@ -107,8 +107,10 @@ def replay(dec_path, warm_path, settings, max_list=40):
     for r in rows:
         by_pair[r["symbol"]].append(("log", r))
     stats = {}
+    core_trades = []   # the answer key's own simulated trades (R from candles, no money, no costs): information
     for sym, items in by_pair.items():
         core = PairCore(sym, Settings(**vars(settings)))
+        fed_times = []
         last_t, fed, skipped, compared, bad, warm_bad = None, 0, 0, 0, 0, 0
         for kind, r in items:
             if last_t is not None and r["time"] <= last_t:
@@ -125,6 +127,7 @@ def replay(dec_path, warm_path, settings, max_list=40):
                     fails.append("%s %s: not fed (ind_ok 0) but the EA logged events %s" % (sym, r["time"], r["events"]))
                 continue
             got = events_text(core.on_bar(bar_of(r)))
+            fed_times.append(r["time"])
             fed += 1
             want = "" if r["events"] == "-" else r["events"]
             if kind == "log":
@@ -136,6 +139,9 @@ def replay(dec_path, warm_path, settings, max_list=40):
                     bad += 1
                 mism.append((sym, kind, r["time"], want, got, r["block"]))
         stats[sym] = (len(items), fed, skipped, compared, bad, warm_bad)
+        for ct in core.closed_trades:
+            core_trades.append({"symbol": sym, "rule": ct["rule"], "dir": ct["dir"], "entry": ct["entry"], "r": ct["r"],
+                                "close_time": fed_times[ct["closed_i"]] if 0 <= ct["closed_i"] < len(fed_times) else ""})
     total_bad = sum(s[4] + s[5] for s in stats.values())
     if total_bad:
         fails.append("%d candle(s) where the EA's events differ from the answer key's" % total_bad)
@@ -153,6 +159,25 @@ def replay(dec_path, warm_path, settings, max_list=40):
                                                                           want, got, blk))
     if len(mism) > max_list:
         print("  ... %d more mismatches" % (len(mism) - max_list))
+    if core_trades:
+        core_trades.sort(key=lambda x: (x["close_time"], x["symbol"]))
+        rs = [x["r"] for x in core_trades]
+        cum = peak = dd = 0.0
+        for x in rs:
+            cum += x
+            peak = max(peak, cum)
+            dd = max(dd, peak - cum)
+        print("  CORE (answer key's simulation, candles only, no costs): trades %d  win rate %.1f%%  expectancy %+.3fR  "
+              "total %+.1fR  max DD %.1fR" % (len(rs), 100.0 * sum(1 for x in rs if x > 0) / len(rs), sum(rs) / len(rs),
+                                             sum(rs), dd))
+        for sym in sorted({x["symbol"] for x in core_trades}):
+            mine = [x["r"] for x in core_trades if x["symbol"] == sym]
+            print("  CORE %-8s trades %5d  expectancy %+.3fR  total %+7.1fR" % (sym, len(mine), sum(mine) / len(mine), sum(mine)))
+        if trades_out:
+            with open(trades_out, "w", encoding="ascii", newline="") as f:
+                w = csv.DictWriter(f, fieldnames=["close_time", "symbol", "rule", "dir", "entry", "r"], lineterminator="\r\n")
+                w.writeheader()
+                w.writerows(core_trades)
     for line in info:
         print("  INFO " + line)
     for line in fails:
@@ -170,11 +195,12 @@ def main(argv=None):
     ap.add_argument("--inputs", default="", help='EA inputs, e.g. "InpTrailOn=false InpRunnerCap=2"')
     ap.add_argument("--inputs-from", default=None, help="a run_ea_tester SUMMARY.txt with an 'inputs:' line")
     ap.add_argument("--max-list", type=int, default=40)
+    ap.add_argument("--trades-out", default=None, help="write the answer key's simulated closed trades (R) to this CSV")
     a = ap.parse_args(argv)
     pairs = inputs_from_summary(a.inputs_from) if a.inputs_from else {}
     pairs.update(parse_inputs(a.inputs))
     s = settings_from_inputs(pairs)
-    return 0 if replay(a.decisions, a.warmup, s, a.max_list) else 1
+    return 0 if replay(a.decisions, a.warmup, s, a.max_list, a.trades_out) else 1
 
 
 if __name__ == "__main__":

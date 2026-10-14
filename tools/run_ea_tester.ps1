@@ -28,6 +28,7 @@ param(
     [string]$To      = "2026.10.01",
     [string]$Symbol  = "EURUSD",            # the chart symbol (the basket is InpPairs)
     [int]$Model      = 1,                   # 1 = 1 minute OHLC
+    [double]$Deposit = 0,                   # 0 = the tester's own; > 0 = [Tester] Deposit= (P7-4: long backtests)
     [string]$Tag     = "run",
     [string[]]$Set   = @(),                 # "InpName=value" overrides
     [int]$TimeoutMin = 120,
@@ -117,6 +118,7 @@ $ini = "$Out\run_NNFX_EA.ini"
 $lines = @("[Tester]", "Expert=NNFX\NNFX_EA", "Symbol=$Symbol", "Period=$Period", "Model=$Model",
            "FromDate=$From", "ToDate=$To", "ForwardMode=0", "Optimization=0", "Visual=0",
            "Report=$report", "ReplaceReport=1", "ShutdownTerminal=1", "[TesterInputs]")
+if ($Deposit -gt 0) { $lines = @($lines | Where-Object { $_ -ne "[TesterInputs]" }) + @("Deposit=$Deposit", "[TesterInputs]") }
 foreach ($k in $inputs.Keys) { $lines += "$k=$($inputs[$k])" }
 $lines | Set-Content -LiteralPath $ini -Encoding ASCII
 
@@ -173,7 +175,7 @@ if (Test-Path "$Out\trades_$name") {
     } elseif (Test-Path "$Out\warmup_$name") {
         $inputText = ($inputs.Keys | ForEach-Object { "$_=$($inputs[$_])" }) -join " "
         Check "4 check_replay" "check_replay.txt" @("$Repo\tools\check_replay.py", "$Out\decisions_$name",
-              "--warmup", "$Out\warmup_$name", "--inputs", $inputText)
+              "--warmup", "$Out\warmup_$name", "--inputs", $inputText, "--trades-out", "$Out\core_trades_$name")
     } else {
         Step "4 check_replay" "FAIL" "no fresh warm-up log ($warmLog)"
     }
