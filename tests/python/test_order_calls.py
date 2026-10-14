@@ -24,7 +24,7 @@ TEST_EA = os.path.join(MQL5, "Experts", "NNFX", "NNFX_OrderTest.mq5")
 TRADING = re.compile(r"\b(OrderSend|OrderSendAsync|CTrade|PositionClose|PositionModify|OrderModify|OrderDelete)\b")
 GUARD = re.compile(r"^\s*if\s*\(\s*!\s*NNFXOrdersAllowed\s*\(")
 TEST_ONLY = ("NNFXTestOpenWithoutStop", "TestLoseNextReply", "TestFailNextHalf2", "TestStopsLevelOverride",
-             "TestFreeMarginOverride", "TestFillOffset", "TestFailNextBe", "TestFailNextClose")
+             "TestFreeMarginOverride", "TestFillOffset", "TestFailNextBe", "TestFailNextClose", "TestPlacedNextOpen")
 
 
 def strip_code(text):

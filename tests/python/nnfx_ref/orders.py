@@ -62,6 +62,22 @@ def retcode_retryable(retcode: str) -> bool:
     return retcode not in NOT_RETRYABLE
 
 
+# A5 (review fixes set 3): MT5's ORDER_STATE_* names without the prefix.
+ORDER_STATES = ("STARTED", "PLACED", "CANCELED", "PARTIAL", "FILLED", "REJECTED", "EXPIRED", "REQUEST_ADD",
+                "REQUEST_MODIFY", "REQUEST_CANCEL")
+
+
+def order_state_outcome(state: str) -> int:
+    """A5: 1 = filled (any fill, OD-14), -1 = will never fill (a re-send is safe), 0 = not resolved: never re-send."""
+    if state not in ORDER_STATES:
+        raise ValueError("unknown order state %r" % state)
+    if state in ("FILLED", "PARTIAL"):
+        return 1
+    if state in ("CANCELED", "REJECTED", "EXPIRED"):
+        return -1
+    return 0
+
+
 def _ticks(x: float, tick: float) -> float:
     return x / tick
 
