@@ -356,7 +356,7 @@ if ($PythonOnly) {
 
         # 4e. Phase 6f: the EA itself on the 1H preset's values, the 5 pairs, the same dates (tools/run_ea_tester.ps1:
         # every input listed; check_trades and check_decision_log on its logs; its own folder checks\ea_runner_<stamp>_*)
-        $ea = & powershell -ExecutionPolicy Bypass -File "$Repo\tools\run_ea_tester.ps1" -Period H1 -From $TesterFrom `
+        $ea = & powershell -ExecutionPolicy Bypass -File "$Repo\tools\run_ea_tester.ps1" -Repo $Repo -Period H1 -From $TesterFrom `
                 -To $TesterTo -Tag "runner_$Stamp" -TimeoutMin 60 -MinTrades 20 2>&1 | Out-String
         $ea | Set-Content "$Out\ea_run.txt" -Encoding ASCII
         foreach ($l in ([regex]::Matches($ea, "(?m)^4 check_\w+.*$") | ForEach-Object { $_.Value.Trim() })) { Say ("   " + $l) }

@@ -57,7 +57,7 @@ function Plant([string]$rel, [string]$old, [string]$new) {
     return ""
 }
 function Tester([string]$tag, [string[]]$set) {
-    $a = @("-ExecutionPolicy", "Bypass", "-File", "$Repo\tools\run_ea_tester.ps1", "-Period", "H1", "-From", "2026.06.01",
+    $a = @("-ExecutionPolicy", "Bypass", "-File", "$Repo\tools\run_ea_tester.ps1", "-Repo", $Repo, "-Period", "H1", "-From", "2026.06.01",
            "-To", "2026.06.15", "-Tag", $tag, "-TimeoutMin", "30", "-NoCopy")
     if ($set.Count -gt 0) { $a += @("-Set", ($set -join ",")) }
     $o = & powershell @a 2>&1 | Out-String
