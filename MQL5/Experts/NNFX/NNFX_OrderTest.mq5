@@ -61,6 +61,8 @@ input int    InpModifyOn      = 13;     // Tester only: SL/TP planned 20 points 
 // Tester only (6f, G1_phase6b_2 note 3): an ADVERSE fill, SL/TP planned 20 points the wrong way, so the stop sent is
 // wider than 1.5 x ATR until the MODIFY; check_trades bounds that window by the slippage (0 = off)
 input int    InpAdverseOn     = 15;
+input int    InpBeFailOn      = 17;     // Tester only: from this trade on, the next BE move is refused once -> retried, A1 (0 = off)
+input int    InpCloseFailOn   = 20;     // Tester only: from this trade on, the next close is refused once -> pending, A8 (0 = off)
 input bool   InpStopWhenDone  = false;  // Remove the EA once InpMaxTrades trades were tried and none is open (demo run)
 // "none" = no restart. Not "": the Strategy Tester treats an empty value in [TesterInputs] as not listed and reuses
 // the last-used value (runs restart_20261005_225140 and 20261006_004127 restarted although "InpRestartAt=" was
@@ -723,6 +725,10 @@ void ScheduleStep(const double atr, const string blocks)
          g_orders.TestFillOffset(20);
       if(InpAdverseOn > 0 && k == InpAdverseOn)
          g_orders.TestFillOffset(-20);
+      if(InpBeFailOn > 0 && k == InpBeFailOn)
+         g_orders.TestFailNextBe();
+      if(InpCloseFailOn > 0 && k == InpCloseFailOn)
+         g_orders.TestFailNextClose();
      }
    string id = TradeId(k);
    if(g_orders.OpenTrade(_Symbol, dir, atr, InpRiskPct, cap, id, InpMinLots))

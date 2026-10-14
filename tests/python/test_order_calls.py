@@ -4,7 +4,7 @@ S2   Every trading call (OrderSend, OrderSendAsync, CTrade, PositionClose, Posit
      OrderModify, OrderDelete) anywhere under MQL5/ is inside MQL5/Include/NNFX/Orders.mqh, and
      every public method of class CNNFXOrders starts with a call to NNFXOrdersAllowed.
 S2b  The test-only paths (G2 verdict F3; G1_phase6b_1 F1): NNFXTestOpenWithoutStop, TestLoseNextReply,
-     TestFailNextHalf2, TestStopsLevelOverride, TestFreeMarginOverride and TestFillOffset exist only
+     TestFailNextHalf2, TestStopsLevelOverride, TestFreeMarginOverride, TestFillOffset, TestFailNextBe and TestFailNextClose exist only
      inside "#ifdef NNFX_TEST_BUILD"; all but TestLoseNextReply refuse unless MQLInfoInteger(MQL_TESTER)
      is true (TestLoseNextReply only drops a reply, the retry then finds the position); NNFX_TEST_BUILD is defined only by the test EA
      MQL5/Experts/NNFX/NNFX_OrderTest.mq5, never by NNFX_EA.mq5 or any other file.
@@ -24,7 +24,7 @@ TEST_EA = os.path.join(MQL5, "Experts", "NNFX", "NNFX_OrderTest.mq5")
 TRADING = re.compile(r"\b(OrderSend|OrderSendAsync|CTrade|PositionClose|PositionModify|OrderModify|OrderDelete)\b")
 GUARD = re.compile(r"^\s*if\s*\(\s*!\s*NNFXOrdersAllowed\s*\(")
 TEST_ONLY = ("NNFXTestOpenWithoutStop", "TestLoseNextReply", "TestFailNextHalf2", "TestStopsLevelOverride",
-             "TestFreeMarginOverride", "TestFillOffset")
+             "TestFreeMarginOverride", "TestFillOffset", "TestFailNextBe", "TestFailNextClose")
 
 
 def strip_code(text):

@@ -1,6 +1,6 @@
 """Shared order-price and safety cases (Phase 6b).
 
-The same file is run by MQL5/Scripts/NNFX/NNFX_OrderMathTest.mq5 (OP/OE/TR/SD lines) and
+The same file is run by MQL5/Scripts/NNFX/NNFX_OrderMathTest.mq5 (OP/OE/TR/SD/BA/PD lines) and
 MQL5/Scripts/NNFX/NNFX_SafetyTest.mq5 (SF, MM and RC lines), so the Python answer key and the MQL5 code are
 checked against identical, hand-worked answers."""
 import os
@@ -33,7 +33,7 @@ class TestOrderCases(unittest.TestCase):
     def test_all_cases(self):
         cases = load()
         kinds = [c[0] for c in cases]
-        for kind, at_least in (("OP", 8), ("OE", 3), ("TR", 8), ("SD", 3), ("SF", 6), ("MM", 3), ("RC", 10)):
+        for kind, at_least in (("OP", 8), ("OE", 3), ("TR", 8), ("SD", 3), ("SF", 6), ("MM", 3), ("RC", 10), ("BA", 8), ("PD", 6)):
             self.assertGreaterEqual(kinds.count(kind), at_least, kind)
         for p in cases:
             with self.subTest(case=p[1]):
@@ -76,6 +76,13 @@ class TestOrderCases(unittest.TestCase):
                     self.assertEqual(len(p), 4)
                     self.assertIn(p[2], orders.RETRYABLE + orders.NOT_RETRYABLE)
                     self.assertEqual(orders.retcode_retryable(p[2]), p[3] == "1")
+                elif p[0] == "BA":
+                    self.assertEqual(len(p), 9)
+                    got = orders.be_action(int(p[2]), float(p[3]), float(p[4]), float(p[5]), float(p[6]), float(p[7]))
+                    self.assertEqual(got, int(p[8]))
+                elif p[0] == "PD":
+                    self.assertEqual(len(p), 5)
+                    self.assertEqual(orders.pending_due(int(p[2]), int(p[3])), p[4] == "1")
                 else:
                     self.fail("unknown case kind %r" % p[0])
 

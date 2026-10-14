@@ -95,6 +95,32 @@ def breakeven_price(entry: float) -> float:
     return entry
 
 
+def be_action(direction: int, entry2: float, broker_sl: float, bid: float, ask: float, tick: float) -> int:
+    """A1 (review fixes set 2): after TP1, what half 2's stop at the broker needs.
+    0 = nothing (at breakeven or better), 1 = move to breakeven, 2 = close half 2 at market (the price is already at
+    or beyond breakeven against the trade, so a breakeven stop would be hit at once; label C, decision RV-A1)."""
+    if direction not in (1, -1):
+        raise ValueError("direction must be +1 or -1")
+    be = breakeven_price(entry2)
+    if (be - broker_sl) * direction <= tick * 0.5:
+        return 0
+    exit_price = bid if direction > 0 else ask
+    if (exit_price - be) * direction <= 0.0:
+        return 2
+    return 1
+
+
+PENDING_FAST_S, PENDING_SLOW_S, PENDING_FAST_N = 5, 60, 5
+
+
+def pending_due(fails: int, seconds_since_last: int) -> bool:
+    """A1/A8 (review fixes set 2): a failed breakeven move or close is tried again every 5 s for the first
+    5 failures, then every 60 s, without end."""
+    if fails <= 0:
+        return True
+    return seconds_since_last >= (PENDING_FAST_S if fails < PENDING_FAST_N else PENDING_SLOW_S)
+
+
 def trail_step(direction: int, entry: float, atr_entry: float, current_sl: float, active: bool,
                close: float, atr: float, tick: float, start_atr: float = 2.0,
                dist_atr: float = 1.5) -> Tuple[float, bool]:

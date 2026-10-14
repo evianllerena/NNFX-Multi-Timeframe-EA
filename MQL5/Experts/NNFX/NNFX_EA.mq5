@@ -1040,6 +1040,17 @@ bool ReadyToStart(void)
          g_not_ready = "not connected / logged in";
          return false;
         }
+      // A7 after login (review fixes set 2): OnInit may run before login, when the margin mode still reads 0
+      long margin = AccountInfoInteger(ACCOUNT_MARGIN_MODE);
+      if(!NNFXHedgingOk(margin))
+        {
+         g_not_ready = "account margin mode " + IntegerToString(margin) + " is not HEDGING: no orders (A7)";
+         static bool alerted = false;
+         if(!alerted)
+            Alert("NNFX_EA: ", g_not_ready);
+         alerted = true;
+         return false;
+        }
       for(int k = 0; k < ArraySize(g_pairs); k++)
          if(!(SymbolInfoDouble(g_pairs[k], SYMBOL_TRADE_TICK_VALUE) > 0.0))
            {
