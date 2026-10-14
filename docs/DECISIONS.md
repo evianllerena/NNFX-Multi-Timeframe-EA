@@ -147,3 +147,17 @@ Label C (owner's choice) unless stated.
 | D6f-2 | **An unknown broker trade after a restart without memory (6f, DESIGN_6F 8.8).** After a start with no usable saved core memory (no state file, a corrupt one, or memory too old), a broker trade of this EA that the flat core does not know is **left on its broker-held stops** (stop, TP1, breakeven, trail by `Orders.mqh`); the pair takes **no new trade until it closes** (block `diverge`); it is logged (start-up row and alarm) and **never closed at start-up**. Owner: "Q1 A" | A (owner, 2026-10-07) | Approved |
 | D6f-3 | **Live news (6f, DESIGN_6F 8.10; OD-12).** The EA runs the calendar export itself (`CalendarExport.mqh`, the same code as `NNFX_CalendarExport`) at start and once a day into `events_live.txt`, and reads it back like the tester. The **24-hour news-age alarm and the recency warning must be live**. Owner: "Q2 A" | A (owner, 2026-10-07) | Approved |
 | D6f-4 | **Presets (6f, DESIGN_6F 8.11).** The preset files as written by `tools/make_presets.py` in MT5's own format (not re-saved from the dialog). The review packet must show each preset's key values: **risk, timeframe, magic, pair list**. Owner: "Q3 A" | A (owner, 2026-10-07) | Approved |
+
+## Review fixes, first set (2026-10-14, branch `review-fixes-1`)
+
+From the independent review checked in `docs/REVIEW_OPUS_2026-10-14.md`. The owner asked for this set on 2026-10-14
+("GitHub is connected", after the proposed first set: A10, A4, A7, B3 and the trail setting). Built, awaiting review.
+
+| ID | Decision | Label | Status |
+| --- | --- | --- | --- |
+| RV-A7 | Orders need a **hedging** account, tester included (`NNFXHedgingOk`, `orders.py hedging_ok`): both halves are separate positions on one symbol (S-10, RULEBOOK line 206); on netting the second fill merges into the first. Part of `NNFXOrdersAllowed`, so every order method refuses on netting | C | Built, awaiting review |
+| RV-B3 | Refusals a retry 1 s later cannot clear are **not retried** (OD-13 still retries the rest): INVALID, INVALID_VOLUME, INVALID_STOPS, TRADE_DISABLED, MARKET_CLOSED, NO_MONEY, INVALID_FILL, SERVER/CLIENT_DISABLES_AT, ONLY_REAL, LIMIT_ORDERS/VOLUME/POSITIONS, INVALID_ORDER, POSITION_CLOSED, HEDGE_PROHIBITED, FIFO_CLOSE, INVALID_EXPIRATION, INVALID_CLOSE_VOLUME, CLOSE_ORDER_EXIST, LONG_ONLY, SHORT_ONLY, CLOSE_ONLY. Any other code (incl. one MT5 adds later) is retried as before. The list is a judgment (C); the order cases name MT5's constants, never numbers | C | Built, awaiting review |
+| RV-A10 | A candle whose ATR is 0 or less is **not usable** (`BarBuilder::Raw`, why `ATR:bad`), the same rule `check_export.py` already applied. `NNFXIsBad` is unchanged: 0 is a real value for zero-line indicators | C | Built, awaiting review |
+| RV-A4 | A half's fill price unknown at readback is 0, never uninitialised; at TP1 it is read from half 2's position if that is still open; if still unknown, no BE move (ALARM instead) and no trail | C | Built, awaiting review |
+| RV-T4 | `InpTrailOn=false` now also stops the **order side** trailing (it used to trail at the broker while the core did not; found in the review check, N-1). `check_trades.py --trail-off` fails any TRAILON/TRAIL row | C | Built, awaiting review |
+

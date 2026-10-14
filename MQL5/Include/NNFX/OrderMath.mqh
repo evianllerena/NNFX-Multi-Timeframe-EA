@@ -15,10 +15,14 @@
 //|         entry; close - dir x dist x current ATR, nearest tick,   |
 //|         never backwards (T4, I-11)                               |
 //|  safety orders only in the tester or on a DEMO account (OD-18)   |
+//|         and only on a HEDGING account, tester included (A7)      |
+//|  retry  only refusals that can clear by themselves (B3, OD-13)   |
 //|                                                                  |
 //| Places NO orders.                                                |
 //| Status: compiled 2026-10-04 (build 6238, 0 errors, 0 warnings;   |
 //| OrderMathTest 22/22, SafetyTest 6/6, run 20261004_162607).       |
+//| NNFXHedgingOk / NNFXRetcodeRetryable (review fixes A7, B3,       |
+//| 2026-10-14): not yet compiled.                                   |
 //+------------------------------------------------------------------+
 #ifndef NNFX_ORDERMATH_MQH
 #define NNFX_ORDERMATH_MQH
@@ -34,6 +38,48 @@ bool NNFXOrdersAllowedFor(const long tradeMode, const bool inTester)
    if(inTester)
       return true;
    return tradeMode == ACCOUNT_TRADE_MODE_DEMO;
+  }
+
+// A7 (review 2026-10-14): two positions per trade on one symbol is the design (S-10). On a netting or
+// exchange account the second half would merge into the first, so orders need a HEDGING account.
+// Same as orders.py hedging_ok(); checked against the MM lines of order_cases.txt by NNFX_SafetyTest.
+bool NNFXHedgingOk(const long marginMode)
+  {
+   return marginMode == ACCOUNT_MARGIN_MODE_RETAIL_HEDGING;
+  }
+
+// B3 (review 2026-10-14): false for refusals a retry 1 s later cannot clear (OD-13 retries the rest).
+// Same list as orders.py NOT_RETRYABLE; checked against the RC lines of order_cases.txt by NNFX_SafetyTest.
+bool NNFXRetcodeRetryable(const uint retcode)
+  {
+   switch(retcode)
+     {
+      case TRADE_RETCODE_INVALID:
+      case TRADE_RETCODE_INVALID_VOLUME:
+      case TRADE_RETCODE_INVALID_STOPS:
+      case TRADE_RETCODE_TRADE_DISABLED:
+      case TRADE_RETCODE_MARKET_CLOSED:
+      case TRADE_RETCODE_NO_MONEY:
+      case TRADE_RETCODE_INVALID_FILL:
+      case TRADE_RETCODE_SERVER_DISABLES_AT:
+      case TRADE_RETCODE_CLIENT_DISABLES_AT:
+      case TRADE_RETCODE_ONLY_REAL:
+      case TRADE_RETCODE_LIMIT_ORDERS:
+      case TRADE_RETCODE_LIMIT_VOLUME:
+      case TRADE_RETCODE_LIMIT_POSITIONS:
+      case TRADE_RETCODE_INVALID_ORDER:
+      case TRADE_RETCODE_POSITION_CLOSED:
+      case TRADE_RETCODE_HEDGE_PROHIBITED:
+      case TRADE_RETCODE_FIFO_CLOSE:
+      case TRADE_RETCODE_INVALID_EXPIRATION:
+      case TRADE_RETCODE_INVALID_CLOSE_VOLUME:
+      case TRADE_RETCODE_CLOSE_ORDER_EXIST:
+      case TRADE_RETCODE_LONG_ONLY:
+      case TRADE_RETCODE_SHORT_ONLY:
+      case TRADE_RETCODE_CLOSE_ONLY:
+         return false;
+     }
+   return true;
   }
 
 double NNFXRoundNearest(const double price, const double tick)

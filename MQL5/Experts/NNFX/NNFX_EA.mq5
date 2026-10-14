@@ -867,7 +867,8 @@ void SimulatedRestart(void)
       FileDelete(NNFXStatePath(Instance()));
    delete g_orders;
    g_orders = new CNNFXOrders();
-   g_orders.Init(InpMagic, GetPointer(g_log), g_set.sl_atr, g_set.tp1_atr, g_set.trail_start_atr, g_set.trail_dist_atr);
+   g_orders.Init(InpMagic, GetPointer(g_log), g_set.sl_atr, g_set.tp1_atr, g_set.trail_start_atr, g_set.trail_dist_atr,
+                 g_set.trail_on);
    for(int k = 0; k < ArraySize(g_pairs); k++)
      {
       delete g_core[k];
@@ -970,7 +971,8 @@ int OnInit()
    if(!g_log.Open(LogName(), append) || !g_dlog.Open(LogName(), append))
       return INIT_FAILED;
    g_orders = new CNNFXOrders();
-   if(!g_orders.Init(InpMagic, GetPointer(g_log), g_set.sl_atr, g_set.tp1_atr, g_set.trail_start_atr, g_set.trail_dist_atr))
+   if(!g_orders.Init(InpMagic, GetPointer(g_log), g_set.sl_atr, g_set.tp1_atr, g_set.trail_start_atr, g_set.trail_dist_atr,
+                 g_set.trail_on))
       return INIT_FAILED;   // section 1: not the tester and not a DEMO account
    Row("INFO", "", StringFormat("NNFX_EA %s, magic %I64d, pairs %s, risk %.2f%%, exposure %s, news %s, master input %d, "
                                 "terminal build %d, account %I64d on %s",

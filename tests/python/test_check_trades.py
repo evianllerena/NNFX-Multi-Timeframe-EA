@@ -219,6 +219,17 @@ class TestCheckTrades(unittest.TestCase):
     def test_trail_wrong_distance(self):
         self.corrupt(lambda rs: find(rs, "TRAIL", "T0001").update(sl="1.10250"), "TRAIL stop")
 
+    def test_trail_rows_with_trail_off_fail(self):
+        # review fix 2026-10-14: with InpTrailOn=false the order side must not trail
+        ok, out = run(good_rows(), trail_off=True)
+        self.assertFalse(ok, out)
+        self.assertIn("with the trail off", out)
+
+    def test_trail_off_passes_without_trail_rows(self):
+        rows = [r for r in good_rows() if r["event"] not in ("TRAILON", "TRAIL")]
+        ok, out = run(rows, trail_off=True)
+        self.assertTrue(ok, out)
+
     def test_duplicate_half(self):
         def change(rs):
             rs.insert(rs.index(find(rs, "OPEN", "T0002", 2)), copy.deepcopy(find(rs, "OPEN", "T0002", 2)))

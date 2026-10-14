@@ -4,7 +4,8 @@
 //|                                                                  |
 //| SAFETY: every public method of CNNFXOrders calls                 |
 //| NNFXOrdersAllowed() as its first statement. Orders are allowed   |
-//| only in the Strategy Tester or on a DEMO account (OD-18). This   |
+//| only in the Strategy Tester or on a DEMO account (OD-18), and    |
+//| only on a HEDGING account (A7, review 2026-10-14). This          |
 //| is checked by tests/python/test_order_calls.py (S2, S2b).        |
 //|                                                                  |
 //| Rules: both halves carry the 1.5 x ATR stop in the same request  |
@@ -13,6 +14,7 @@
 //| any fill accepted (OD-14); not sent if the stop is inside the    |
 //| broker's minimum distance or the margin is not free (OD-5);      |
 //| up to 3 retries 1 s apart with a duplicate check first (OD-13);  |
+//| refusals a retry cannot clear are not retried (B3);              |
 //| TP1 filled -> half 2 to exactly its entry at once (T2, OD-15);   |
 //| trail at candle closes (T4); a stopless position with our magic  |
 //| is closed at once with an alarm, a manual one only alarms (OD-8).|
@@ -24,6 +26,8 @@
 //|                                                                  |
 //| Status: compiled 2026-10-04 (build 6238, 0 errors, 0 warnings;   |
 //| tester order run, check_trades PASS, run 20261004_162607).       |
+//| Review fixes A4, A7, B3 and trail_on (2026-10-14): not yet       |
+//| compiled.                                                        |
 //+------------------------------------------------------------------+
 #ifndef NNFX_ORDERS_MQH
 #define NNFX_ORDERS_MQH
@@ -42,13 +46,20 @@ bool NNFXOrdersAllowed(string &why)
   {
    long mode = AccountInfoInteger(ACCOUNT_TRADE_MODE);
    bool tester = (MQLInfoInteger(MQL_TESTER) != 0);
-   if(NNFXOrdersAllowedFor(mode, tester))
+   if(!NNFXOrdersAllowedFor(mode, tester))
      {
-      why = tester ? "orders allowed: TESTER" : "orders allowed: DEMO";
-      return true;
+      why = "orders refused: account trade mode " + IntegerToString(mode) + " is not DEMO and not in the tester";
+      return false;
      }
-   why = "orders refused: account trade mode " + IntegerToString(mode) + " is not DEMO and not in the tester";
-   return false;
+   // A7: both halves of a trade are separate positions on one symbol; a netting account would merge them
+   long margin = AccountInfoInteger(ACCOUNT_MARGIN_MODE);
+   if(!NNFXHedgingOk(margin))
+     {
+      why = "orders refused: account margin mode " + IntegerToString(margin) + " is not HEDGING (A7)";
+      return false;
+     }
+   why = tester ? "orders allowed: TESTER, hedging" : "orders allowed: DEMO, hedging";
+   return true;
   }
 
 struct NNFXTrade
@@ -78,6 +89,7 @@ private:
    NNFXTrade         m_trades[];
    ulong             m_alarmed[];     // manual stopless positions already alarmed (one alarm each)
    double            m_sl_atr, m_tp1_atr, m_trail_start, m_trail_dist;
+   bool              m_trail_on;   // T4 on/off, the same setting the rules core gets (review 2026-10-14)
 #ifdef NNFX_TEST_BUILD
    bool              m_lose_next_reply;
    bool              m_fail_next_half2;     // one-shot: half 2's send fails -> ABORT
@@ -183,6 +195,14 @@ private:
            {
             Note("RETRY", tradeId, req.symbol, "Algo Trading is off (retcode " + IntegerToString(res.retcode) + "): not retried");
             Alert("NNFX: Algo Trading is off (retcode ", res.retcode, "): orders cannot be sent");
+            return 0;
+           }
+         // B3: no money, invalid stops/volume/fill, market closed...: a retry 1 s later cannot succeed, and each
+         // wasted attempt blocks this thread (and leaves half 1 alone while half 2 is retried)
+         if(!NNFXRetcodeRetryable(res.retcode))   // OrderSend returns false with the retcode set for most refusals
+           {
+            Note("RETRY", tradeId, req.symbol, "half " + IntegerToString(half) + ": retcode " + IntegerToString(res.retcode) +
+                 " cannot clear on a retry: not retried (B3)");
             return 0;
            }
         }
@@ -301,7 +321,7 @@ private:
 
 public:
                      CNNFXOrders(void) : m_magic(0), m_log(NULL), m_session_checked(false), m_algo_alarmed(false),
-                     m_sl_atr(1.5), m_tp1_atr(1.0), m_trail_start(2.0), m_trail_dist(1.5)
+                     m_sl_atr(1.5), m_tp1_atr(1.0), m_trail_start(2.0), m_trail_dist(1.5), m_trail_on(true)
      {
 #ifdef NNFX_TEST_BUILD
       m_lose_next_reply = false;
@@ -313,7 +333,7 @@ public:
      }
 
    bool              Init(const long magic, CNNFXTradeLog *log, const double slAtr, const double tp1Atr,
-                          const double trailStart, const double trailDist)
+                          const double trailStart, const double trailDist, const bool trailOn = true)
      {
       if(!NNFXOrdersAllowed(m_why))
         {
@@ -326,7 +346,8 @@ public:
       m_tp1_atr = tp1Atr;
       m_trail_start = trailStart;
       m_trail_dist = trailDist;
-      Note("INFO", "", "", m_why);
+      m_trail_on = trailOn;
+      Note("INFO", "", "", m_why + (trailOn ? "" : "; T4 trail off"));
       return true;
      }
 
@@ -544,7 +565,8 @@ public:
       ulong ids[2];
       ids[0] = t.pos1;
       ids[1] = t.pos2;
-      double entries[2];
+      // A4: 0 = fill unknown (the half was already gone at readback); never left uninitialised
+      double entries[2] = {0.0, 0.0};
       for(int h = 0; h < 2; h++)
         {
          if(!SelectPosition(ids[h]))
@@ -625,7 +647,12 @@ public:
             if(ev == "TP1")
               {
                m_trades[i].tp1_done = true;
-               if(m_trades[i].open2)
+               // A4: half 2's fill unknown at readback: read it from the position if it is still there
+               if(m_trades[i].open2 && !(m_trades[i].entry2 > 0) && SelectPosition(m_trades[i].pos2))
+                  m_trades[i].entry2 = PositionGetDouble(POSITION_PRICE_OPEN);
+               if(m_trades[i].open2 && !(m_trades[i].entry2 > 0))
+                  Note("ALARM", m_trades[i].id, m_trades[i].sym, "TP1: half 2's fill price is unknown, no breakeven move (A4)");
+               else if(m_trades[i].open2)
                   MoveStop(m_trades[i].id, NNFXBreakevenPrice(m_trades[i].entry2), "BE", 0.0, 0.0, "via=" + via);
               }
            }
@@ -681,10 +708,12 @@ public:
      {
       if(!NNFXOrdersAllowed(m_why))
          return;
+      if(!m_trail_on)   // T4 off: breakeven only, as in the rules core (InpTrailOn; review 2026-10-14)
+         return;
       double tickSize = SymbolInfoDouble(sym, SYMBOL_TRADE_TICK_SIZE);
       for(int i = 0; i < ArraySize(m_trades); i++)
         {
-         if(m_trades[i].sym != sym || !m_trades[i].tp1_done || !m_trades[i].open2)
+         if(m_trades[i].sym != sym || !m_trades[i].tp1_done || !m_trades[i].open2 || !(m_trades[i].entry2 > 0))
             continue;
          double newSl;
          bool was = m_trades[i].trail_active;

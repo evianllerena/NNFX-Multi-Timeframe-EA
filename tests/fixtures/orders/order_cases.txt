@@ -10,6 +10,8 @@
 #     one candle close of the T4 trail on half 2, after TP1 (I-11)
 # SD|name|price|sl|stops_level_points|point|expected ok (1/0)
 # SF|name|trade_mode|in_tester|expected allowed (1/0)      (section 1 SAFETY; also NNFX_SafetyTest)
+# MM|name|margin_mode|expected allowed (1/0)              (A7: hedging only, tester included; NNFX_SafetyTest)
+# RC|name|retcode|expected retried (1/0)                  (B3: TRADE_RETCODE_<name>; NNFX_SafetyTest)
 #
 # long: SL 1.10000 - 1.5 x 0.00200 = 1.09700; TP1 1.10000 + 0.00200 = 1.10200
 OP|long_basic|1|1.10000|0.00200|0.00001|1.5|1.0|-|1.09700|1.10200|-|1.10000
@@ -60,3 +62,44 @@ SF|contest_live|CONTEST|0|0
 SF|contest_tester|CONTEST|1|1
 SF|real_live|REAL|0|0
 SF|real_tester|REAL|1|1
+#
+# A7: two positions per trade on one symbol needs a hedging account; netting would merge the halves
+MM|hedging|HEDGING|1
+MM|netting|NETTING|0
+MM|exchange|EXCHANGE|0
+#
+# B3: retried = the refusal can clear by itself within the 1 s retry gap; not retried = it cannot
+RC|requote|REQUOTE|1
+RC|reject|REJECT|1
+RC|error|ERROR|1
+RC|timeout|TIMEOUT|1
+RC|invalid_price|INVALID_PRICE|1
+RC|price_changed|PRICE_CHANGED|1
+RC|price_off|PRICE_OFF|1
+RC|too_many_requests|TOO_MANY_REQUESTS|1
+RC|locked|LOCKED|1
+RC|frozen|FROZEN|1
+RC|connection|CONNECTION|1
+RC|invalid|INVALID|0
+RC|invalid_volume|INVALID_VOLUME|0
+RC|invalid_stops|INVALID_STOPS|0
+RC|trade_disabled|TRADE_DISABLED|0
+RC|market_closed|MARKET_CLOSED|0
+RC|no_money|NO_MONEY|0
+RC|invalid_fill|INVALID_FILL|0
+RC|server_disables_at|SERVER_DISABLES_AT|0
+RC|client_disables_at|CLIENT_DISABLES_AT|0
+RC|only_real|ONLY_REAL|0
+RC|limit_orders|LIMIT_ORDERS|0
+RC|limit_volume|LIMIT_VOLUME|0
+RC|limit_positions|LIMIT_POSITIONS|0
+RC|invalid_order|INVALID_ORDER|0
+RC|position_closed|POSITION_CLOSED|0
+RC|hedge_prohibited|HEDGE_PROHIBITED|0
+RC|fifo_close|FIFO_CLOSE|0
+RC|invalid_expiration|INVALID_EXPIRATION|0
+RC|invalid_close_volume|INVALID_CLOSE_VOLUME|0
+RC|close_order_exist|CLOSE_ORDER_EXIST|0
+RC|long_only|LONG_ONLY|0
+RC|short_only|SHORT_ONLY|0
+RC|close_only|CLOSE_ONLY|0

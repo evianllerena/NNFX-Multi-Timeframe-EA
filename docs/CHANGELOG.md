@@ -2,6 +2,18 @@
 
 Newest first.
 
+## 2026-10-14 — Review fixes, first set (branch `review-fixes-1`)
+
+- `docs/REVIEW_OPUS_2026-10-14.md`: every claim of the 2026-10-13 independent review checked against the code at
+  `bcb5f31`, with corrections, plus two findings the review missed (N-1 trail setting, N-2 stall cap).
+- A7: orders refused unless the account is hedging (`NNFXHedgingOk`, `orders.py hedging_ok`, MM order cases).
+- B3: refusals a retry cannot clear are not retried (`NNFXRetcodeRetryable`, `orders.py retcode_retryable`, RC cases
+  named by MT5 constant). `NNFX_SafetyTest` runs the MM and RC lines: pass line now 43/43.
+- A10: `BarBuilder` refuses a candle with ATR <= 0.
+- A4: `OpenTrade` fill prices start at 0; no BE or trail on an unknown half-2 entry.
+- N-1: `Orders.mqh` takes `trail_on`; `check_trades.py --trail-off`.
+- MQL5 changes: not yet compiled.
+
 ## 2026-10-06 — Phase 6f: the EA (`NNFX_EA.mq5`) and the decision log
 
 - `docs/DESIGN_6F.md`: the design written before the build (the reviewer's restart note recorded as [C] in section 5),

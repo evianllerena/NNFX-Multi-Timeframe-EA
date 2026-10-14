@@ -11,6 +11,7 @@
 //|                                                                  |
 //| Status: Phase 5b version compiled 2026-10-04 (build 6238, 0      |
 //| errors, 0 warnings; run_phase5_checks run 20261004_113357).      |
+//| ATR 0 refused (review fix A10, 2026-10-14): not yet compiled.    |
 //+------------------------------------------------------------------+
 #ifndef NNFX_BARBUILDER_MQH
 #define NNFX_BARBUILDER_MQH
@@ -139,7 +140,10 @@ public:
               }
         }
       raw.vol_ref = m_slots[NNFX_SLOT_VOL].VolumeReference(shift);
-      if(NNFXIsBad(Atr(shift)))
+      // ATR 0 (MT5's warm-up value) is not usable either: stops and targets would sit on the entry and R
+      // would divide by 0 (review fix A10). Checked here, not in NNFXIsBad: 0 is a real value for oscillators.
+      double atr = Atr(shift);
+      if(NNFXIsBad(atr) || !(atr > 0))
         {
          raw.ok = false;
          raw.why += (raw.why == "" ? "" : ";") + "ATR:bad";

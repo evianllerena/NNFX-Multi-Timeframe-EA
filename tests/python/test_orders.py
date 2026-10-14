@@ -1,7 +1,7 @@
 """Shared order-price and safety cases (Phase 6b).
 
 The same file is run by MQL5/Scripts/NNFX/NNFX_OrderMathTest.mq5 (OP/OE/TR/SD lines) and
-MQL5/Scripts/NNFX/NNFX_SafetyTest.mq5 (SF lines), so the Python answer key and the MQL5 code are
+MQL5/Scripts/NNFX/NNFX_SafetyTest.mq5 (SF, MM and RC lines), so the Python answer key and the MQL5 code are
 checked against identical, hand-worked answers."""
 import os
 import sys
@@ -33,7 +33,7 @@ class TestOrderCases(unittest.TestCase):
     def test_all_cases(self):
         cases = load()
         kinds = [c[0] for c in cases]
-        for kind, at_least in (("OP", 8), ("OE", 3), ("TR", 8), ("SD", 3), ("SF", 6)):
+        for kind, at_least in (("OP", 8), ("OE", 3), ("TR", 8), ("SD", 3), ("SF", 6), ("MM", 3), ("RC", 10)):
             self.assertGreaterEqual(kinds.count(kind), at_least, kind)
         for p in cases:
             with self.subTest(case=p[1]):
@@ -69,12 +69,30 @@ class TestOrderCases(unittest.TestCase):
                 elif p[0] == "SF":
                     self.assertEqual(len(p), 5)
                     self.assertEqual(orders.orders_allowed_for(p[2], p[3] == "1"), p[4] == "1")
+                elif p[0] == "MM":
+                    self.assertEqual(len(p), 4)
+                    self.assertEqual(orders.hedging_ok(p[2]), p[3] == "1")
+                elif p[0] == "RC":
+                    self.assertEqual(len(p), 4)
+                    self.assertIn(p[2], orders.RETRYABLE + orders.NOT_RETRYABLE)
+                    self.assertEqual(orders.retcode_retryable(p[2]), p[3] == "1")
                 else:
                     self.fail("unknown case kind %r" % p[0])
 
     def test_unknown_trade_mode_rejected(self):
         with self.assertRaises(ValueError):
             orders.orders_allowed_for("LIVE", False)
+
+    def test_unknown_margin_mode_rejected(self):
+        with self.assertRaises(ValueError):
+            orders.hedging_ok("RETAIL")
+
+    def test_retry_lists_disjoint(self):
+        self.assertFalse(set(orders.RETRYABLE) & set(orders.NOT_RETRYABLE))
+
+    def test_every_listed_retcode_has_a_case(self):
+        named = {p[2] for p in load() if p[0] == "RC"}
+        self.assertEqual(named, set(orders.RETRYABLE + orders.NOT_RETRYABLE))
 
     def test_planned_risk(self):
         # 3.67 lots x 0.00272 stop (272 ticks) x tick value 1.0 = 998.24
