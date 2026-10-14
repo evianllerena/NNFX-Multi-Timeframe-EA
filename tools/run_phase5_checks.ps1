@@ -9,7 +9,7 @@ What it does, in order (each step's result goes in SUMMARY.txt):
        NNFX_SignalTest  pass line  RESULT: 56 passed, 0 failed, 56 total
        NNFX_SizingTest  pass line  RESULT: 46 passed, 0 failed, 46 total   (Phase 6a; its LIVE lines
                         are information only)
-       NNFX_SafetyTest  pass line  RESULT: 6 passed, 0 failed, 6 total     (Phase 6b, S1)
+       NNFX_SafetyTest  pass line  RESULT: 43 passed, 0 failed, 43 total   (Phase 6b, S1; A7 + B3 cases 2026-10-14)
        NNFX_OrderMathTest pass line RESULT: 22 passed, 0 failed, 22 total  (Phase 6b)
        NNFX_RecoveryTest pass line RESULT: 36 passed, 0 failed, 36 total   (Phase 6c; 6f PCORE lines, 2nd M5 case)
        NNFX_GuardTest   pass line  RESULT: 56 passed, 0 failed, 56 total   (Phase 6d)
@@ -196,7 +196,7 @@ if ($PythonOnly) {
         @{ Name = "NNFX_RulesTest";  Report = "$MT5\MQL5\Files\NNFX_RulesTest.txt";        Pass = "RESULT: 47 passed, 0 failed, 47 total"; Min = 5 },
         @{ Name = "NNFX_SignalTest"; Report = "$MT5\MQL5\Files\NNFX_SignalTest.txt";       Pass = "RESULT: 56 passed, 0 failed, 56 total"; Min = 5 },
         @{ Name = "NNFX_SizingTest"; Report = "$MT5\MQL5\Files\NNFX_SizingTest.txt";       Pass = "RESULT: 46 passed, 0 failed, 46 total"; Min = 5 },
-        @{ Name = "NNFX_SafetyTest"; Report = "$MT5\MQL5\Files\NNFX_SafetyTest.txt";       Pass = "RESULT: 6 passed, 0 failed, 6 total"; Min = 5 },
+        @{ Name = "NNFX_SafetyTest"; Report = "$MT5\MQL5\Files\NNFX_SafetyTest.txt";       Pass = "RESULT: 43 passed, 0 failed, 43 total"; Min = 5 },
         @{ Name = "NNFX_OrderMathTest"; Report = "$MT5\MQL5\Files\NNFX_OrderMathTest.txt"; Pass = "RESULT: 22 passed, 0 failed, 22 total"; Min = 5 },
         @{ Name = "NNFX_RecoveryTest"; Report = "$MT5\MQL5\Files\NNFX_RecoveryTest.txt";  Pass = "RESULT: 36 passed, 0 failed, 36 total"; Min = 5 },
         @{ Name = "NNFX_GuardTest";  Report = "$MT5\MQL5\Files\NNFX_GuardTest.txt";        Pass = "RESULT: 56 passed, 0 failed, 56 total"; Min = 5 },

@@ -16,7 +16,9 @@ Reads a trade log written by MQL5/Include/NNFX/TradeLog.mqh and checks, trade by
            in the same second as the TP1 row when half 2 was still open (not closed at or before
            TP1's time, e.g. by the runner cap in the same tick)
   T4       a TRAILON row (close >= 2 x entry ATR beyond entry) before any TRAIL; TRAIL only
-           after TP1; each TRAIL stop within one tick of close -/+ 1.5 x ATR; never backwards
+           after TP1; each TRAIL stop within one tick of close -/+ 1.5 x ATR; never backwards.
+           With --trail-off (a run with InpTrailOn=false): no TRAILON or TRAIL row at all, breakeven only
+           (review fix 2026-10-14: the order side used to trail even with the setting off)
   test     a TESTSTOPLESS position must be closed with an ALARM in the same second; any other
            ALARM on our own position is a failure; manual-position alarms are information
   ABORT    a trade with an ABORT row has no half 2 and half 1 is closed (a CLOSE/SL row for
@@ -31,6 +33,7 @@ Reads a trade log written by MQL5/Include/NNFX/TradeLog.mqh and checks, trade by
 Usage:  python tools/check_trades.py LOG.csv [more.csv] [--min-trades N]
                                      [--require SL,TP1,BE,TRAILON,TRAIL,TP2,EXIT,RETRY,TESTSTOPLESS]
                                      [--require-note TEXT ...]   (some row's note must contain TEXT)
+                                     [--trail-off]   (the run had InpTrailOn=false: no trail rows allowed)
 Exit code 0 = every file PASS.
 """
 import argparse
@@ -66,7 +69,7 @@ def near(a, b, tol):
     return abs(a - b) <= tol + 1e-12
 
 
-def check(path, min_trades=0, require=(), require_notes=(), be_lag=0):
+def check(path, min_trades=0, require=(), require_notes=(), be_lag=0, trail_off=False):
     rows = read_log(path)
     fails, info = [], []
     windows = []   # (trade, excess over target with the stop sent, slippage risk): adverse fills before the MODIFY
@@ -195,6 +198,10 @@ def check(path, min_trades=0, require=(), require_notes=(), be_lag=0):
                         info.append("%s: breakeven %d s after TP1 (via=transaction, live server)" % (tid, lag))
         # T4 trail
         on_rows = [(i, r) for i, r in evs if r["event"] == "TRAILON"]
+        if trail_off:
+            n_trail = sum(1 for _, r in evs if r["event"] in ("TRAILON", "TRAIL"))
+            if n_trail:
+                fails.append("%s: %d TRAILON/TRAIL rows with the trail off (T4 off: breakeven only)" % (tid, n_trail))
         for i, r in on_rows:
             if not tp1_rows or i < tp1_rows[0][0]:
                 fails.append("%s: trail switched on before TP1 (I-11)" % tid)
@@ -282,9 +289,11 @@ def main(argv=None):
     ap.add_argument("--require-note", action="append", default=[], help="a row's note must contain this text")
     ap.add_argument("--be-lag-seconds", type=int, default=0,
                     help="live logs: breakeven via=transaction may land up to N s after TP1 (tester: 0)")
+    ap.add_argument("--trail-off", action="store_true",
+                    help="the run had InpTrailOn=false: any TRAILON or TRAIL row is a failure")
     a = ap.parse_args(argv)
     req = [x.strip() for x in a.require.split(",") if x.strip()]
-    ok = all([check(p, a.min_trades, req, a.require_note, a.be_lag_seconds) for p in a.csv])
+    ok = all([check(p, a.min_trades, req, a.require_note, a.be_lag_seconds, a.trail_off) for p in a.csv])
     return 0 if ok else 1
 
 

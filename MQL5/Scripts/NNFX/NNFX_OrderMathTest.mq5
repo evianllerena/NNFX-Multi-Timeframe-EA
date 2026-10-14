@@ -71,8 +71,8 @@ void OnStart()
          string p[];
          int n = StringSplit(line, '|', p);
          string kind = (n > 0) ? p[0] : "";
-         if(kind == "SF")
-            continue;   // safety cases: NNFX_SafetyTest
+         if(kind == "SF" || kind == "MM" || kind == "RC")
+            continue;   // safety, margin-mode and retry cases: NNFX_SafetyTest
          count++;
          if(kind == "OP" && n == 13)
            {
@@ -117,7 +117,7 @@ void OnStart()
             Result(false, "order case: unreadable line " + line);
         }
       FileClose(h);
-      Out(StringFormat("(%d order cases read, SF lines left to NNFX_SafetyTest)", count));
+      Out(StringFormat("(%d order cases read, SF/MM/RC lines left to NNFX_SafetyTest)", count));
      }
    Out(StringFormat("RESULT: %d passed, %d failed, %d total", g_pass, g_fail, g_pass + g_fail));
    if(g_report != INVALID_HANDLE)

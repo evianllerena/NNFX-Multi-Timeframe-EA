@@ -13,7 +13,14 @@ broker's FILL price (decision OD-14), then put on the broker's tick grid:
            close - dir * trail_dist_atr * current ATR, nearest tick, never backwards (T4, I-11)
 
 Safety (section 1): orders only in the Strategy Tester or on a DEMO account (decision OD-18:
-CONTEST refused). REAL is always refused.
+CONTEST refused). REAL is always refused. Orders also need a HEDGING account, tester included:
+two positions per trade on one symbol is the design (S-10), and on a netting account the second
+half would merge into the first (review fix A7, 2026-10-14).
+
+Retries (OD-13): a refused request is sent again only when the refusal can clear by itself
+(requote, price moved, timeout, connection...). Refusals that cannot clear on a retry 1 s later
+(no money, invalid stops/volume/fill, market closed, trading disabled, Algo Trading off) are not
+retried (review fix B3, 2026-10-14).
 """
 import math
 from typing import Optional, Tuple
@@ -27,6 +34,32 @@ def orders_allowed_for(trade_mode: str, in_tester: bool) -> bool:
     if trade_mode not in TRADE_MODES:
         raise ValueError("unknown trade mode %r" % trade_mode)
     return bool(in_tester) or trade_mode == "DEMO"
+
+
+MARGIN_MODES = ("HEDGING", "NETTING", "EXCHANGE")
+
+
+def hedging_ok(margin_mode: str) -> bool:
+    """A7: True only on a hedging account (ACCOUNT_MARGIN_MODE_RETAIL_HEDGING)."""
+    if margin_mode not in MARGIN_MODES:
+        raise ValueError("unknown margin mode %r" % margin_mode)
+    return margin_mode == "HEDGING"
+
+
+# B3: the refusals that a retry 1 s later can clear. Names are MT5's TRADE_RETCODE_* without the prefix.
+RETRYABLE = ("REQUOTE", "REJECT", "ERROR", "TIMEOUT", "INVALID_PRICE", "PRICE_CHANGED", "PRICE_OFF",
+             "TOO_MANY_REQUESTS", "LOCKED", "FROZEN", "CONNECTION")
+NOT_RETRYABLE = ("INVALID", "INVALID_VOLUME", "INVALID_STOPS", "TRADE_DISABLED", "MARKET_CLOSED", "NO_MONEY",
+                 "INVALID_FILL", "SERVER_DISABLES_AT", "CLIENT_DISABLES_AT", "ONLY_REAL", "LIMIT_ORDERS",
+                 "LIMIT_VOLUME", "LIMIT_POSITIONS", "INVALID_ORDER", "POSITION_CLOSED", "HEDGE_PROHIBITED",
+                 "FIFO_CLOSE", "INVALID_EXPIRATION", "INVALID_CLOSE_VOLUME", "CLOSE_ORDER_EXIST", "LONG_ONLY",
+                 "SHORT_ONLY", "CLOSE_ONLY")
+
+
+def retcode_retryable(retcode: str) -> bool:
+    """B3: True if a refused request with this retcode is worth sending again (OD-13).
+    Anything not on either list (a code added to MT5 later) is retried, as before this fix."""
+    return retcode not in NOT_RETRYABLE
 
 
 def _ticks(x: float, tick: float) -> float:
