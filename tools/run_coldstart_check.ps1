@@ -20,7 +20,8 @@ param(
     [string]$Common  = "C:\Users\Evision\AppData\Roaming\MetaQuotes\Terminal\Common\Files",
     [string]$Install = "C:\Program Files\MetaTrader 5",
     [long]$Magic     = 26991,
-    [int]$Seconds    = 150
+    [int]$Seconds    = 150,
+    [switch]$NoCopy                         # run the MT5 copy's NNFX_EA as it is (planted-bug runs; compiled by the caller)
 )
 $ErrorActionPreference = "Continue"
 $Terminal = Join-Path $Install "terminal64.exe"
@@ -46,20 +47,24 @@ foreach ($f in @($TradeLog, $DecLog, $StateFile)) {
     if (Test-Path $f) { Move-Item $f "$Out\before_this_run_$(Split-Path $f -Leaf)" -Force }   # kept, never deleted
 }
 
-# copy and compile
-Copy-Item "$Repo\MQL5\Include\NNFX\*.mqh" "$MT5\MQL5\Include\NNFX\" -Force
-Copy-Item "$Repo\MQL5\Experts\NNFX\*.mq5" "$MT5\MQL5\Experts\NNFX\" -Force
+# copy and compile (-NoCopy: the MT5 copy as it is, already compiled by the caller)
 Copy-Item "$Repo\MQL5\Presets\NNFX_*.set" "$MT5\MQL5\Presets\" -Force
 New-Item -ItemType Directory -Force "$MT5\MQL5\Files\NNFX\news" | Out-Null
 Copy-Item "$Repo\news\news_events.txt" "$MT5\MQL5\Files\NNFX\news\" -Force
 Copy-Item "$Repo\profiles\*.txt" "$Common\NNFX\profiles\" -Force
-$log = "$MT5\MQL5\Experts\NNFX\NNFX_EA.log"; if (Test-Path $log) { Remove-Item $log -Force }
-Start-Process -FilePath (Join-Path $Install "MetaEditor64.exe") -ArgumentList "/compile:`"$MT5\MQL5\Experts\NNFX\NNFX_EA.mq5`"", "/log:`"$log`"" -Wait -WindowStyle Hidden
-$r = [regex]::Match([System.IO.File]::ReadAllText($log), "Result:\s*(\d+)\s+errors?,\s*(\d+)\s+warnings?")
-Copy-Item $log "$Out\NNFX_EA.compile.log" -Force
-$ok = $r.Success -and $r.Groups[1].Value -eq "0" -and $r.Groups[2].Value -eq "0"
-Step "compile NNFX_EA" $ok $(if ($r.Success) { $r.Value } else { "no Result line" })
-if (-not $ok) { $Summary | Set-Content "$Out\SUMMARY.txt" -Encoding ASCII; exit 1 }
+if ($NoCopy) {
+    Step "compile NNFX_EA" $true "not done here (-NoCopy: the MT5 copy as it is)"
+} else {
+    Copy-Item "$Repo\MQL5\Include\NNFX\*.mqh" "$MT5\MQL5\Include\NNFX\" -Force
+    Copy-Item "$Repo\MQL5\Experts\NNFX\*.mq5" "$MT5\MQL5\Experts\NNFX\" -Force
+    $log = "$MT5\MQL5\Experts\NNFX\NNFX_EA.log"; if (Test-Path $log) { Remove-Item $log -Force }
+    Start-Process -FilePath (Join-Path $Install "MetaEditor64.exe") -ArgumentList "/compile:`"$MT5\MQL5\Experts\NNFX\NNFX_EA.mq5`"", "/log:`"$log`"" -Wait -WindowStyle Hidden
+    $r = [regex]::Match([System.IO.File]::ReadAllText($log), "Result:\s*(\d+)\s+errors?,\s*(\d+)\s+warnings?")
+    Copy-Item $log "$Out\NNFX_EA.compile.log" -Force
+    $ok = $r.Success -and $r.Groups[1].Value -eq "0" -and $r.Groups[2].Value -eq "0"
+    Step "compile NNFX_EA" $ok $(if ($r.Success) { $r.Value } else { "no Result line" })
+    if (-not $ok) { $Summary | Set-Content "$Out\SUMMARY.txt" -Encoding ASCII; exit 1 }
+}
 
 # inputs: the 1H preset with the test magic and 0.1% risk
 $lines = @((Get-Content "$Repo\MQL5\Presets\NNFX_H1.set" -Encoding Unicode) | Where-Object { $_ -match "^Inp" } |
