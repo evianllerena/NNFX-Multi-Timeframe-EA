@@ -157,6 +157,66 @@ class TestCheckDecisionLog(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("gap from 2026.06.05 11:00 to 2026.06.08 00:00", out)
 
+class TestDataGaps(unittest.TestCase):
+    """Phase 7 (run ea_explore2_M30_20261014_165013): holiday and history gaps. With --bars, a gap is INFO only where
+    the broker's bar export proves there is no candle; a gap over a candle that exists stays a FAIL."""
+
+    def run_with_bars(self, rows, bar_times):
+        d = tempfile.mkdtemp()
+        dp = os.path.join(d, "dec.csv")
+        with open(dp, "w", encoding="ascii", newline="") as f:
+            w = csv.writer(f, lineterminator="\r\n")
+            w.writerow(c.HEADER)
+            w.writerows(rows)
+        bd = os.path.join(d, "bars")
+        os.makedirs(bd)
+        for s in PAIRS:
+            with open(os.path.join(bd, "%s_H1.csv" % s), "w", encoding="ascii", newline="") as f:
+                f.write("# symbol=%s timeframe=H1\r\ntime,open\r\n" % s)
+                for t in bar_times[s]:
+                    f.write("%s,1.1\r\n" % t.strftime("%Y.%m.%d %H:%M"))
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            ok = c.check(dp, 60, PAIRS, None, bd)
+        return ok, buf.getvalue()
+
+    def gap_rows(self):
+        """Friday 10:00 and 11:00 missing for every pair (a holiday-like gap); EURUSD also misses 15:00 alone."""
+        holes = {datetime(2026, 6, 5, 10), datetime(2026, 6, 5, 11)}
+        rows = [r for r in good() if datetime.strptime(r[0], "%Y.%m.%d %H:%M") not in holes]
+        rows = [r for r in rows if not (r[1] == "EURUSD" and r[0] == "2026.06.05 15:00")]
+        times = sorted({datetime.strptime(r[0], "%Y.%m.%d %H:%M") for r in good()})
+        return rows, holes, times
+
+    def test_gaps_without_bars_fail(self):
+        rows, _, _ = self.gap_rows()
+        ok, out = TestCheckDecisionLog.run_check(TestCheckDecisionLog(), rows)
+        self.assertFalse(ok, out)
+        self.assertIn("gap from 2026.06.05 09:00 to 2026.06.05 12:00", out)
+
+    def test_gaps_where_the_broker_has_no_candle_pass(self):
+        rows, holes, times = self.gap_rows()
+        bars = {s: [t for t in times if t not in holes] for s in PAIRS}
+        bars["EURUSD"] = [t for t in bars["EURUSD"] if t != datetime(2026, 6, 5, 15)]
+        ok, out = self.run_with_bars(rows, bars)
+        self.assertTrue(ok, out)
+        # the 09:00-12:00 gap, the 14:00-16:00 gap, and 15:00 as a time other pairs have: 3 items for EURUSD
+        self.assertIn("EURUSD: 3 gap(s) / missing row(s) where the broker's history has no candle", out)
+
+    def test_gap_over_an_existing_candle_fails(self):
+        rows, holes, times = self.gap_rows()
+        bars = {s: [t for t in times if t not in holes] for s in PAIRS}   # EURUSD 15:00 exists at the broker
+        ok, out = self.run_with_bars(rows, bars)
+        self.assertFalse(ok, out)
+        self.assertIn("EURUSD: gap from 2026.06.05 14:00 to 2026.06.05 16:00", out)
+
+    def test_bars_not_covering_the_gap_fail(self):
+        rows, holes, times = self.gap_rows()
+        bars = {s: [t for t in times if t not in holes and t >= datetime(2026, 6, 5, 12)] for s in PAIRS}
+        ok, out = self.run_with_bars(rows, bars)
+        self.assertFalse(ok, out)
+        self.assertIn("gap from 2026.06.05 09:00 to 2026.06.05 12:00", out)
+
 
 if __name__ == "__main__":
     unittest.main()

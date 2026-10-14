@@ -19,6 +19,7 @@ Usage:  python tools/check_decision_log.py DECISIONS.csv --tf 60 --pairs EURUSD,
 Exit code 0 = PASS.
 """
 import argparse
+import bisect
 import csv
 import os
 import re
@@ -38,8 +39,31 @@ def weekend_gap(a, b, tf):
             and (b - a) <= timedelta(days=2, minutes=tf + 60))
 
 
-def check(path, tf, pairs, trades_path=None):
+def load_bars(bars_dir, pairs, tf):
+    """{pair: sorted candle open times} from NNFX_ExportBars files <dir>/<pair>_<M30|H1|H4>.csv (Phase 7, V3)."""
+    name = {30: "M30", 60: "H1", 240: "H4"}.get(tf, "M%d" % tf)
+    out = {}
+    for p in pairs:
+        path = os.path.join(bars_dir, "%s_%s.csv" % (p, name))
+        if not os.path.exists(path):
+            continue
+        ts = []
+        with open(path, encoding="ascii", errors="replace") as f:
+            for line in f:
+                if line.startswith("#") or line.startswith("time,"):
+                    continue
+                try:
+                    ts.append(datetime.strptime(line[:16], "%Y.%m.%d %H:%M"))
+                except ValueError:
+                    pass
+        out[p] = sorted(set(ts))
+    return out
+
+
+def check(path, tf, pairs, trades_path=None, bars_dir=None):
     fails, info = [], []
+    bars = load_bars(bars_dir, pairs, tf) if bars_dir else {}
+    data_gaps = defaultdict(int)
     with open(path, encoding="ascii", newline="") as f:
         rd = csv.reader(f)
         header = next(rd, [])
@@ -82,12 +106,35 @@ def check(path, tf, pairs, trades_path=None):
         if not ts:
             fails.append("%s: no rows" % p)
             continue
+        bp = bars.get(p)
+        bset = set(bp) if bp else set()
+
+        def broker_has_none(lo, hi):
+            """True if the bar export covers lo..hi and holds no candle strictly between them (V3: the broker's
+            history has none there, so the EA had no candle to log)."""
+            if not bp or bp[0] > lo or bp[-1] < hi:
+                return False
+            k = bisect.bisect_right(bp, lo)
+            return k >= len(bp) or bp[k] >= hi
         for a, b in zip(ts, ts[1:]):
             if b - a != timedelta(minutes=tf) and not weekend_gap(a, b, tf):
-                fails.append("%s: gap from %s to %s" % (p, a.strftime("%Y.%m.%d %H:%M"), b.strftime("%Y.%m.%d %H:%M")))
-        missing = [t for t in all_times if ts[0] <= t <= ts[-1] and t not in set(ts)]
+                if broker_has_none(a, b):
+                    data_gaps[p] += 1
+                else:
+                    fails.append("%s: gap from %s to %s" % (p, a.strftime("%Y.%m.%d %H:%M"), b.strftime("%Y.%m.%d %H:%M")))
+        tset = set(ts)
+        missing = [t for t in all_times if ts[0] <= t <= ts[-1] and t not in tset]
+        if bp:
+            covered = [t for t in missing if bp[0] <= t <= bp[-1] and t not in bset]
+            data_gaps[p] += len(covered)
+            missing = [t for t in missing if t not in covered]
         for t in missing[:5]:
             fails.append("%s: no row at %s (other pairs have one)" % (p, t.strftime("%Y.%m.%d %H:%M")))
+        if len(missing) > 5:
+            fails.append("%s: %d more times with no row" % (p, len(missing) - 5))
+    for p in sorted(data_gaps):
+        info.append("%s: %d gap(s) / missing row(s) where the broker's history has no candle (bar export; V3 data gap, "
+                    "not an EA fault)" % (p, data_gaps[p]))
     # fixed order within a candle time, per batch: a pair whose new candle arrived after the others' was processed
     # in a later visit, noted "batch N" (each pair keeps its own clock; SPEC Candle timing)
     order = {p: k for k, p in enumerate(pairs)}
@@ -147,8 +194,9 @@ def main(argv=None):
     ap.add_argument("--tf", type=int, required=True, help="candle length in minutes (30, 60, 240)")
     ap.add_argument("--pairs", required=True, help="the preset's pairs in their fixed order")
     ap.add_argument("--trades")
+    ap.add_argument("--bars", default=None, help="folder of NNFX_ExportBars files: a gap where the broker has no candle is INFO (V3)")
     a = ap.parse_args(argv)
-    return 0 if check(a.decisions, a.tf, [p.strip() for p in a.pairs.split(",") if p.strip()], a.trades) else 1
+    return 0 if check(a.decisions, a.tf, [p.strip() for p in a.pairs.split(",") if p.strip()], a.trades, a.bars) else 1
 
 
 if __name__ == "__main__":
