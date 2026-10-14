@@ -735,7 +735,7 @@ in the 6a PR, labelled C (owner's choice) unless stated otherwise.
 | --- | --- | --- | --- |
 | OD-1 | Which sub-phase builds `NNFX_EA.mq5` | (a) a test EA in 6b–6e; the real EA in **6f** | Each PR stays testable on its own |
 | OD-2 | Drawdown peak | (c) **equity, sampled at each candle close** | Protects against open-trade losses; deterministic in the tester |
-| OD-3 | Daily loss | **Closed trades only**; the day starts at **server midnight** (the daily close, 00:00 server per ENVIRONMENT.md) | Simple and identical in tester and live |
+| OD-3 | Daily loss | **Closed trades only**; the day starts at **server midnight** (the daily close, 00:00 server per ENVIRONMENT.md). **Superseded** by the OD-3 update in `docs/DECISIONS.md`: the day starts at the **17:00 New York** boundary (review 2026-10-13, C1) | Simple and identical in tester and live |
 | OD-4 | Split mode with 3+ signals on one leg | (a) **skip all** (as `exposure.py` does now) | Conservative; VP has no rule |
 | OD-5 | Not enough free margin | (a) **skip and log** | Never changes risk silently |
 | OD-6 | Tick value for sizing | (c) **the larger of TICK_VALUE and TICK_VALUE_LOSS** | Can only make lots smaller, so risk is never above 2% |
