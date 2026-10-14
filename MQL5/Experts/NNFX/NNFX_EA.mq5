@@ -101,6 +101,7 @@ input double InpNewsMaxAgeHours = 24;    // live: alarm when the file is older (
 input int    InpWarmupBars    = 300;     // candles fed at start (warm-up, cross-check, longest restore gap)
 // TESTER ONLY ("none" = off; refused outside the tester). Not "": the tester reuses the last value for an empty input.
 input int    InpTesterMaster  = -1;      // -1 = read NNFX_MASTER (live), 1 = on, 0 = off (the tester cannot see terminal GVs)
+input int    InpTesterDdPause = 1;       // TESTER ONLY: 1 = the R-12 drawdown pause blocks entries (approved); 0 = computed and logged, not blocking (long backtests, decision P7-2)
 input string InpTesterMasterOff = "none"; // "YYYY.MM.DD HH:MI;YYYY.MM.DD HH:MI": master OFF in this window
 input string InpRestartAt     = "none";  // a simulated restart at the first candle at/after this time
 input bool   InpRestartDeleteState = false;  // the simulated restart deletes the state file first
@@ -111,6 +112,7 @@ input bool   InpRestartDeleteState = false;  // the simulated restart deletes th
 CNNFXOrders      *g_orders = NULL;
 CNNFXTradeLog     g_log;
 CNNFXDecisionLog  g_dlog;
+CNNFXDecisionLog  g_wlog;   // Phase 7: the flat warm-up's candles (<log>_warmup.csv), so the replay starts where the core did
 NNFXSettings      g_set;
 string            g_pairs[];
 CNNFXBarBuilder  *g_bb[];
@@ -283,10 +285,13 @@ string GuardGlobal(void)
    bool was = g_dd.paused;
    NNFXDrawdownSample(g_dd, equity);
    NNFXDrawdownSave(g_dd);
+   // P7-2: in the tester only, InpTesterDdPause = 0 keeps trading after the pause would have started (it is logged
+   // once, so the result can still say when R-12 would have stopped new entries)
+   bool ddOff = (g_mode == "tester" && InpTesterDdPause == 0);
    if(g_dd.paused && !was)
      {
-      string why = StringFormat("drawdown pause (R-12): equity %.2f <= 90%% of the peak %.2f; reset by hand only (S-6)",
-                                equity, g_dd.peak);
+      string why = StringFormat("drawdown pause (R-12): equity %.2f <= 90%% of the peak %.2f; reset by hand only (S-6)%s",
+                                equity, g_dd.peak, ddOff ? "; TESTER: not blocking (InpTesterDdPause=0, P7-2)" : "");
       Row("GUARD", "", why);
       NNFXNotify(why);
      }
@@ -327,7 +332,7 @@ string GuardGlobal(void)
       if(g_masterOffFrom > 0 && t >= g_masterOffFrom && t < g_masterOffTo)
          master = 0;
      }
-   string s = NNFXGuardBlocks(master, NNFXInstanceOn(_Symbol, InpMagic, InpInstanceOn), g_dd.paused, dl, false, false,
+   string s = NNFXGuardBlocks(master, NNFXInstanceOn(_Symbol, InpMagic, InpInstanceOn), g_dd.paused && !ddOff, dl, false, false,
                               0, 0, true);
    if(s != g_global_was)
      {
@@ -663,13 +668,15 @@ void Start(const string why)
         }
       else
         {
-         // no saved memory: a flat warm-up (no entry can be simulated), not logged
+         // no saved memory: a flat warm-up (no entry can be simulated); not in the decision log, but each fed candle
+         // goes to the warm-up log so Phase 7 can replay from the same start (tools/check_replay.py --warmup)
          ClosedSince(k, 0, InpWarmupBars, times);
          datetime pc = 0;
          for(int i = 0; i < ArraySize(times); i++)
            {
             g_core[k].ClearEvents();
-            FeedFixed(k, g_core[k], times[i], EA_START, pc, b, raw);
+            if(FeedFixed(k, g_core[k], times[i], EA_START, pc, b, raw))
+               g_wlog.Write(sym, Tf(), b, true, NNFXEventsText(g_core[k], 0), "-", "warm-up");
            }
          g_proc[k] = (ArraySize(times) > 0) ? times[ArraySize(times) - 1] : iTime(sym, (ENUM_TIMEFRAMES)_Period, 1);
          g_prevClose[k] = g_proc[k] + Period_();
@@ -896,6 +903,11 @@ int OnInit()
       Print("NNFX_EA: InpTesterMaster is for the Strategy Tester only (live: the NNFX_MASTER global variable)");
       return INIT_PARAMETERS_INCORRECT;
      }
+   if(g_mode != "tester" && InpTesterDdPause != 1)
+     {
+      Print("NNFX_EA: InpTesterDdPause is for the Strategy Tester only: live, the R-12 drawdown pause always blocks (P7-2)");
+      return INIT_PARAMETERS_INCORRECT;
+     }
    if(g_mode != "tester" && (InpTesterMasterOff != "none" || InpRestartAt != "none"))
      {
       Print("NNFX_EA: InpTesterMasterOff and InpRestartAt are for the Strategy Tester only");
@@ -970,6 +982,9 @@ int OnInit()
       FileDelete(NNFXStatePath(Instance()));
    if(!g_log.Open(LogName(), append) || !g_dlog.Open(LogName(), append))
       return INIT_FAILED;
+   string wname = LogName();
+   StringReplace(wname, ".csv", "_warmup.csv");
+   g_wlog.Open(wname, false);   // a new file at each start: it holds the last flat warm-up only (Phase 7)
    g_orders = new CNNFXOrders();
    if(!g_orders.Init(InpMagic, GetPointer(g_log), g_set.sl_atr, g_set.tp1_atr, g_set.trail_start_atr, g_set.trail_dist_atr,
                  g_set.trail_on))
@@ -1166,6 +1181,7 @@ void OnDeinit(const int reason)
          delete g_core[k];
      }
    g_dlog.Close();
+   g_wlog.Close();
    g_log.Close();
   }
 //+------------------------------------------------------------------+

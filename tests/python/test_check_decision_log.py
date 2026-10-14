@@ -157,6 +157,128 @@ class TestCheckDecisionLog(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("gap from 2026.06.05 11:00 to 2026.06.08 00:00", out)
 
+class TestDataGaps(unittest.TestCase):
+    """Phase 7 (run ea_explore2_M30_20261014_165013): holiday and history gaps. With --bars, a gap is INFO only where
+    the broker's bar export proves there is no candle; a gap over a candle that exists stays a FAIL."""
+
+    def run_with_bars(self, rows, bar_times):
+        d = tempfile.mkdtemp()
+        dp = os.path.join(d, "dec.csv")
+        with open(dp, "w", encoding="ascii", newline="") as f:
+            w = csv.writer(f, lineterminator="\r\n")
+            w.writerow(c.HEADER)
+            w.writerows(rows)
+        bd = os.path.join(d, "bars")
+        os.makedirs(bd)
+        for s in PAIRS:
+            with open(os.path.join(bd, "%s_H1.csv" % s), "w", encoding="ascii", newline="") as f:
+                f.write("# symbol=%s timeframe=H1\r\ntime,open\r\n" % s)
+                for t in bar_times[s]:
+                    f.write("%s,1.1\r\n" % t.strftime("%Y.%m.%d %H:%M"))
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            ok = c.check(dp, 60, PAIRS, None, bd)
+        return ok, buf.getvalue()
+
+    def gap_rows(self):
+        """Friday 10:00 and 11:00 missing for every pair (a holiday-like gap); EURUSD also misses 15:00 alone."""
+        holes = {datetime(2026, 6, 5, 10), datetime(2026, 6, 5, 11)}
+        rows = [r for r in good() if datetime.strptime(r[0], "%Y.%m.%d %H:%M") not in holes]
+        rows = [r for r in rows if not (r[1] == "EURUSD" and r[0] == "2026.06.05 15:00")]
+        times = sorted({datetime.strptime(r[0], "%Y.%m.%d %H:%M") for r in good()})
+        return rows, holes, times
+
+    def test_gaps_without_bars_fail(self):
+        rows, _, _ = self.gap_rows()
+        ok, out = TestCheckDecisionLog.run_check(TestCheckDecisionLog(), rows)
+        self.assertFalse(ok, out)
+        self.assertIn("gap from 2026.06.05 09:00 to 2026.06.05 12:00", out)
+
+    def test_gaps_where_the_broker_has_no_candle_pass(self):
+        rows, holes, times = self.gap_rows()
+        bars = {s: [t for t in times if t not in holes] for s in PAIRS}
+        bars["EURUSD"] = [t for t in bars["EURUSD"] if t != datetime(2026, 6, 5, 15)]
+        ok, out = self.run_with_bars(rows, bars)
+        self.assertTrue(ok, out)
+        # the 09:00-12:00 gap, the 14:00-16:00 gap, and 15:00 as a time other pairs have: 3 items for EURUSD
+        self.assertIn("EURUSD: 3 gap(s) / missing row(s) where the broker's history has no candle", out)
+
+    def test_gap_over_an_existing_candle_fails(self):
+        rows, holes, times = self.gap_rows()
+        bars = {s: [t for t in times if t not in holes] for s in PAIRS}   # EURUSD 15:00 exists at the broker
+        ok, out = self.run_with_bars(rows, bars)
+        self.assertFalse(ok, out)
+        self.assertIn("EURUSD: gap from 2026.06.05 14:00 to 2026.06.05 16:00", out)
+
+    def test_bars_not_covering_the_gap_fail(self):
+        rows, holes, times = self.gap_rows()
+        bars = {s: [t for t in times if t not in holes and t >= datetime(2026, 6, 5, 12)] for s in PAIRS}
+        ok, out = self.run_with_bars(rows, bars)
+        self.assertFalse(ok, out)
+        self.assertIn("gap from 2026.06.05 09:00 to 2026.06.05 12:00", out)
+
+class TestLateRows(unittest.TestCase):
+    """Phase 7 (explore2 runs): stall catch-up rows, rows written after a later candle time, and an ABORT logged as
+    REFUSE are INFO; the same shapes without their reason stay FAILs."""
+    run_check = TestCheckDecisionLog.run_check
+
+    def test_stall_row_outside_the_order_rule(self):
+        rows = good()
+        k = next(i for i, r in enumerate(rows) if r[0] == "2026.06.05 10:00" and r[1] == "EURGBP")
+        stall = rows.pop(k)
+        stall[18] = "missed (stall; OD-7 (b))"
+        rows.insert(k - 2, stall)   # written before EURUSD and AUDNZD of the same time
+        ok, out = self.run_check(rows)
+        self.assertTrue(ok, out)
+        self.assertIn("1 stall catch-up row(s)", out)
+
+    def test_stall_row_acted_on_fails(self):
+        rows = good()
+        r = next(r for r in rows if r[0] == "2026.06.05 10:00" and r[1] == "EURGBP")
+        r[18], r[16], r[17] = "missed (stall; OD-7 (b))", "ENTER:E1:1", "OPEN T0009"
+        ok, out = self.run_check(rows)
+        self.assertFalse(ok, out)
+        self.assertIn("stall row", out)
+
+    def test_row_written_after_a_later_time_is_late(self):
+        rows = good()
+        k = next(i for i, r in enumerate(rows) if r[0] == "2026.06.05 10:00" and r[1] == "AUDNZD")
+        late = rows.pop(k)
+        j = next(i for i, r in enumerate(rows) if r[0] == "2026.06.05 11:00" and r[1] == "EURGBP")
+        rows.insert(j + 1, late)
+        ok, out = self.run_check(rows)
+        self.assertTrue(ok, out)
+        self.assertIn("1 row(s) written after a later candle time", out)
+
+    def test_out_of_order_within_its_time_still_fails(self):
+        rows = good()
+        k = next(i for i, r in enumerate(rows) if r[0] == "2026.06.05 10:00" and r[1] == "EURGBP")
+        rows.insert(k - 2, rows.pop(k))   # EURGBP before EURUSD at the same time, no stall note
+        ok, out = self.run_check(rows)
+        self.assertFalse(ok, out)
+        self.assertIn("pairs out of the fixed order", out)
+
+    def abort_case(self, with_abort):
+        rows = good()
+        r = next(r for r in rows if r[0] == "2026.06.05 03:00" and r[1] == "AUDNZD")
+        r[17] = "REFUSE T0001; DIVERGE wait"
+        tr = trades()
+        if with_abort:
+            a = dict(tr[0])
+            a.update(event="ABORT", half="0", note="half 2 not opened; half 1 closed")
+            tr.append(a)
+        return self.run_check(rows, tr)
+
+    def test_abort_logged_as_refuse_is_info(self):
+        ok, out = self.abort_case(True)
+        self.assertTrue(ok, out)
+        self.assertIn("closed by ABORT; the decision row says REFUSE T0001", out)
+
+    def test_refuse_with_an_open_trade_and_no_abort_fails(self):
+        ok, out = self.abort_case(False)
+        self.assertFalse(ok, out)
+        self.assertIn("has no decision row", out)
+
 
 if __name__ == "__main__":
     unittest.main()
