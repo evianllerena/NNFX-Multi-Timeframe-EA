@@ -217,6 +217,68 @@ class TestDataGaps(unittest.TestCase):
         self.assertFalse(ok, out)
         self.assertIn("gap from 2026.06.05 09:00 to 2026.06.05 12:00", out)
 
+class TestLateRows(unittest.TestCase):
+    """Phase 7 (explore2 runs): stall catch-up rows, rows written after a later candle time, and an ABORT logged as
+    REFUSE are INFO; the same shapes without their reason stay FAILs."""
+    run_check = TestCheckDecisionLog.run_check
+
+    def test_stall_row_outside_the_order_rule(self):
+        rows = good()
+        k = next(i for i, r in enumerate(rows) if r[0] == "2026.06.05 10:00" and r[1] == "EURGBP")
+        stall = rows.pop(k)
+        stall[18] = "missed (stall; OD-7 (b))"
+        rows.insert(k - 2, stall)   # written before EURUSD and AUDNZD of the same time
+        ok, out = self.run_check(rows)
+        self.assertTrue(ok, out)
+        self.assertIn("1 stall catch-up row(s)", out)
+
+    def test_stall_row_acted_on_fails(self):
+        rows = good()
+        r = next(r for r in rows if r[0] == "2026.06.05 10:00" and r[1] == "EURGBP")
+        r[18], r[16], r[17] = "missed (stall; OD-7 (b))", "ENTER:E1:1", "OPEN T0009"
+        ok, out = self.run_check(rows)
+        self.assertFalse(ok, out)
+        self.assertIn("stall row", out)
+
+    def test_row_written_after_a_later_time_is_late(self):
+        rows = good()
+        k = next(i for i, r in enumerate(rows) if r[0] == "2026.06.05 10:00" and r[1] == "AUDNZD")
+        late = rows.pop(k)
+        j = next(i for i, r in enumerate(rows) if r[0] == "2026.06.05 11:00" and r[1] == "EURGBP")
+        rows.insert(j + 1, late)
+        ok, out = self.run_check(rows)
+        self.assertTrue(ok, out)
+        self.assertIn("1 row(s) written after a later candle time", out)
+
+    def test_out_of_order_within_its_time_still_fails(self):
+        rows = good()
+        k = next(i for i, r in enumerate(rows) if r[0] == "2026.06.05 10:00" and r[1] == "EURGBP")
+        rows.insert(k - 2, rows.pop(k))   # EURGBP before EURUSD at the same time, no stall note
+        ok, out = self.run_check(rows)
+        self.assertFalse(ok, out)
+        self.assertIn("pairs out of the fixed order", out)
+
+    def abort_case(self, with_abort):
+        rows = good()
+        r = next(r for r in rows if r[0] == "2026.06.05 03:00" and r[1] == "AUDNZD")
+        r[17] = "REFUSE T0001; DIVERGE wait"
+        tr = trades()
+        if with_abort:
+            a = dict(tr[0])
+            a.update(event="ABORT", half="0", note="half 2 not opened; half 1 closed")
+            tr.append(a)
+        return self.run_check(rows, tr)
+
+    def test_abort_logged_as_refuse_is_info(self):
+        ok, out = self.abort_case(True)
+        self.assertTrue(ok, out)
+        self.assertIn("closed by ABORT; the decision row says REFUSE T0001", out)
+
+    def test_refuse_with_an_open_trade_and_no_abort_fails(self):
+        ok, out = self.abort_case(False)
+        self.assertFalse(ok, out)
+        self.assertIn("has no decision row", out)
+
 
 if __name__ == "__main__":
     unittest.main()

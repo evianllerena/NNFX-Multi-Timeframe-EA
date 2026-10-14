@@ -139,7 +139,25 @@ def check(path, tf, pairs, trades_path=None, bars_dir=None):
     # in a later visit, noted "batch N" (each pair keeps its own clock; SPEC Candle timing)
     order = {p: k for k, p in enumerate(pairs)}
     by_time = defaultdict(list)
+    stall = 0
+    late_written = 0
+    max_seen = None
     for i, t, r in parsed:
+        # a stall catch-up row (the pair's candle was processed late, fed and logged, never acted on; in the tester the
+        # pairs are visited on the chart symbol's ticks, so a pair still trading while the chart symbol's market is
+        # closed catches up when it reopens: run ea_explore2_M30_20261014_165013, 2019.12.24) is outside the order rule
+        if r[18].startswith("missed (stall"):
+            stall += 1
+            if "ENTER:" in r[16] and r[17] != "-":
+                fails.append("line %d: stall row %s %s acted on (%s)" % (i, r[0], r[1], r[17]))
+            continue
+        # a row written after rows of a LATER candle time was processed late (its pair's next candle came after a gap in
+        # that pair's own history, so its close was seen late; run ea_explore2_M30_20261014_165013, AUDNZD 2022.12.26
+        # 10:30): outside the order rule within its candle time
+        if max_seen is not None and t < max_seen:
+            late_written += 1
+            continue
+        max_seen = t if max_seen is None or t > max_seen else max_seen
         m = BATCH.match(r[18])
         by_time[t].append((int(m.group(1)) if m else 1, r[1]))
     for t, lst in by_time.items():
@@ -147,6 +165,11 @@ def check(path, tf, pairs, trades_path=None, bars_dir=None):
         if ranks != sorted(ranks):
             fails.append("%s: pairs out of the fixed order: %s" % (t.strftime("%Y.%m.%d %H:%M"),
                                                                    ["%s(batch %d)" % (s, b) for b, s in lst]))
+    if stall:
+        info.append("%d stall catch-up row(s) (processed late, fed, never acted on): outside the order rule" % stall)
+    if late_written:
+        info.append("%d row(s) written after a later candle time (its pair's candle closed late, after a gap in that "
+                    "pair's history): outside the order rule" % late_written)
     late = sum(1 for _, _, r in parsed if BATCH.match(r[18]))
     if late:
         info.append("%d row(s) processed in a later batch than their candle time's first (their candle arrived later)"
@@ -167,6 +190,12 @@ def check(path, tf, pairs, trades_path=None, bars_dir=None):
         with open(trades_path, encoding="ascii", newline="") as f:
             trows = list(csv.DictReader(f))
         topen = {r["trade_id"] for r in trows if r["event"] == "OPEN" and r["half"] == "1"}
+        aborted = {r["trade_id"] for r in trows if r["event"] == "ABORT"}
+        refused = {m.group(1) for _, _, r in parsed for m in [re.match(r"^REFUSE ([^;\s]+)", r[17])] if m}
+        # an ABORT (half 1 opened, half 2 failed, half 1 closed) is logged by the EA as "REFUSE <id>": the trade did not open
+        for tid in sorted(topen & aborted & refused - set(opens_decided)):
+            info.append("trade log OPEN %s: half 1 only, closed by ABORT; the decision row says REFUSE %s" % (tid, tid))
+            topen = topen - {tid}
         for tid, (i, sym, tm) in sorted(opens_decided.items()):
             if tid not in topen:
                 fails.append("line %d: %s %s decided OPEN %s but the trade log has no OPEN for it" % (i, tm, sym, tid))
