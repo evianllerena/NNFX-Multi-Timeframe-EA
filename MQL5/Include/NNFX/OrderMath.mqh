@@ -101,6 +101,15 @@ int NNFXOrderStateOutcome(const long state)
    return 0;
   }
 
+// OD-5 with the owner's buffer (OWN-2 (d), 2026-10-14): the margin of both halves plus 5% must be free. Half 1's
+// spread cost lowers the free margin before half 2 is sent; without the buffer half 2 could be refused "No money" near
+// full use (H1 run ea_explore2_M30_H1_20261014_172116, T1903151800_1). Same as orders.py margin_ok(); MB lines.
+#define NNFX_MARGIN_BUFFER 0.05
+bool NNFXMarginOk(const double marginBothHalves, const double freeMargin)
+  {
+   return marginBothHalves * (1.0 + NNFX_MARGIN_BUFFER) <= freeMargin + 1e-9;
+  }
+
 double NNFXRoundNearest(const double price, const double tick)
   {
    return NormalizeDouble(MathFloor(price / tick + 0.5 + NNFX_OM_EPS) * tick, 10);

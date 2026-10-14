@@ -814,9 +814,9 @@ public:
         }
       m_margin_override = -1.0;
 #endif
-      if(margin > free)
+      if(!NNFXMarginOk(margin, free))
         {
-         Note("REFUSE", tradeId, sym, StringFormat("not enough free margin: needs %.2f, free %.2f (OD-5)", margin, free));
+         Note("REFUSE", tradeId, sym, StringFormat("not enough free margin: needs %.2f + 5%%, free %.2f (OD-5)", margin, free));
          return false;
         }
 

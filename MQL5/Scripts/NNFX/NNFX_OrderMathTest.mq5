@@ -124,6 +124,11 @@ void OnStart()
             bool got = NNFXPendingDue((int)StringToInteger(p[2]), StringToInteger(p[3]));
             Result(got == (p[4] == "1"), StringFormat("retry due %s: expected %s got %s", p[1], p[4], got ? "1" : "0"));
            }
+         else if(kind == "MB" && n == 5)   // OD-5 margin buffer (OWN-2 (d))
+           {
+            bool got = NNFXMarginOk(StringToDouble(p[2]), StringToDouble(p[3]));
+            Result(got == (p[4] == "1"), StringFormat("margin %s: expected %s got %s", p[1], p[4], got ? "1" : "0"));
+           }
          else if(kind == "OS" && n == 4)   // A5 (review fixes set 3); MT5's ORDER_STATE_* by name, never by number
            {
             long st = -1;

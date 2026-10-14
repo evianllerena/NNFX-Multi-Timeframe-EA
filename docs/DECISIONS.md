@@ -208,3 +208,16 @@ Under OWN-1. Built, awaiting review.
 | RV-A5 | An open order **accepted without a position yet** (PLACED, or DONE before the position shows) is waited for up to 5 s (the position by comment, else the order's state) and **never sent again while unresolved** (ALARM + Alert; the trade is not opened, a late fill is found by Reconcile, with its own stop). Only an order that will never fill (cancelled, rejected, expired) may be re-sent. The duplicate check runs right before each re-send (after the 1 s pause) and also covers pending orders with the same comment (`NNFXOrderStateOutcome`, `orders.py order_state_outcome`) | C | Built, awaiting review |
 | RV-A2 | The restart rebuild replays the trail switch-on with the **T4 setting** (`trail_start_atr`), not the constant 2.0; when the trade is in the state file, its **saved `trail_active` is used** and the candle replay is a cross-check (a difference is a note "disagree ... trail_active ... state used"). `recovery.rebuild(..., trail_start_atr)` in lockstep | C | Built, awaiting review |
 | RV-A3 | Live, the rebuild's deal history starts a day before the **oldest open position of this magic** (or 30 days back, whichever is earlier), so an older runner is never rebuilt as no trade. If half 1's deals are still missing, `tp1_done` comes from the state file (note). An open position of this magic that no rebuilt trade owns is named in a note at start-up | C | Built, awaiting review |
+
+## Owner decisions, 2026-10-14 (branch `owner-decisions-1`, base `review-fixes-3`)
+
+The owner's answer to the five questions put that day (each with option A as the recommendation): **"all A"**.
+
+| ID | Decision | Label | Status |
+| --- | --- | --- | --- |
+| OWN-2 (a) | **Live broker: OANDA TMS, `.pro` symbols** (hedging, EUR account, real ticks from 2019; `docs/ENVIRONMENT.md`, D6c-2). Phase 8 runs on its history and costs (P8-1). Settles STATUS "choose the live broker" | A (owner) | Approved |
+| OWN-2 (b) | **The Phase 8 plan `docs/PLAN_PHASE8.md` approved as drafted** (P8-1 to P8-11), including the rows that reopen S-8 (30 forward trades -> at least 200), the SPEC ranking (-> forward expectancy with bootstrap intervals), the single forward split (-> walk-forward in-sample, forward used once) and the single-path R1 gate (-> P(maxDD > 10%) <= 50%). The G2 verdict (`G2_phase8_1`) is still needed before the first shootout run | A (owner) | Approved; awaiting G2 verdict |
+| OWN-2 (c) | **P7-2 confirmed**: the tester-only `InpTesterDdPause` stays (refused live; presets at 1) | A (owner) | Approved |
+| OWN-2 (d) | **OD-5 gets a 5% buffer**: an entry needs the margin of both halves plus 5% free (`NNFXMarginOk`, `orders.py margin_ok`, MB cases). Updates OD-5 | A (owner) | Built, awaiting review |
+| OWN-2 (e) | **Blanket approval** of I-1, I-2, I-3, I-7, I-9 (Phase 3 interpretations, "awaiting tick") and D5-1 to D5-5 (Phase 5 design choices, "pending review"), as built and tested; closes the review's C4. The living rulebook doc still needs the ticks for the snapshot to be refreshed (`docs/SNAPSHOT_SYNC_2026-10-14.md`) | A (owner) | Approved |
+| OWN-2 (also) | DOC-C5, DOC-C6 and DOC-C7 were not among the five questions: still proposals for the owner | - | Open |

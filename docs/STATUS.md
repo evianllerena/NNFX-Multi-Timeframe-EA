@@ -45,15 +45,13 @@ Read-only EnvCheck on demo 62316800 (`docs/ENVIRONMENT.md`): hedging, EUR accoun
   `G1_review1_1` (#12), `G1_review2_1` (#13), `G1_phase7_1` + `G3_explore_1` (#14), `G2_phase8_1` (#15, the
   Phase 8 plan and the section-C records), `G1_review3_1` (#16). `G1_phase6f_1` (#11) still needs the chart buttons
   clicked by hand first.
-- **Decisions only the owner can take** (all proposals, nothing applied without you): the Phase 8 plan rows P8-1 to
-  P8-11 (`docs/PLAN_PHASE8.md`), above all **the live broker** (P8-1: OANDA TMS `.pro` proposed); P7-2
-  (`InpTesterDdPause`, tester only); DOC-C5 (dead-market rules left out of backtests); DOC-C6 (T5 as three variants);
-  DOC-C7 (keep or drop I-13 (b)'s "C1 and C2 agreeing"); the OD-5 margin buffer (`docs/RESULTS_EXPLORE_2026-10-14.md`).
-- **C4 (review 2026-10-13): the approval gap.** I-1, I-2, I-3, I-7, I-9 still "awaiting tick" and D5-1 to D5-5
-  "pending review", while the code built on them is merged since Phase 4/5. Either tick them in the living rulebook doc
-  (then the `docs/RULEBOOK.md` snapshot is refreshed) or record one blanket approval in DECISIONS.
-- **The snapshot sync list** `docs/SNAPSHOT_SYNC_2026-10-14.md` (C2, C3): edits for the living SPEC/RULEBOOK docs.
-- Choose the live broker (`docs/ENVIRONMENT.md`; MetaQuotes-Demo is not a retail broker): P8-1 above.
+- **Decided by the owner 2026-10-14 ("all A", DECISIONS OWN-2):** live broker **OANDA TMS `.pro`**; the Phase 8 plan
+  approved as drafted (first run after the `G2_phase8_1` verdict); P7-2 kept; the OD-5 5% margin buffer (built on branch
+  `owner-decisions-1`, PR #17, packet `G1_owner1_1`); blanket approval of I-1, I-2, I-3, I-7, I-9 and D5-1 to D5-5 (closes C4).
+- **Still open for the owner:** DOC-C5 (dead-market rules left out of backtests), DOC-C6 (T5 as three variants), DOC-C7
+  (keep or drop I-13 (b)'s "C1 and C2 agreeing"); the chart buttons for 6f; the review verdicts.
+- **The living documents** (the owner's Claude Docs): tick I-1 to I-9 there and apply `docs/SNAPSHOT_SYNC_2026-10-14.md`
+  (C2, C3); then the `docs/` snapshots are refreshed from them.
 
 ## Done since the last review (moved here, C8)
 
