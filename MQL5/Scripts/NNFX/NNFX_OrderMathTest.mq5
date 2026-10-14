@@ -113,6 +113,17 @@ void OnStart()
                                           StringToDouble(p[5]));
             Result(got == (p[6] == "1"), StringFormat("stop distance %s: expected %s got %s", p[1], p[6], got ? "1" : "0"));
            }
+         else if(kind == "BA" && n == 9)   // A1 (review fixes set 2)
+           {
+            int got = NNFXBeAction((int)StringToInteger(p[2]), StringToDouble(p[3]), StringToDouble(p[4]),
+                                   StringToDouble(p[5]), StringToDouble(p[6]), StringToDouble(p[7]));
+            Result(got == (int)StringToInteger(p[8]), StringFormat("breakeven action %s: expected %s got %d", p[1], p[8], got));
+           }
+         else if(kind == "PD" && n == 5)   // A1/A8 (review fixes set 2)
+           {
+            bool got = NNFXPendingDue((int)StringToInteger(p[2]), StringToInteger(p[3]));
+            Result(got == (p[4] == "1"), StringFormat("retry due %s: expected %s got %s", p[1], p[4], got ? "1" : "0"));
+           }
          else
             Result(false, "order case: unreadable line " + line);
         }

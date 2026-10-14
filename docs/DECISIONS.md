@@ -161,3 +161,17 @@ From the independent review checked in `docs/REVIEW_OPUS_2026-10-14.md`. The own
 | RV-A4 | A half's fill price unknown at readback is 0, never uninitialised; at TP1 it is read from half 2's position if that is still open; if still unknown, no BE move (ALARM instead) and no trail | C | Built, awaiting review |
 | RV-T4 | `InpTrailOn=false` now also stops the **order side** trailing (it used to trail at the broker while the core did not; found in the review check, N-1). `check_trades.py --trail-off` fails any TRAILON/TRAIL row | C | Built, awaiting review |
 
+## Owner instruction: work through steps 1-6 unattended (2026-10-14)
+
+| ID | Decision | Label | Status |
+| --- | --- | --- | --- |
+| OWN-1 | Owner, 2026-10-14: "go from 1-6 do everything as automated as possible i dont want to interfere here , get as ready to comletion as possible" (steps 1-6 of the plan given that day: close Phase 6, first backtest look, Phase 7, live-safety fixes, broker + Phase 8 plan, demo). Applied as: the work continues on **stacked branches** (each PR's base is the branch before it, never `main`), a review packet is written at every gate as `REVIEW_PROTOCOL.md` says, but the next step starts **without waiting** for the verdict. Unchanged: drafts only, never merged, never marked ready, nothing on a live account, the owner's own steps (merges, verdicts, chart buttons, broker choice) are left to the owner | A (owner's words) | Applied |
+
+## Review fixes, second set (2026-10-14, branch `review-fixes-2`, base `review-fixes-1`)
+
+| ID | Decision | Label | Status |
+| --- | --- | --- | --- |
+| RV-A7b | The A7 hedging check runs **after login**: `Init` skips it only when live and not logged in (before login `ACCOUNT_MARGIN_MODE` reads 0 = netting), the start-up (`ReadyToStart`) refuses to start on a non-hedging account (Alert once), every order method keeps the full check. Found while writing G1_review1_1; a normal cold start did not show the problem (`coldstart_20261014_160124`: OnInit already saw hedging), so this covers a start without connection | C | Built, awaiting review |
+| RV-A1 | A refused breakeven move is **tried again** from `Poll` (every tick): every 5 s for the first 5 failures, then every 60 s (`NNFXPendingDue`); a RETRY row per refusal, an ALARM and an Alert at the 5th. If the price half 2 would close at has already reached or passed breakeven against the trade, a breakeven stop would be hit at once and the broker refuses it, so **half 2 is closed at market** instead (`NNFXBeAction` 2; EXIT row "BE price already passed") | C | Built, awaiting review |
+| RV-A8 | Closes read and check the price first (no send on a failed `SymbolInfoTick`); a refusal that can clear (`NNFXRetcodeRetryable`) is retried up to 3 times 1 s apart; a close that still fails (ABORT's half 1, exits, close-all) goes **pending** and is tried again from `Poll` on the same schedule as RV-A1 | C | Built, awaiting review |
+| RV-TOOLS2 | `run_ea_tester.ps1` passes `--trail-off` to `check_trades.py` when `InpTrailOn=false` (G1_review1_1: planted bug M3 passed the runner without it); `tools/run_coldstart_check.ps1` starts MT5 with NNFX_EA attached on the demo (test magic 26991, master switch untouched) | C | Built, awaiting review |

@@ -42,7 +42,10 @@
 #define NNFX_DEVIATION    1000   // points; OD-14 accepts any fill (market execution ignores it)
 
 // Section 1 SAFETY, the wrapper: reads the two values now (the account can change while running).
-bool NNFXOrdersAllowed(string &why)
+// atInit: Init only. Live and not yet logged in, the margin mode reads 0 (= netting) until login, so Init skips the
+// A7 check then (review fixes set 2); every order method calls this without atInit, and the EA's start-up waits
+// for login and refuses to start on a non-hedging account (NNFX_EA.mq5 ReadyToStart).
+bool NNFXOrdersAllowed(string &why, const bool atInit = false)
   {
    long mode = AccountInfoInteger(ACCOUNT_TRADE_MODE);
    bool tester = (MQLInfoInteger(MQL_TESTER) != 0);
@@ -50,6 +53,13 @@ bool NNFXOrdersAllowed(string &why)
      {
       why = "orders refused: account trade mode " + IntegerToString(mode) + " is not DEMO and not in the tester";
       return false;
+     }
+   bool loggedIn = tester || (TerminalInfoInteger(TERMINAL_CONNECTED) != 0 && AccountInfoInteger(ACCOUNT_LOGIN) != 0);
+   if(!loggedIn)
+     {
+      why = atInit ? "orders allowed: DEMO; margin mode not known before login, checked at the start-up (A7)"
+                   : "orders refused: not logged in, the margin mode is not known (A7)";
+      return atInit;
      }
    // A7: both halves of a trade are separate positions on one symbol; a netting account would merge them
    long margin = AccountInfoInteger(ACCOUNT_MARGIN_MODE);
@@ -61,6 +71,20 @@ bool NNFXOrdersAllowed(string &why)
    why = tester ? "orders allowed: TESTER, hedging" : "orders allowed: DEMO, hedging";
    return true;
   }
+
+// A8 (review fixes set 2): a close that failed, tried again from Poll
+struct NNFXPendingClose
+  {
+   ulong             pos;
+   string            trade;
+   int               half;
+   bool              log_close;   // write the CLOSE row here (the half is not in m_trades: an ABORT's half 1)
+   string            sym;
+   int               dir;
+   double            lots;
+   int               fails;
+   datetime          last;
+  };
 
 struct NNFXTrade
   {
@@ -90,8 +114,16 @@ private:
    ulong             m_alarmed[];     // manual stopless positions already alarmed (one alarm each)
    double            m_sl_atr, m_tp1_atr, m_trail_start, m_trail_dist;
    bool              m_trail_on;   // T4 on/off, the same setting the rules core gets (review 2026-10-14)
+   // A1/A8 (review fixes set 2): closes that failed, tried again from Poll (NNFXPendingDue)
+   NNFXPendingClose  m_pc[];
+   // A1: breakeven moves that failed, per trade id
+   string            m_be_id[];
+   int               m_be_fails[];
+   datetime          m_be_last[];
 #ifdef NNFX_TEST_BUILD
    bool              m_lose_next_reply;
+   bool              m_fail_next_be;        // one-shot: the next BE stop move is refused -> retried (A1)
+   bool              m_fail_next_close;     // one-shot: the next close is refused -> pending, retried (A8)
    bool              m_fail_next_half2;     // one-shot: half 2's send fails -> ABORT
    long              m_stops_override;      // one-shot: stops level in points (-1 = off) -> REFUSE
    double            m_margin_override;     // one-shot: free margin (-1 = off) -> REFUSE (OD-5)
@@ -237,28 +269,226 @@ private:
       return OrderSend(req, res) && res.retcode == TRADE_RETCODE_DONE;
      }
 
+   // A8 (review fixes set 2): the price is read and checked before the request; a refusal that can clear is tried
+   // again up to NNFX_RETRIES times 1 s apart, the position looked up again first (it may have closed meanwhile).
    bool              ClosePosition(const ulong posId)
      {
-      if(!SelectPosition(posId))
+#ifdef NNFX_TEST_BUILD
+      if(m_fail_next_close && MQLInfoInteger(MQL_TESTER) != 0 && SelectPosition(posId))
+        {
+         m_fail_next_close = false;
+         Note("TEST", "", PositionGetString(POSITION_SYMBOL), "TEST: close of position " + IntegerToString((long)posId) +
+              " forced to fail", posId);
          return false;
-      MqlTradeRequest req;
-      MqlTradeResult res;
-      ZeroMemory(req);
-      ZeroMemory(res);
-      string sym = PositionGetString(POSITION_SYMBOL);
-      bool isBuy = (PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY);
-      MqlTick tick;
-      SymbolInfoTick(sym, tick);
-      req.action = TRADE_ACTION_DEAL;
-      req.position = (ulong)PositionGetInteger(POSITION_TICKET);
-      req.symbol = sym;
-      req.volume = PositionGetDouble(POSITION_VOLUME);
-      req.type = isBuy ? ORDER_TYPE_SELL : ORDER_TYPE_BUY;
-      req.price = isBuy ? tick.bid : tick.ask;
-      req.deviation = NNFX_DEVIATION;
-      req.type_filling = Filling(sym);
-      req.magic = m_magic;
-      return OrderSend(req, res) && (res.retcode == TRADE_RETCODE_DONE || res.retcode == TRADE_RETCODE_PLACED);
+        }
+#endif
+      for(int attempt = 0; attempt <= NNFX_RETRIES; attempt++)
+        {
+         if(attempt > 0)
+            Sleep(NNFX_RETRY_MS);
+         if(!SelectPosition(posId))
+            return attempt > 0;   // gone during the retries: closed (by us or its stop); Poll logs how
+         MqlTradeRequest req;
+         MqlTradeResult res;
+         ZeroMemory(req);
+         ZeroMemory(res);
+         string sym = PositionGetString(POSITION_SYMBOL);
+         bool isBuy = (PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY);
+         MqlTick tick;
+         if(!SymbolInfoTick(sym, tick) || !(isBuy ? tick.bid > 0 : tick.ask > 0))
+           {
+            Note("RETRY", "", sym, "close of position " + IntegerToString((long)posId) + ": no price (SymbolInfoTick), not sent (A8)", posId);
+            continue;
+           }
+         req.action = TRADE_ACTION_DEAL;
+         req.position = (ulong)PositionGetInteger(POSITION_TICKET);
+         req.symbol = sym;
+         req.volume = PositionGetDouble(POSITION_VOLUME);
+         req.type = isBuy ? ORDER_TYPE_SELL : ORDER_TYPE_BUY;
+         req.price = isBuy ? tick.bid : tick.ask;
+         req.deviation = NNFX_DEVIATION;
+         req.type_filling = Filling(sym);
+         req.magic = m_magic;
+         if(OrderSend(req, res) && (res.retcode == TRADE_RETCODE_DONE || res.retcode == TRADE_RETCODE_PLACED))
+            return true;
+         Note("RETRY", "", sym, "close of position " + IntegerToString((long)posId) + " attempt " + IntegerToString(attempt + 1) +
+              " retcode " + IntegerToString(res.retcode) + " " + res.comment, posId);
+         if(!NNFXRetcodeRetryable(res.retcode))
+            return false;
+        }
+      return false;
+     }
+
+   // A8: a close that failed goes on the pending list and is tried again from Poll.
+   void              AddPendingClose(const ulong posId, const string tradeId, const int half, const bool logClose)
+     {
+      for(int i = 0; i < ArraySize(m_pc); i++)
+         if(m_pc[i].pos == posId)
+            return;
+      if(!SelectPosition(posId))
+         return;   // already gone
+      int n = ArraySize(m_pc);
+      ArrayResize(m_pc, n + 1);
+      m_pc[n].pos = posId;
+      m_pc[n].trade = tradeId;
+      m_pc[n].half = half;
+      m_pc[n].log_close = logClose;
+      m_pc[n].sym = PositionGetString(POSITION_SYMBOL);
+      m_pc[n].dir = (PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY) ? 1 : -1;
+      m_pc[n].lots = PositionGetDouble(POSITION_VOLUME);
+      m_pc[n].fails = 1;
+      m_pc[n].last = TimeCurrent();
+      Note("RETRY", tradeId, m_pc[n].sym, StringFormat("close of position %I64u failed: pending, tried again (A8)", posId), posId);
+     }
+
+   void              RemovePendingClose(const int i)
+     {
+      int last = ArraySize(m_pc) - 1;
+      if(i != last)
+         m_pc[i] = m_pc[last];
+      ArrayResize(m_pc, last);
+     }
+
+   // A CLOSE row for a half this object does not track (an ABORT's half 1).
+   void              LogClose(const string tradeId, const int half, const string sym, const int dir, const ulong posId,
+                              const double lots, const string note)
+     {
+      double cprice = 0;
+      long creason = -1;
+      if(!ClosingDeal(posId, cprice, creason))
+         return;
+      NNFXLogRow c;
+      NNFXLogRowClear(c);
+      c.event = "CLOSE";
+      c.trade_id = tradeId;
+      c.half = half;
+      c.symbol = sym;
+      c.dir = dir;
+      c.ticket = posId;
+      c.lots = lots;
+      c.price = cprice;
+      c.tick_size = SymbolInfoDouble(sym, SYMBOL_TRADE_TICK_SIZE);
+      c.note = note + ", deal reason " + IntegerToString(creason);
+      Row(c);
+     }
+
+   // A8: the pending closes, each when due (NNFXPendingDue). Called from Poll.
+   void              RetryPendingCloses(void)
+     {
+      for(int i = ArraySize(m_pc) - 1; i >= 0; i--)
+        {
+         ulong posId = m_pc[i].pos;
+         if(!SelectPosition(posId))
+           {
+            // gone (its stop or target): Poll logs the halves it tracks; an ABORT's half 1 is logged here
+            if(m_pc[i].log_close)
+               LogClose(m_pc[i].trade, m_pc[i].half, m_pc[i].sym, m_pc[i].dir, posId, m_pc[i].lots, "closed while pending (A8)");
+            RemovePendingClose(i);
+            continue;
+           }
+         if(!NNFXPendingDue(m_pc[i].fails, (long)(TimeCurrent() - m_pc[i].last)))
+            continue;
+         if(ClosePosition(posId))
+           {
+            Note("RETRY", m_pc[i].trade, m_pc[i].sym, StringFormat("close retry %d of position %I64u: closed (A8)", m_pc[i].fails, posId), posId);
+            if(m_pc[i].log_close)
+               LogClose(m_pc[i].trade, m_pc[i].half, m_pc[i].sym, m_pc[i].dir, posId, m_pc[i].lots,
+                        "closed by retry " + IntegerToString(m_pc[i].fails) + " (A8)");
+            RemovePendingClose(i);
+            continue;
+           }
+         m_pc[i].fails++;
+         m_pc[i].last = TimeCurrent();
+         Note("RETRY", m_pc[i].trade, m_pc[i].sym, StringFormat("close retry of position %I64u failed (%d failures)", posId, m_pc[i].fails), posId);
+         if(m_pc[i].fails == NNFX_PENDING_FAST_N)
+           {
+            Note("ALARM", m_pc[i].trade, m_pc[i].sym, StringFormat("position %I64u still not closed after %d tries; tried every %d s from now",
+                                                                   posId, m_pc[i].fails, NNFX_PENDING_SLOW_S), posId);
+            Alert("NNFX: position ", posId, " could not be closed after ", m_pc[i].fails, " tries");
+           }
+        }
+     }
+
+   int               BeIndex(const string tradeId)
+     {
+      for(int i = 0; i < ArraySize(m_be_id); i++)
+         if(m_be_id[i] == tradeId)
+            return i;
+      return -1;
+     }
+
+   // A1: after TP1, half 2's stop at the broker must be at breakeven or better. A failed move is tried again when
+   // due; if the price has already passed breakeven, half 2 is closed at market (NNFXBeAction 2). Called from Poll.
+   void              MaintainBreakeven(const string via)
+     {
+      for(int i = 0; i < ArraySize(m_trades); i++)
+        {
+         if(!m_trades[i].tp1_done || !m_trades[i].open2 || !(m_trades[i].entry2 > 0) || !SelectPosition(m_trades[i].pos2))
+            continue;
+         string id = m_trades[i].id;
+         int k = BeIndex(id);
+         if(k < 0)
+            continue;   // no failed BE move for this trade: nothing to retry (the first move is made at TP1)
+         string sym = m_trades[i].sym;
+         MqlTick tick;
+         if(!SymbolInfoTick(sym, tick))
+            continue;
+         double tickSize = SymbolInfoDouble(sym, SYMBOL_TRADE_TICK_SIZE);
+         int action = NNFXBeAction(m_trades[i].dir, m_trades[i].entry2, PositionGetDouble(POSITION_SL), tick.bid, tick.ask, tickSize);
+         if(action == 0)
+           {
+            BeForget(k);   // in place (moved by a retry, the trail, or by hand)
+            continue;
+           }
+         if(!NNFXPendingDue(m_be_fails[k], (long)(TimeCurrent() - m_be_last[k])))
+            continue;
+         if(action == 2)
+           {
+            Note("EXIT", id, sym, StringFormat("BE price already passed after %d failed moves: half 2 closed at market (A1, RV-A1)",
+                                               m_be_fails[k]), m_trades[i].pos2);
+            if(!ClosePosition(m_trades[i].pos2))
+               AddPendingClose(m_trades[i].pos2, id, 2, false);
+            BeForget(k);
+            continue;
+           }
+         if(MoveStop(id, NNFXBreakevenPrice(m_trades[i].entry2), "BE", 0.0, 0.0, "via=" + via + "; retry " + IntegerToString(m_be_fails[k]) + " (A1)"))
+           {
+            BeForget(k);
+            continue;
+           }
+         m_be_fails[k]++;
+         m_be_last[k] = TimeCurrent();
+         if(m_be_fails[k] == NNFX_PENDING_FAST_N)
+           {
+            Note("ALARM", id, sym, StringFormat("BE: still not set after %d tries; tried every %d s from now", m_be_fails[k],
+                                                NNFX_PENDING_SLOW_S), m_trades[i].pos2);
+            Alert("NNFX: breakeven of ", id, " still not set after ", m_be_fails[k], " tries");
+           }
+        }
+     }
+
+   void              BeFailed(const string tradeId)
+     {
+      if(BeIndex(tradeId) >= 0)
+         return;
+      int n = ArraySize(m_be_id);
+      ArrayResize(m_be_id, n + 1);
+      ArrayResize(m_be_fails, n + 1);
+      ArrayResize(m_be_last, n + 1);
+      m_be_id[n] = tradeId;
+      m_be_fails[n] = 1;
+      m_be_last[n] = TimeCurrent();
+     }
+
+   void              BeForget(const int k)
+     {
+      int last = ArraySize(m_be_id) - 1;
+      m_be_id[k] = m_be_id[last];
+      m_be_fails[k] = m_be_fails[last];
+      m_be_last[k] = m_be_last[last];
+      ArrayResize(m_be_id, last);
+      ArrayResize(m_be_fails, last);
+      ArrayResize(m_be_last, last);
      }
 
    // The deal that closed a position: its price and reason. False if the position is still open.
@@ -325,6 +555,8 @@ public:
      {
 #ifdef NNFX_TEST_BUILD
       m_lose_next_reply = false;
+      m_fail_next_be = false;
+      m_fail_next_close = false;
       m_fail_next_half2 = false;
       m_stops_override = -1;
       m_margin_override = -1.0;
@@ -335,7 +567,7 @@ public:
    bool              Init(const long magic, CNNFXTradeLog *log, const double slAtr, const double tp1Atr,
                           const double trailStart, const double trailDist, const bool trailOn = true)
      {
-      if(!NNFXOrdersAllowed(m_why))
+      if(!NNFXOrdersAllowed(m_why, true))
         {
          Print("NNFX orders: ", m_why);
          return false;
@@ -535,28 +767,15 @@ public:
          // Never leave one half alone: halves must be equal (M5). Log half 1's OPEN and its close.
          LogFill("OPEN", t, 1, t.pos1, 0.0, 0.0, size.target_risk_money, balance, riskPct, tickValue, "half 2 failed");
          bool closed = ClosePosition(t.pos1);
-         double cprice = 0;
-         long creason = -1;
-         if(closed && ClosingDeal(t.pos1, cprice, creason))
-           {
-            NNFXLogRow c;
-            NNFXLogRowClear(c);
-            c.event = "CLOSE";
-            c.trade_id = tradeId;
-            c.half = 1;
-            c.symbol = sym;
-            c.dir = dir;
-            c.ticket = t.pos1;
-            c.lots = half;
-            c.price = cprice;
-            c.tick_size = tickSize;
-            c.note = "closed by ABORT, deal reason " + IntegerToString(creason);
-            Row(c);
-           }
-         Note("ABORT", tradeId, sym, closed ? "half 2 not opened; half 1 closed" : "half 2 not opened; HALF 1 CLOSE FAILED",
-              t.pos1);
+         if(closed)
+            LogClose(tradeId, 1, sym, dir, t.pos1, half, "closed by ABORT");
+         Note("ABORT", tradeId, sym, closed ? "half 2 not opened; half 1 closed" :
+              "half 2 not opened; HALF 1 CLOSE FAILED; pending, tried again (A8)", t.pos1);
          if(!closed)
-            Alert("NNFX: ABORT of ", tradeId, ": half 1 could not be closed");
+           {
+            AddPendingClose(t.pos1, tradeId, 1, true);
+            Alert("NNFX: ABORT of ", tradeId, ": half 1 could not be closed yet; tried again");
+           }
          return false;
         }
       t.open2 = true;
@@ -657,6 +876,8 @@ public:
               }
            }
         }
+      MaintainBreakeven(via);   // A1: failed BE moves, tried again when due
+      RetryPendingCloses();     // A8: failed closes, tried again when due
      }
 
    // Moves half 2's stop (BE or TRAIL). Never backwards.
@@ -675,9 +896,26 @@ public:
       if((newSl - prev) * m_trades[k].dir <= 0.0)
          return false;   // never backwards
       double tp = PositionGetDouble(POSITION_TP);
-      if(!ModifyPosition(m_trades[k].pos2, newSl, tp))
+      bool forced = false;
+#ifdef NNFX_TEST_BUILD
+      forced = m_fail_next_be && event == "BE" && MQLInfoInteger(MQL_TESTER) != 0;
+      if(forced)
         {
-         Note("ALARM", tradeId, m_trades[k].sym, event + ": stop move to " + DoubleToString(newSl, 10) + " refused by the broker");
+         m_fail_next_be = false;
+         Note("TEST", tradeId, m_trades[k].sym, "TEST: BE stop move forced to fail", m_trades[k].pos2);
+        }
+#endif
+      if(forced || !ModifyPosition(m_trades[k].pos2, newSl, tp))
+        {
+         if(event == "BE")
+           {
+            // A1: not the end of it: MaintainBreakeven tries again (ALARM after NNFX_PENDING_FAST_N failures)
+            Note("RETRY", tradeId, m_trades[k].sym, "BE: stop move to " + DoubleToString(newSl, 10) + " refused; tried again (A1)",
+                 m_trades[k].pos2);
+            BeFailed(tradeId);
+           }
+         else
+            Note("ALARM", tradeId, m_trades[k].sym, event + ": stop move to " + DoubleToString(newSl, 10) + " refused by the broker");
          return false;
         }
       m_trades[k].sl2 = newSl;
@@ -758,10 +996,16 @@ public:
          return false;
       Note("EXIT", tradeId, m_trades[k].sym, reason);
       bool ok = true;
-      if(m_trades[k].open1)
-         ok = ClosePosition(m_trades[k].pos1) && ok;
-      if(m_trades[k].open2)
-         ok = ClosePosition(m_trades[k].pos2) && ok;
+      for(int h = 1; h <= 2; h++)
+        {
+         bool isOpen = (h == 1) ? m_trades[k].open1 : m_trades[k].open2;
+         ulong posId = (h == 1) ? m_trades[k].pos1 : m_trades[k].pos2;
+         if(isOpen && !ClosePosition(posId))
+           {
+            ok = false;
+            AddPendingClose(posId, tradeId, h, false);   // A8: tried again from Poll
+           }
+        }
       Poll("close");
       return ok;
      }
@@ -945,6 +1189,26 @@ public:
       if(MQLInfoInteger(MQL_TESTER) == 0)
          return;
       m_fail_next_half2 = true;
+     }
+
+   // TEST BUILD ONLY (review fixes set 2, A1): the next breakeven move is refused, to prove it is tried again.
+   void              TestFailNextBe(void)
+     {
+      if(!NNFXOrdersAllowed(m_why))
+         return;
+      if(MQLInfoInteger(MQL_TESTER) == 0)
+         return;
+      m_fail_next_be = true;
+     }
+
+   // TEST BUILD ONLY (review fixes set 2, A8): the next close is refused, to prove it goes pending and is tried again.
+   void              TestFailNextClose(void)
+     {
+      if(!NNFXOrdersAllowed(m_why))
+         return;
+      if(MQLInfoInteger(MQL_TESTER) == 0)
+         return;
+      m_fail_next_close = true;
      }
 
    // TEST BUILD ONLY: the next trade sees this stops level (points), to prove the REFUSE before any order.

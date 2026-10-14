@@ -7,7 +7,7 @@ run_ea_tester.ps1 - one Strategy Tester run of NNFX_EA (Phase 6f; docs/PLAN_PHAS
   3. Starts MT5 with it (D-OPS-1: the full-path terminal only) and waits for it to close.
   4. Copies the trade log, the decision log, the tester report and the tester log into
      MQL5\Files\NNFX\checks\ea_<Tag>_<stamp>\ and runs:
-       tools/check_trades.py <trade log>                                   RESULT ...: PASS (0 failures)
+       tools/check_trades.py <trade log> [--trail-off when InpTrailOn=false] RESULT ...: PASS (0 failures)
        tools/check_decision_log.py <decision log> --tf --pairs --trades    RESULT ...: PASS (0 failures)
   5. SUMMARY.txt with every step; OVERALL: PASS only if every step passed.
 
@@ -149,7 +149,10 @@ function Check([string]$step, [string]$file, [string[]]$pyArgs) {
 }
 if (Test-Path "$Out\trades_$name") {
     $tf = @{ "M30" = "30"; "H1" = "60"; "H4" = "240" }[$Period]
-    Check "4 check_trades" "check_trades.txt" @("$Repo\tools\check_trades.py", "$Out\trades_$name", "--min-trades", "$MinTrades")
+    # InpTrailOn=false: no TRAILON/TRAIL row may appear (review fixes set 2; G1_review1_1 gap: plant M3 passed without it)
+$ctArgs = @("$Repo\tools\check_trades.py", "$Out\trades_$name", "--min-trades", "$MinTrades")
+if ($inputs["InpTrailOn"] -eq "false") { $ctArgs += "--trail-off" }
+Check "4 check_trades" "check_trades.txt" $ctArgs
     Check "4 check_decision_log" "check_decision_log.txt" @("$Repo\tools\check_decision_log.py", "$Out\decisions_$name",
           "--tf", $tf, "--pairs", $inputs["InpPairs"], "--trades", "$Out\trades_$name")
     if ($inputs["InpNewsBlock"] -eq "true") {

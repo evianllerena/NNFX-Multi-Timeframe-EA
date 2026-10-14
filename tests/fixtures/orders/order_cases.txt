@@ -12,6 +12,8 @@
 # SF|name|trade_mode|in_tester|expected allowed (1/0)      (section 1 SAFETY; also NNFX_SafetyTest)
 # MM|name|margin_mode|expected allowed (1/0)              (A7: hedging only, tester included; NNFX_SafetyTest)
 # RC|name|retcode|expected retried (1/0)                  (B3: TRADE_RETCODE_<name>; NNFX_SafetyTest)
+# BA|name|dir|entry2|broker_sl|bid|ask|tick|expected      (A1: after TP1, 0 nothing / 1 move to BE / 2 close half 2)
+# PD|name|fails|seconds_since_last|expected due (1/0)   (A1/A8: retry every 5 s for 5 failures, then every 60 s)
 #
 # long: SL 1.10000 - 1.5 x 0.00200 = 1.09700; TP1 1.10000 + 0.00200 = 1.10200
 OP|long_basic|1|1.10000|0.00200|0.00001|1.5|1.0|-|1.09700|1.10200|-|1.10000
@@ -103,3 +105,38 @@ RC|close_order_exist|CLOSE_ORDER_EXIST|0
 RC|long_only|LONG_ONLY|0
 RC|short_only|SHORT_ONLY|0
 RC|close_only|CLOSE_ONLY|0
+#
+# A1 breakeven after TP1 (review fixes set 2). BE = half 2's entry. "Behind" = (BE - broker SL) x dir > half a tick.
+# Close instead of move when the price half 2 would close at (bid long, ask short) is at or beyond BE against the trade.
+# long, stop already at BE: 0
+BA|long_at_be|1|1.10000|1.10000|1.10150|1.10160|0.00001|0
+# long, stop already above BE (trail): (1.10000 - 1.10085) < 0: 0
+BA|long_trail_beyond_be|1|1.10000|1.10085|1.10300|1.10310|0.00001|0
+# long, stop 0.4 tick below BE (rounding): 0.000004 <= 0.000005: 0
+BA|long_within_half_tick|1|1.10000|1.099996|1.10150|1.10160|0.00001|0
+# long, stop at the original 1.09700, bid 1.10150 above BE: move: 1
+BA|long_needs_move|1|1.10000|1.09700|1.10150|1.10160|0.00001|1
+# long, bid 1.09990 below BE: a BE stop would be above the bid: close: 2
+BA|long_price_passed|1|1.10000|1.09700|1.09990|1.10000|0.00001|2
+# long, bid exactly at BE: 0 <= 0: close: 2
+BA|long_bid_at_be|1|1.10000|1.09700|1.10000|1.10010|0.00001|2
+# long, spread straddles BE (bid 1.09995, ask 1.10005): the bid decides: close: 2
+BA|long_spread_straddles_be|1|1.10000|1.09700|1.09995|1.10005|0.00001|2
+# short, stop at the original 1.10300, ask 1.09850 below BE: (1.09850 - 1.10000) x -1 = 0.0015 > 0: move: 1
+BA|short_needs_move|-1|1.10000|1.10300|1.09840|1.09850|0.00001|1
+# short, ask 1.10010 above BE: close: 2
+BA|short_price_passed|-1|1.10000|1.10300|1.10000|1.10010|0.00001|2
+# short, stop at BE: 0
+BA|short_at_be|-1|1.10000|1.10000|1.09840|1.09850|0.00001|0
+# CHFJPY-like long: stop 149.550, BE 150.123, bid 150.400: move: 1
+BA|jpy_long_needs_move|1|150.123|149.550|150.400|150.420|0.001|1
+#
+# A1/A8 retry timing: fails 0 -> now; fails 1-4 -> 5 s after the last try; fails >= 5 -> 60 s
+PD|first_try|0|0|1
+PD|fast_not_yet|1|4|0
+PD|fast_due|1|5|1
+PD|fast_fourth|4|5|1
+PD|slow_after_five|5|5|0
+PD|slow_due|5|60|1
+PD|slow_many_not_yet|50|59|0
+PD|slow_many_due|50|60|1

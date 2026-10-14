@@ -123,6 +123,35 @@ double NNFXBreakevenPrice(const double entry)
    return entry;
   }
 
+// A1 (review fixes set 2): after TP1, what half 2's stop at the broker needs. 0 = nothing (at breakeven or better),
+// 1 = move it to breakeven, 2 = close half 2 at market: the price is already at or beyond breakeven against the trade,
+// so a breakeven stop would be hit at once and the broker refuses it (label C, decision RV-A1).
+// Same as orders.py be_action(); checked against the BA lines of order_cases.txt by NNFX_OrderMathTest.
+int NNFXBeAction(const int dir, const double entry2, const double brokerSl, const double bid, const double ask,
+                 const double tick)
+  {
+   double be = NNFXBreakevenPrice(entry2);
+   if((be - brokerSl) * dir <= tick * 0.5)
+      return 0;
+   double exitPrice = (dir > 0) ? bid : ask;   // the price half 2 would close at
+   if((exitPrice - be) * dir <= 0.0)
+      return 2;
+   return 1;
+  }
+
+// A1/A8 (review fixes set 2): when a failed breakeven move or close is tried again. Every 5 s for the first 5
+// failures, then every 60 s, without end (the position stays protected by its own stop meanwhile).
+// Same as orders.py pending_due(); checked against the PD lines of order_cases.txt by NNFX_OrderMathTest.
+#define NNFX_PENDING_FAST_S 5
+#define NNFX_PENDING_SLOW_S 60
+#define NNFX_PENDING_FAST_N 5
+bool NNFXPendingDue(const int fails, const long secondsSinceLast)
+  {
+   if(fails <= 0)
+      return true;
+   return secondsSinceLast >= (fails < NNFX_PENDING_FAST_N ? NNFX_PENDING_FAST_S : NNFX_PENDING_SLOW_S);
+  }
+
 // One candle close of the T4 trail on half 2 (called only after TP1). Returns true if the stop moved.
 bool NNFXTrailStep(const int dir, const double entry, const double atrEntry, const double currentSl,
                    bool &active, const double close, const double atr, const double tick,

@@ -12,7 +12,9 @@ Reads a trade log written by MQL5/Include/NNFX/TradeLog.mqh and checks, trade by
   prices   SL within one tick of entry -/+ 1.5 x entry ATR and never further (M3, T1);
            TP1 within one tick of entry +/- 1 x entry ATR (T1); half 2 no target, or the
            runner cap within one tick (T3, T7)
-  T2       BE only after TP1, at exactly half 2's entry (OD-15), and at once: the BE row is
+  T2       BE only after TP1, at exactly half 2's entry (OD-15), and at once (or, after a refusal logged as a
+           RETRY "BE: ... refused" row, by a retry marked "(A1)"; or half 2 closed at market once the price has
+           passed breakeven, EXIT "BE price already passed"; review fixes set 2): the BE row is
            in the same second as the TP1 row when half 2 was still open (not closed at or before
            TP1's time, e.g. by the runner cap in the same tick)
   T4       a TRAILON row (close >= 2 x entry ATR beyond entry) before any TRAIL; TRAIL only
@@ -97,7 +99,13 @@ def check(path, min_trades=0, require=(), require_notes=(), be_lag=0, trail_off=
             if opens[2]:
                 fails.append("%s: ABORT but half 2 was opened" % tid)
             if any("FAILED" in a["note"] for a in aborts):
-                fails.append("%s: ABORT could not close half 1 (lone half left)" % tid)
+                # A8 (review fixes set 2): a failed ABORT close is pending and tried again; accepted only when the ABORT
+                # says so and a later close of half 1 marked (A8) is logged
+                retried = any(r["half"] == 1 and r["event"] == "CLOSE" and "(A8)" in r["note"] for _, r in evs)
+                if all("pending" in a["note"] for a in aborts if "FAILED" in a["note"]) and retried:
+                    info.append("%s: ABORT's first close of half 1 failed; pending, tried again (A8)" % tid)
+                else:
+                    fails.append("%s: ABORT could not close half 1 (lone half left)" % tid)
             if opens[1]:
                 if opens[1][0][1]["sl"] == 0.0:
                     fails.append("%s: half 1 had no stop at its first record" % tid)
@@ -185,8 +193,17 @@ def check(path, min_trades=0, require=(), require_notes=(), be_lag=0, trail_off=
             # then there is nothing to move to breakeven (a big candle can fill TP1 and the cap together).
             half2_open = h2_close is None or (h2_close[0] > ti and h2_close[1]["time"] != tr["time"])
             if half2_open:
-                if not be_rows:
+                # A1 (review fixes set 2): a refused BE move is tried again (RETRY row "BE: ... refused"), and if the price
+                # has passed breakeven meanwhile, half 2 is closed at market instead (EXIT "BE price already passed")
+                be_refused = [r for i, r in evs if i > ti and r["event"] == "RETRY" and r["note"].startswith("BE:")]
+                be_passed = [r for i, r in evs if i > ti and r["event"] == "EXIT" and "BE price already passed" in r["note"]]
+                if not be_rows and be_refused and be_passed:
+                    info.append("%s: breakeven refused %d time(s), then the price passed it: half 2 closed at market (A1)"
+                                % (tid, len(be_refused)))
+                elif not be_rows:
                     fails.append("%s: TP1 filled but half 2 never moved to breakeven" % tid)
+                elif be_refused and "(A1)" in be_rows[0][1]["note"]:
+                    info.append("%s: breakeven refused at TP1 %s, set by a retry at %s (A1)" % (tid, tr["time"], be_rows[0][1]["time"]))
                 elif be_rows[0][1]["time"] != tr["time"]:
                     # "at once" (T2, OD-15): the same second, or on a live server up to --be-lag-seconds later when
                     # the move came from the trade event (via=transaction); the tester always uses 0

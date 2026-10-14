@@ -225,6 +225,66 @@ class TestCheckTrades(unittest.TestCase):
         self.assertFalse(ok, out)
         self.assertIn("with the trail off", out)
 
+    # A1 / A8 (review fixes set 2)
+    def be_late(self, rs, retry_row=True, a1_note=True):
+        be = find(rs, "BE", "T0003")
+        be.update(time="2026.06.04 11:00:05", note="via=tick; retry 1 (A1)" if a1_note else "via=tick")
+        if retry_row:
+            rs.insert(rs.index(be), row("2026.06.04 11:00:00", "RETRY", "T0003", 2, 1, ticket=32,
+                                        note="BE: stop move to 1.1 refused; tried again (A1)"))
+
+    def test_be_set_by_retry_passes(self):
+        rows = copy.deepcopy(good_rows())
+        self.be_late(rows)
+        ok, out = run(rows)
+        self.assertTrue(ok, out)
+        self.assertIn("set by a retry", out)
+
+    def test_late_be_without_refusal_fails(self):
+        self.corrupt(lambda rs: self.be_late(rs, retry_row=False), "not at once after TP1")
+
+    def test_late_be_not_marked_retry_fails(self):
+        self.corrupt(lambda rs: self.be_late(rs, a1_note=False), "not at once after TP1")
+
+    def test_be_passed_close_passes(self):
+        def change(rs):
+            be = find(rs, "BE", "T0003")
+            i = rs.index(be)
+            rs[i:i + 1] = [row("2026.06.04 11:00:00", "RETRY", "T0003", 2, 1, ticket=32, note="BE: stop move to 1.1 refused; tried again (A1)"),
+                           row("2026.06.04 11:00:05", "EXIT", "T0003", note="BE price already passed after 1 failed moves: half 2 closed at market (A1, RV-A1)")]
+            find(rs, "TP2", "T0003").update(event="CLOSE", price="1.09995", time="2026.06.04 11:00:05")
+        rows = copy.deepcopy(good_rows())
+        change(rows)
+        ok, out = run(rows)
+        self.assertTrue(ok, out)
+        self.assertIn("half 2 closed at market", out)
+
+    def test_be_missing_without_passed_close_fails(self):
+        def change(rs):
+            be = find(rs, "BE", "T0003")
+            rs[rs.index(be)] = row("2026.06.04 11:00:00", "RETRY", "T0003", 2, 1, ticket=32, note="BE: stop move to 1.1 refused; tried again (A1)")
+        self.corrupt(change, "never moved to breakeven")
+
+    def test_abort_close_retried_passes(self):
+        def change(rs):
+            c = find(rs, "CLOSE", "T0005", 1)
+            c.update(time="2026.06.06 10:00:05", note="closed by retry 1 (A8), deal reason 3")
+            a = find(rs, "ABORT", "T0005")
+            a.update(note="half 2 not opened; HALF 1 CLOSE FAILED; pending, tried again (A8)")
+            rs.remove(c)
+            rs.insert(rs.index(a) + 1, c)
+        rows = copy.deepcopy(good_rows())
+        change(rows)
+        ok, out = run(rows)
+        self.assertTrue(ok, out)
+        self.assertIn("pending, tried again", out)
+
+    def test_abort_close_never_retried_fails(self):
+        def change(rs):
+            rs.remove(find(rs, "CLOSE", "T0005", 1))
+            find(rs, "ABORT", "T0005").update(note="half 2 not opened; HALF 1 CLOSE FAILED; pending, tried again (A8)")
+        self.corrupt(change, "no close of half 1")
+
     def test_trail_off_passes_without_trail_rows(self):
         rows = [r for r in good_rows() if r["event"] not in ("TRAILON", "TRAIL")]
         ok, out = run(rows, trail_off=True)
