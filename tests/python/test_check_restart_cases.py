@@ -40,12 +40,14 @@ def be_run(fixed=True):
 def abort_run(fixed=True):
     rs = [row("2026.06.10 14:00:03", "OPEN", "T0007", "1", price="1.1", sl="1.0985", note="half 2 failed"),
           row("2026.06.10 14:00:03", "ABORT", "T0007", note="half 2 not opened; HALF 1 CLOSE FAILED; pending, tried again (A8)"),
-          row("2026.06.10 15:00:00", "REBUILD", note="match=yes")]
+          row("2026.06.10 15:00:00", "PRESTOP", note="simulated restart")]
+    # as NNFX_OrderTest writes it: what the rebuild closes is logged before the REBUILD row
     if fixed:
         rs += [row("2026.06.10 15:00:00", "EXIT", "T0007", note="lone half 1, half 2 never opened: closed (A8)"),
-               row("2026.06.10 15:00:00", "CLOSE", "T0007", "1", note="ABORT leftover closed after the restart (A8), deal reason 3")]
+               row("2026.06.10 15:00:00", "CLOSE", "T0007", "1", note="ABORT leftover closed after the restart (A8), deal reason 3"),
+               row("2026.06.10 15:00:00", "REBUILD", note="match=no")]
     else:
-        rs += [row("2026.06.10 16:10:00", "SL", "T0007", "1")]
+        rs += [row("2026.06.10 15:00:00", "REBUILD", note="match=no"), row("2026.06.10 16:10:00", "SL", "T0007", "1")]
     return rs
 
 
@@ -84,6 +86,10 @@ class TestBeCase(unittest.TestCase):
     def test_two_rebuilds_fail(self):
         rs = be_run() + [row("2026.06.10 14:00:00", "REBUILD")]
         self.assertTrue(any("REBUILD rows" in f for f in c.check("be", rs, "T0012")[0]))
+
+    def test_no_prestop_fails(self):
+        rs = [r for r in be_run() if r["event"] != "PRESTOP"]
+        self.assertTrue(any("no PRESTOP" in f for f in c.check("be", rs, "T0012")[0]))
 
 
 class TestAbortCase(unittest.TestCase):
