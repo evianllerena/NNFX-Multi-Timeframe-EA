@@ -46,6 +46,12 @@ def check(case, rows, trade, within=60):
         return ["%d REBUILD rows (must be exactly 1)" % len(rb)], info
     rb = rb[0]
     t_rb = rows[rb]["time"]
+    # the restart starts at the PRESTOP row before the REBUILD row: what the rebuild itself does (an ABORT leftover closed
+    # by ImportTrades) is logged between the two, so the boundary is the PRESTOP row (first R6 run, restart_20261016_143448)
+    ps = [i for i, r in enumerate(rows[:rb]) if r["event"] == "PRESTOP"]
+    if not ps:
+        return ["no PRESTOP row before the REBUILD row"], info
+    rb = ps[-1]
     mine = [(i, r) for i, r in enumerate(rows) if r["trade_id"] == trade]
     before = [r for i, r in mine if i < rb]
     after = [r for i, r in mine if i > rb]
