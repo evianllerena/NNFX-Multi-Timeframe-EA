@@ -2,7 +2,9 @@
 
 **Exploratory. It decides nothing** (P7-3): not the Phase 8 shootout, not on the live broker's data, not on real ticks.
 It answers one question: does the EA as built, with the reference indicator set and the default settings, show an edge
-over 2019-2024 on VP's 5 pairs? **Answer: no, on any of the three timeframes.** Gate G3 packet: `G3_explore_1`.
+over 2019-2024 on VP's 5 pairs? **Answer: no, on any of the three timeframes.** Gate G3 packets: `G3_explore_1`, then
+`G3_explore_2` after its corrections (2026-10-16: refusals by reason, the DIVERGE rows, a matched-trade comparison of
+broker and core, swap in R, P7-4 text; G3_explore_1 F1, F2, note 2). **The conclusion is unchanged.**
 
 ## Conditions (fixed before the first run: DECISIONS P7-3; deposit changed once, P7-4)
 
@@ -37,19 +39,27 @@ decisions matched it on every candle, below).
 | Money (deposit 1 000 000) | -100.0% | -99.3% | -57.4% |
 | Swap total | -354.71 | -7 234.48 | -50 360.14 |
 | R-12 pause would have started | **2019.01.14** | **2019.01.28** | **2019.02.25** |
-| Orders refused (below the minimum lot once the account shrank) | 2 125 | 18 | 0 |
-| Every year negative (broker) | yes (2019-2024) | yes | yes (2024: -0.003R on 28 trades) |
+| Orders refused, by reason (`tools/explore_breakdown.py`) | 2 125: 2 034 below the minimum lot ("too small to size", once the account shrank), 89 OD-5 margin, 2 "half N not opened" | 18: all OD-5 margin | 0 |
+| DIVERGE rows (D6f-1), by kind | 2 345: 2 285 "core holds a trade, broker none" (entries skipped, mostly after a refusal), 60 "core flat, broker trade closed" | 172: 134 entries skipped, 38 broker trades closed | 25: 16 entries skipped, 9 broker trades closed |
+| R of the broker trades closed by a DIVERGE, against the rest | -0.143R (60) vs -0.158R | +0.001R (38) vs -0.095R | -0.073R (9) vs -0.063R |
+| Matched trades: broker - core (same pair and direction, entry within 3 ticks) | -0.125R (2 139 matched) | -0.075R (1 610) | -0.070R (324) |
+| Swap in R (closing deals matched to their trade, / that trade's 1R) | -0.6R (-0.0002R per trade) | -4.2R (-0.0017R) | -4.0R (-0.0069R) |
+| Every year negative (broker; a trade's year = the year it CLOSED) | yes (2019-2024) | yes | yes (2024: -0.003R on 28 trades) |
 | Every pair negative (broker) | yes | yes | yes |
 
 What it says (label C, from these numbers):
 1. **No edge before costs.** The core's expectancy is -0.01R to -0.02R on every timeframe: the reference indicators,
    as a set, are at best a coin flip. Per pair, the best core results are AUDCAD (H1 +0.006R, H4 +0.026R), CHFJPY
    (H4 +0.019R) and EURUSD (M30 +0.005R): within noise.
-2. **Costs decide the sign and size of the loss.** Spread grows relative to the stop as the timeframe shrinks: broker
-   minus core is about 0.14R per trade on M30, 0.08R on H1, 0.05R on H4 (approximate: the two trade sets are not the
-   same, e.g. on M30 2 125 orders were refused once the account had shrunk, and exposure skips differ). AUDNZD is the
-   worst pair on every timeframe. On H4 swap is
-   the large cost (-50 360 on the 1 000 000 account).
+2. **Costs make the loss larger; they are not all of the gap.** *Corrected 2026-10-16 (G3_explore_1 F2).* The broker
+   and core trade sets differ: refused orders and DIVERGE rows (above) change which trades the broker takes, and on
+   H1 the 38 broker trades closed by a DIVERGE averaged +0.001R against -0.095R for the rest. Compared like for like,
+   on the trades both made (matched by pair, direction and entry within 3 ticks; 56-67% of the broker trades), the
+   broker is worse than the core by 0.125R per trade on M30, 0.075R on H1, 0.070R on H4. That matched gap is the
+   costs (spread at the fill, the fill itself, swap) plus model 1's fill assumptions; it grows as the timeframe
+   shrinks and AUDNZD is the worst pair on every timeframe (M30 -0.254R, H1 -0.161R, H4 -0.143R). Swap is small in R
+   (H4 -0.0069R per trade; the -50 360 on H4 is money at the 1 000 000 deposit). Label C for "costs" as the cause:
+   the comparison shows the size of the gap, not its parts.
 3. **The 10% drawdown rule (R-12) stops every timeframe within its first two months.** With this system, R1 fails
    long before any sample is collected.
 4. Nothing here says the EA is wrong: it says this indicator set has no edge on this data. Phase 8's indicator auditions,
@@ -80,8 +90,16 @@ Found by these long runs and fixed in the checkers (not in the EA), each with te
 Open points for the owner (not changed):
 - **OD-5 margin pre-check has no buffer**: it checks the margin of both halves against the free margin, but half 1's
   spread cost lowers the free margin before half 2 is sent, so near full use half 2 can be refused (the H1 ABORT above).
-  A small buffer would change OD-5: owner decision.
-- The 1 000 000 deposit (P7-4) was set after the first M30 partial result; it changes no rule.
+  A small buffer would change OD-5: owner decision. *Corrected 2026-10-16 (G3_explore_1 F1):* this is partly an
+  artefact of the deposit: at 1 000 000 the positions are large enough for OD-5 to bind at all (all 18 H1 refusals and
+  89 on M30 are OD-5); the same 4-month window at 10 000 has no OD-5 refusal.
+- The 1 000 000 deposit (P7-4) was set after the first M30 partial result. *Corrected 2026-10-16 (G3_explore_1 F1):*
+  it changes no rule, but it does change which trades are taken (the OD-5 refusals above). The effect is small (H1:
+  18 of 2 501 signals; M30: 89 of 5 330) and the core's expectancy does not depend on it.
+- **The forward window is not untouched by other runs** (G2_phase8_1 F3): these backtests did not run 2024.03-2026.09,
+  but every engineering tester run so far (runners, restarts, plants, order runs) used 2026.06.01-2026.10.01 with this
+  reference set, and their results have been seen. No setting was tuned on them. Phase 8's plan says how that window
+  is treated (P8-2).
 
 ## Files
 
