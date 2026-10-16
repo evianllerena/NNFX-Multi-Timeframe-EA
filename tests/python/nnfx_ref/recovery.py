@@ -204,8 +204,9 @@ class Candle:
 
 def rebuild(positions: List[Position], deals: List[Deal], state_status: str, state_trades: List[Trade],
             candles: List[Candle], period: int, magic: int, upto: int,
-            ignore_comments: bool = False) -> Tuple[List[Trade], List[Cont], List[str]]:
-    """Rebuilt (open trades, continuation states, notes). upto: open time of the last processed candle."""
+            ignore_comments: bool = False, trail_start_atr: float = 2.0) -> Tuple[List[Trade], List[Cont], List[str]]:
+    """Rebuilt (open trades, continuation states, notes). upto: open time of the last processed candle.
+    trail_start_atr: the T4 switch-on setting (review fixes set 3, A2: it used to be the constant 2.0)."""
     notes = ["state file: %s" % state_status]
     st_ok = state_status == "present"
     st_by_pos: Dict[int, Tuple[str, int]] = {}
@@ -290,6 +291,10 @@ def rebuild(positions: List[Position], deals: List[Deal], state_status: str, sta
             t.sl2 = open_pos[t.pos2].sl
         st = st_by_id.get(tid)
         if st:
+            # A3 (set 3): half 1's deals outside the history window cannot show TP1; the state file's tp1_done is used
+            if not h1 and st.tp1_done and not t.open1 and not t.tp1_done:
+                t.tp1_done = True
+                notes.append("%s tp1_done from the state file: half 1's deals are outside the history window (A3)" % tid)
             t.atr_entry, t.cap = st.atr_entry, st.cap
             for name in ("open1", "open2", "sl2", "tp1_done"):
                 if getattr(st, name) != getattr(t, name):
@@ -304,13 +309,29 @@ def rebuild(positions: List[Position], deals: List[Deal], state_status: str, sta
                 t.cap = round(abs(open_pos[t.pos2].tp - t.entry2) / t.atr_entry, 2)
             else:
                 t.cap = -1.0
-        if t.tp1_done and t.open2 and t.atr_entry > 0:
+        # A2 (set 3): the trail switch-on replayed from the candles with the setting, not 2.0; the state file's
+        # trail_active is used when the trade is in it, the replay is then a cross-check (a difference is a note)
+        replay = False
+        if t.tp1_done and t.open2 and t.atr_entry > 0 and o1:
             start = o1.time - o1.time % period
             for c in sym_candles.get(t.sym, []):
-                if c.time >= start and (c.close - t.entry2) * t.dir >= 2.0 * t.atr_entry - 1e-12:
-                    t.trail_active = True
+                if c.time >= start and (c.close - t.entry2) * t.dir >= trail_start_atr * t.atr_entry - 1e-12:
+                    replay = True
                     break
+        if st:
+            t.trail_active = st.trail_active
+            if replay != st.trail_active:
+                notes.append("disagree %s trail_active: state %d, candles %d; state used"
+                             % (tid, int(st.trail_active), int(replay)))
+        else:
+            t.trail_active = replay
         out_trades.append(t)
+
+    # A3 (set 3): an open position of this magic that no rebuilt trade owns (its IN deal outside the history window)
+    for p in positions:
+        if p.magic == magic and p.pos not in keyed:
+            notes.append("position %d of this magic belongs to no rebuilt trade: its IN deal is outside the history "
+                         "window (A3)" % p.pos)
 
     conts: List[Cont] = []
     for sym in sorted({a[1] for a in all_trades}):

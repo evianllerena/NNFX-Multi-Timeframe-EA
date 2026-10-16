@@ -124,6 +124,27 @@ void OnStart()
             bool got = NNFXPendingDue((int)StringToInteger(p[2]), StringToInteger(p[3]));
             Result(got == (p[4] == "1"), StringFormat("retry due %s: expected %s got %s", p[1], p[4], got ? "1" : "0"));
            }
+         else if(kind == "OS" && n == 4)   // A5 (review fixes set 3); MT5's ORDER_STATE_* by name, never by number
+           {
+            long st = -1;
+            if(p[2] == "STARTED")             st = ORDER_STATE_STARTED;
+            else if(p[2] == "PLACED")         st = ORDER_STATE_PLACED;
+            else if(p[2] == "CANCELED")       st = ORDER_STATE_CANCELED;
+            else if(p[2] == "PARTIAL")        st = ORDER_STATE_PARTIAL;
+            else if(p[2] == "FILLED")         st = ORDER_STATE_FILLED;
+            else if(p[2] == "REJECTED")       st = ORDER_STATE_REJECTED;
+            else if(p[2] == "EXPIRED")        st = ORDER_STATE_EXPIRED;
+            else if(p[2] == "REQUEST_ADD")    st = ORDER_STATE_REQUEST_ADD;
+            else if(p[2] == "REQUEST_MODIFY") st = ORDER_STATE_REQUEST_MODIFY;
+            else if(p[2] == "REQUEST_CANCEL") st = ORDER_STATE_REQUEST_CANCEL;
+            if(st < 0)
+               Result(false, "order state case: unknown state " + line);
+            else
+              {
+               int got = NNFXOrderStateOutcome(st);
+               Result(got == (int)StringToInteger(p[3]), StringFormat("order state %s: expected %s got %d", p[1], p[3], got));
+              }
+           }
          else
             Result(false, "order case: unreadable line " + line);
         }

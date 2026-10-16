@@ -43,6 +43,7 @@
 
 #define NNFX_RETRIES      3      // OD-13
 #define NNFX_RETRY_MS     1000   // OD-13
+#define NNFX_PLACED_WAIT_MS 5000 // A5: how long an accepted order without a position is waited for
 #define NNFX_DEVIATION    1000   // points; OD-14 accepts any fill (market execution ignores it)
 
 // Section 1 SAFETY, the wrapper: reads the two values now (the account can change while running).
@@ -128,6 +129,7 @@ private:
    bool              m_lose_next_reply;
    bool              m_fail_next_be;        // one-shot: the next BE stop move is refused -> retried (A1)
    bool              m_fail_next_close;     // one-shot: the next close is refused -> pending, retried (A8)
+   bool              m_placed_next;         // one-shot: the next open's reply is read as PLACED with no deal (A5)
    bool              m_fail_next_half2;     // one-shot: half 2's send fails -> ABORT
    long              m_stops_override;      // one-shot: stops level in points (-1 = off) -> REFUSE
    double            m_margin_override;     // one-shot: free margin (-1 = off) -> REFUSE (OD-5)
@@ -187,8 +189,66 @@ private:
       return 0;
      }
 
-   // Sends a market order, retrying up to NNFX_RETRIES times. Before every retry it looks for a
-   // position with this comment, so a request whose reply was lost is never sent twice (OD-13).
+   // Our pending order for this trade and half (magic + comment), or 0 (A5).
+   ulong             FindOrder(const string sym, const string comment)
+     {
+      for(int i = OrdersTotal() - 1; i >= 0; i--)
+        {
+         ulong ticket = OrderGetTicket(i);
+         if(ticket != 0 && OrderGetInteger(ORDER_MAGIC) == m_magic && OrderGetString(ORDER_SYMBOL) == sym &&
+            OrderGetString(ORDER_COMMENT) == comment)
+            return ticket;
+        }
+      return 0;
+     }
+
+   // A5 (review fixes set 3): an order accepted without a position yet (PLACED, or a slow fill) is waited for, up to
+   // NNFX_PLACED_WAIT_MS, never sent again meanwhile. outcome: 1 filled (returns the position id), -1 it will never
+   // fill (a re-send is safe), 0 still unresolved (do not re-send: a late fill would double the half).
+   ulong             WaitOrder(const ulong order, const string sym, const string comment, int &outcome)
+     {
+      uint t0 = GetTickCount();
+      while(true)
+        {
+         ulong p = FindPosition(sym, comment);
+         if(p != 0)
+           {
+            outcome = 1;
+            return p;
+           }
+         int o = 0;
+         long posId = 0;
+         if(order > 0 && OrderSelect(order))
+            o = NNFXOrderStateOutcome(OrderGetInteger(ORDER_STATE));
+         else if(order > 0 && HistoryOrderSelect(order))
+           {
+            o = NNFXOrderStateOutcome(HistoryOrderGetInteger(order, ORDER_STATE));
+            posId = HistoryOrderGetInteger(order, ORDER_POSITION_ID);
+           }
+         if(o == 1 && posId > 0)
+           {
+            outcome = 1;
+            return (ulong)posId;
+           }
+         if(o == -1)
+           {
+            outcome = -1;
+            return 0;
+           }
+         if(GetTickCount() - t0 >= NNFX_PLACED_WAIT_MS)
+           {
+            outcome = 0;
+            return 0;
+           }
+         Sleep(200);
+        }
+      outcome = 0;
+      return 0;
+     }
+
+   // Sends a market order, retrying up to NNFX_RETRIES times. Right before every re-send (after the 1 s pause) it looks
+   // for a position or a pending order with this comment, so a request whose reply was lost, or whose fill is slow, is
+   // never sent twice (OD-13; A5: the check used to run before the pause and skip pending orders).
    // Returns the position identifier, or 0.
    ulong             SendOpen(MqlTradeRequest &req, const string tradeId, const int half)
      {
@@ -196,6 +256,7 @@ private:
         {
          if(attempt > 0)
            {
+            Sleep(NNFX_RETRY_MS);
             ulong existing = FindPosition(req.symbol, req.comment);
             if(existing != 0)
               {
@@ -203,7 +264,22 @@ private:
                     ": position already exists (reply lost?), not sent again; position " + IntegerToString((long)existing));
                return existing;
               }
-            Sleep(NNFX_RETRY_MS);
+            ulong pending = FindOrder(req.symbol, req.comment);
+            if(pending != 0)
+              {
+               int po = 0;
+               ulong pp = WaitOrder(pending, req.symbol, req.comment, po);
+               Note("RETRY", tradeId, req.symbol, StringFormat("half %d: order %I64u with this comment still pending: not sent again; "
+                                                               "outcome %d (A5)", half, pending, po));
+               if(po == 1)
+                  return pp;
+               if(po == 0)
+                 {
+                  Note("ALARM", tradeId, req.symbol, StringFormat("half %d: order %I64u unresolved after %d ms: not sent again (A5)",
+                                                                  half, pending, NNFX_PLACED_WAIT_MS));
+                  return 0;
+                 }
+              }
             MqlTick tick;
             if(SymbolInfoTick(req.symbol, tick))
                req.price = (req.type == ORDER_TYPE_BUY) ? tick.ask : tick.bid;
@@ -211,6 +287,7 @@ private:
          MqlTradeResult res;
          ZeroMemory(res);
          bool sent = OrderSend(req, res);
+         bool fastPath = true;
 #ifdef NNFX_TEST_BUILD
          if(m_lose_next_reply && sent)
            {
@@ -218,14 +295,41 @@ private:
             Note("RETRY", tradeId, req.symbol, "TEST: reply of a filled request deliberately dropped");
             continue;
            }
+         if(m_placed_next && sent && res.retcode == TRADE_RETCODE_DONE && MQLInfoInteger(MQL_TESTER) != 0)
+           {
+            m_placed_next = false;
+            fastPath = false;   // the reply is read as PLACED with no deal: the wait below must resolve it
+            res.retcode = TRADE_RETCODE_PLACED;
+            res.deal = 0;
+            Note("TEST", tradeId, req.symbol, "TEST: reply read as PLACED with no deal (A5)");
+           }
 #endif
          if(sent && (res.retcode == TRADE_RETCODE_DONE || res.retcode == TRADE_RETCODE_PLACED))
            {
-            ulong pos = FindPosition(req.symbol, req.comment);
-            if(pos != 0)
-               return pos;
-            if(res.deal > 0 && HistoryDealSelect(res.deal))
-               return (ulong)HistoryDealGetInteger(res.deal, DEAL_POSITION_ID);
+            if(fastPath)
+              {
+               ulong pos = FindPosition(req.symbol, req.comment);
+               if(pos != 0)
+                  return pos;
+               if(res.deal > 0 && HistoryDealSelect(res.deal))
+                  return (ulong)HistoryDealGetInteger(res.deal, DEAL_POSITION_ID);
+              }
+            // A5: accepted, no position yet: wait for the order, never re-send while it is unresolved
+            int outcome = 0;
+            ulong waited = WaitOrder(res.order, req.symbol, req.comment, outcome);
+            Note("RETRY", tradeId, req.symbol, StringFormat("half %d: order %I64u accepted (retcode %d) without a position: "
+                                                            "waited, outcome %d%s (A5)", half, res.order, res.retcode, outcome,
+                                                            outcome == 1 ? ", filled after waiting" : ""));
+            if(outcome == 1)
+               return waited;
+            if(outcome == 0)
+              {
+               Note("ALARM", tradeId, req.symbol, StringFormat("half %d: order %I64u unresolved after %d ms: not sent again (A5)",
+                                                               half, res.order, NNFX_PLACED_WAIT_MS));
+               Alert("NNFX: ", tradeId, " half ", half, ": order ", res.order, " unresolved; not sent again");
+               return 0;
+              }
+            // outcome -1: the order will never fill: the retry below may send it again
            }
          Note("RETRY", tradeId, req.symbol, "half " + IntegerToString(half) + " attempt " + IntegerToString(attempt + 1) +
               " retcode " + IntegerToString(res.retcode) + " " + res.comment);
@@ -586,6 +690,7 @@ public:
       m_lose_next_reply = false;
       m_fail_next_be = false;
       m_fail_next_close = false;
+      m_placed_next = false;
       m_fail_next_half2 = false;
       m_stops_override = -1;
       m_margin_override = -1.0;
@@ -1256,6 +1361,16 @@ public:
       if(MQLInfoInteger(MQL_TESTER) == 0)
          return;
       m_fail_next_half2 = true;
+     }
+
+   // TEST BUILD ONLY (review fixes set 3, A5): the next open's reply is read as PLACED with no deal, to prove the wait.
+   void              TestPlacedNextOpen(void)
+     {
+      if(!NNFXOrdersAllowed(m_why))
+         return;
+      if(MQLInfoInteger(MQL_TESTER) == 0)
+         return;
+      m_placed_next = true;
      }
 
    // TEST BUILD ONLY (review fixes set 2, A1): the next breakeven move is refused, to prove it is tried again.

@@ -14,6 +14,7 @@
 # RC|name|retcode|expected retried (1/0)                  (B3: TRADE_RETCODE_<name>; NNFX_SafetyTest)
 # BA|name|dir|entry2|broker_sl|bid|ask|tick|expected      (A1: after TP1, 0 nothing / 1 move to BE / 2 close half 2)
 # PD|name|fails|seconds_since_last|expected due (1/0)   (A1/A8: retry every 5 s for 5 failures, then every 60 s)
+# OS|name|order_state|expected outcome                 (A5: ORDER_STATE_<name>; 1 filled, -1 never fills, 0 unresolved)
 #
 # long: SL 1.10000 - 1.5 x 0.00200 = 1.09700; TP1 1.10000 + 0.00200 = 1.10200
 OP|long_basic|1|1.10000|0.00200|0.00001|1.5|1.0|-|1.09700|1.10200|-|1.10000
@@ -140,3 +141,16 @@ PD|slow_after_five|5|5|0
 PD|slow_due|5|60|1
 PD|slow_many_not_yet|50|59|0
 PD|slow_many_due|50|60|1
+#
+# A5 order states (review fixes set 3): filled or partially filled -> 1; cancelled, rejected, expired -> -1 (a re-send
+# cannot double the half); anything still in progress -> 0 (wait, never re-send)
+OS|filled|FILLED|1
+OS|partial|PARTIAL|1
+OS|canceled|CANCELED|-1
+OS|rejected|REJECTED|-1
+OS|expired|EXPIRED|-1
+OS|started|STARTED|0
+OS|placed|PLACED|0
+OS|request_add|REQUEST_ADD|0
+OS|request_modify|REQUEST_MODIFY|0
+OS|request_cancel|REQUEST_CANCEL|0

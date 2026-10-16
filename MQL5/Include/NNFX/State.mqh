@@ -395,7 +395,7 @@ void NNFXAddNote(string &notes, const string text)
 void NNFXRebuildPure(const NNFXPosRec &posAll[], const NNFXDealRec &dealsIn[], const string stateStatus,
                      const NNFXTrade &stateTrades[], const NNFXCandleRec &candlesIn[], const int period,
                      const long magic, const datetime upto, const bool ignoreComments,
-                     NNFXTrade &out[], NNFXCont &conts[], string &notes)
+                     NNFXTrade &out[], NNFXCont &conts[], string &notes, const double trailStartAtr = 2.0)
   {
    ArrayResize(out, 0);
    ArrayResize(conts, 0);
@@ -648,6 +648,12 @@ void NNFXRebuildPure(const NNFXPosRec &posAll[], const NNFXDealRec &dealsIn[], c
                st = s;
       if(st >= 0)
         {
+         // A3 (set 3): half 1's deals outside the history window cannot show TP1; the state file's tp1_done is used
+         if(i1 < 0 && stateTrades[st].tp1_done && !t.open1 && !t.tp1_done)
+           {
+            t.tp1_done = true;
+            NNFXAddNote(notes, t.id + " tp1_done from the state file: half 1's deals are outside the history window (A3)");
+           }
          t.atr_entry = stateTrades[st].atr_entry;
          t.cap_atr = stateTrades[st].cap_atr;
          if(stateTrades[st].open1 != t.open1)
@@ -677,19 +683,43 @@ void NNFXRebuildPure(const NNFXPosRec &posAll[], const NNFXDealRec &dealsIn[], c
          else
             t.cap_atr = -1;
         }
-      if(t.tp1_done && t.open2 && t.atr_entry > 0)
+      // A2 (set 3): the trail switch-on replayed with the setting, not 2.0; the state file's trail_active is used when
+      // the trade is in it, the replay is then a cross-check (a difference is a note). Same as recovery.rebuild
+      bool replay = false;
+      if(t.tp1_done && t.open2 && t.atr_entry > 0 && o1 >= 0)
         {
          datetime start = d[o1].time - d[o1].time % period;
          for(int i = 0; i < nc; i++)
-            if(c[i].sym == t.sym && c[i].time >= start && (c[i].close - t.entry2) * t.dir >= 2.0 * t.atr_entry - 1e-12)
+            if(c[i].sym == t.sym && c[i].time >= start && (c[i].close - t.entry2) * t.dir >= trailStartAtr * t.atr_entry - 1e-12)
               {
-               t.trail_active = true;
+               replay = true;
                break;
               }
         }
+      if(st >= 0)
+        {
+         t.trail_active = stateTrades[st].trail_active;
+         if(replay != stateTrades[st].trail_active)
+            NNFXAddNote(notes, StringFormat("disagree %s trail_active: state %d, candles %d; state used", t.id,
+                                            (int)stateTrades[st].trail_active, (int)replay));
+        }
+      else
+         t.trail_active = replay;
       int n = ArraySize(out);
       ArrayResize(out, n + 1);
       out[n] = t;
+     }
+
+   // A3 (set 3): an open position of this magic that no rebuilt trade owns (its IN deal outside the history window)
+   for(int p = 0; p < np; p++)
+     {
+      bool owned = false;
+      for(int i = 0; i < nd; i++)
+         if(d[i].entry == "IN" && d[i].pos == pos[p].pos)
+            owned = true;
+      if(!owned)
+         NNFXAddNote(notes, StringFormat("position %I64u of this magic belongs to no rebuilt trade: its IN deal is outside the "
+                                         "history window (A3)", pos[p].pos));
      }
 
    // continuation per symbol, from the latest trade

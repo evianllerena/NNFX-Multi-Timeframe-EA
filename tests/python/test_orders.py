@@ -1,6 +1,6 @@
 """Shared order-price and safety cases (Phase 6b).
 
-The same file is run by MQL5/Scripts/NNFX/NNFX_OrderMathTest.mq5 (OP/OE/TR/SD/BA/PD lines) and
+The same file is run by MQL5/Scripts/NNFX/NNFX_OrderMathTest.mq5 (OP/OE/TR/SD/BA/PD/OS lines) and
 MQL5/Scripts/NNFX/NNFX_SafetyTest.mq5 (SF, MM and RC lines), so the Python answer key and the MQL5 code are
 checked against identical, hand-worked answers."""
 import os
@@ -33,7 +33,7 @@ class TestOrderCases(unittest.TestCase):
     def test_all_cases(self):
         cases = load()
         kinds = [c[0] for c in cases]
-        for kind, at_least in (("OP", 8), ("OE", 3), ("TR", 8), ("SD", 3), ("SF", 6), ("MM", 3), ("RC", 10), ("BA", 8), ("PD", 6)):
+        for kind, at_least in (("OP", 8), ("OE", 3), ("TR", 8), ("SD", 3), ("SF", 6), ("MM", 3), ("RC", 10), ("BA", 8), ("PD", 6), ("OS", 10)):
             self.assertGreaterEqual(kinds.count(kind), at_least, kind)
         for p in cases:
             with self.subTest(case=p[1]):
@@ -83,6 +83,9 @@ class TestOrderCases(unittest.TestCase):
                 elif p[0] == "PD":
                     self.assertEqual(len(p), 5)
                     self.assertEqual(orders.pending_due(int(p[2]), int(p[3])), p[4] == "1")
+                elif p[0] == "OS":
+                    self.assertEqual(len(p), 4)
+                    self.assertEqual(orders.order_state_outcome(p[2]), int(p[3]))
                 else:
                     self.fail("unknown case kind %r" % p[0])
 

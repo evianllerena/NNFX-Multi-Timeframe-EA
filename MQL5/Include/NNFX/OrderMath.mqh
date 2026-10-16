@@ -82,6 +82,25 @@ bool NNFXRetcodeRetryable(const uint retcode)
    return true;
   }
 
+// A5 (review fixes set 3): what a sent order's state means for the sender. 1 = filled (a position exists, possibly a
+// partial fill: OD-14 accepts any fill), -1 = it will never fill (cancelled, rejected, expired: a re-send is safe),
+// 0 = not resolved yet (started, placed, being changed): never re-send while 0, or a slow fill doubles the half.
+// Same as orders.py order_state_outcome(); checked against the OS lines of order_cases.txt by NNFX_OrderMathTest.
+int NNFXOrderStateOutcome(const long state)
+  {
+   switch((int)state)
+     {
+      case ORDER_STATE_FILLED:
+      case ORDER_STATE_PARTIAL:
+         return 1;
+      case ORDER_STATE_CANCELED:
+      case ORDER_STATE_REJECTED:
+      case ORDER_STATE_EXPIRED:
+         return -1;
+     }
+   return 0;
+  }
+
 double NNFXRoundNearest(const double price, const double tick)
   {
    return NormalizeDouble(MathFloor(price / tick + 0.5 + NNFX_OM_EPS) * tick, 10);
