@@ -28,6 +28,10 @@
 //| tester order run, check_trades PASS, run 20261004_162607).       |
 //| Review fixes A4, A7, B3 and trail_on (2026-10-14): not yet       |
 //| compiled.                                                        |
+//| G1_review2_1 F1/F2 (2026-10-16): breakeven checked on every      |
+//| trade after TP1 (a rebuilt one included); a rebuilt lone half 1  |
+//| (an ABORT not yet closed) is closed. Test hooks TestHoldBe,      |
+//| TestHoldAbort (restart tests R5, R6).                            |
 //+------------------------------------------------------------------+
 #ifndef NNFX_ORDERS_MQH
 #define NNFX_ORDERS_MQH
@@ -128,6 +132,9 @@ private:
    long              m_stops_override;      // one-shot: stops level in points (-1 = off) -> REFUSE
    double            m_margin_override;     // one-shot: free margin (-1 = off) -> REFUSE (OD-5)
    int               m_fill_offset;         // one-shot: plan SL/TP from price + dir x points -> MODIFY (OD-14)
+   string            m_hold_be_id;          // every BE move of this trade refused until a restart (G1_review2_1 F1)
+   bool              m_hold_abort;          // the next ABORT's half 1: every close refused until a restart (F2)
+   ulong             m_hold_close_pos;      // the position whose closes are refused (0 = none)
 #endif
 
    void              Row(NNFXLogRow &r)
@@ -281,6 +288,12 @@ private:
               " forced to fail", posId);
          return false;
         }
+      if(m_hold_close_pos != 0 && posId == m_hold_close_pos && MQLInfoInteger(MQL_TESTER) != 0 && SelectPosition(posId))
+        {
+         Note("TEST", "", PositionGetString(POSITION_SYMBOL), "TEST: close of position " + IntegerToString((long)posId) +
+              " refused (held until the restart)", posId);
+         return false;
+        }
 #endif
       for(int attempt = 0; attempt <= NNFX_RETRIES; attempt++)
         {
@@ -419,6 +432,9 @@ private:
 
    // A1: after TP1, half 2's stop at the broker must be at breakeven or better. A failed move is tried again when
    // due; if the price has already passed breakeven, half 2 is closed at market (NNFXBeAction 2). Called from Poll.
+   // G1_review2_1 F1: EVERY trade after TP1 is checked, not only those with a failed move on record (that record is in
+   // memory only). A trade rebuilt after a restart, whose refused move was not yet retried or whose TP1 filled while
+   // the EA was stopped, has tp1_done from the deal history but its stop where it was: it is set at once.
    void              MaintainBreakeven(const string via)
      {
       for(int i = 0; i < ArraySize(m_trades); i++)
@@ -427,18 +443,30 @@ private:
             continue;
          string id = m_trades[i].id;
          int k = BeIndex(id);
-         if(k < 0)
-            continue;   // no failed BE move for this trade: nothing to retry (the first move is made at TP1)
          string sym = m_trades[i].sym;
          MqlTick tick;
          if(!SymbolInfoTick(sym, tick))
             continue;
          double tickSize = SymbolInfoDouble(sym, SYMBOL_TRADE_TICK_SIZE);
+         // No failure on record: the memory's stop is checked first. A move made a moment ago is in memory (MoveStop)
+         // before the terminal may show it on the position; without this it would be sent twice on a live server.
+         if(k < 0 && NNFXBeAction(m_trades[i].dir, m_trades[i].entry2, m_trades[i].sl2, tick.bid, tick.ask, tickSize) == 0)
+            continue;
          int action = NNFXBeAction(m_trades[i].dir, m_trades[i].entry2, PositionGetDouble(POSITION_SL), tick.bid, tick.ask, tickSize);
          if(action == 0)
            {
-            BeForget(k);   // in place (moved by a retry, the trail, or by hand)
+            if(k >= 0)
+               BeForget(k);   // in place (moved by a retry, the trail, or by hand)
             continue;
+           }
+         if(k < 0)
+           {
+            // not at breakeven after TP1 and no failed move on record: a restart, or TP1 while stopped. Due now.
+            BeFailed(id);
+            k = BeIndex(id);
+            m_be_fails[k] = 0;
+            Note("RETRY", id, sym, "BE: not in place after TP1 and no failed move on record (restart, or TP1 while stopped): set now (A1)",
+                 m_trades[i].pos2);
            }
          if(!NNFXPendingDue(m_be_fails[k], (long)(TimeCurrent() - m_be_last[k])))
             continue;
@@ -451,7 +479,8 @@ private:
             BeForget(k);
             continue;
            }
-         if(MoveStop(id, NNFXBreakevenPrice(m_trades[i].entry2), "BE", 0.0, 0.0, "via=" + via + "; retry " + IntegerToString(m_be_fails[k]) + " (A1)"))
+         string how = (m_be_fails[k] == 0) ? "restored after a restart" : "retry " + IntegerToString(m_be_fails[k]);
+         if(MoveStop(id, NNFXBreakevenPrice(m_trades[i].entry2), "BE", 0.0, 0.0, "via=" + via + "; " + how + " (A1)"))
            {
             BeForget(k);
             continue;
@@ -561,6 +590,9 @@ public:
       m_stops_override = -1;
       m_margin_override = -1.0;
       m_fill_offset = 0;
+      m_hold_be_id = "";
+      m_hold_abort = false;
+      m_hold_close_pos = 0;
 #endif
      }
 
@@ -766,6 +798,13 @@ public:
         {
          // Never leave one half alone: halves must be equal (M5). Log half 1's OPEN and its close.
          LogFill("OPEN", t, 1, t.pos1, 0.0, 0.0, size.target_risk_money, balance, riskPct, tickValue, "half 2 failed");
+#ifdef NNFX_TEST_BUILD
+         if(m_hold_abort)
+           {
+            m_hold_abort = false;
+            m_hold_close_pos = t.pos1;
+           }
+#endif
          bool closed = ClosePosition(t.pos1);
          if(closed)
             LogClose(tradeId, 1, sym, dir, t.pos1, half, "closed by ABORT");
@@ -898,11 +937,14 @@ public:
       double tp = PositionGetDouble(POSITION_TP);
       bool forced = false;
 #ifdef NNFX_TEST_BUILD
-      forced = m_fail_next_be && event == "BE" && MQLInfoInteger(MQL_TESTER) != 0;
+      bool held = (m_hold_be_id != "" && m_hold_be_id == tradeId);
+      forced = (m_fail_next_be || held) && event == "BE" && MQLInfoInteger(MQL_TESTER) != 0;
       if(forced)
         {
-         m_fail_next_be = false;
-         Note("TEST", tradeId, m_trades[k].sym, "TEST: BE stop move forced to fail", m_trades[k].pos2);
+         if(!held)
+            m_fail_next_be = false;
+         Note("TEST", tradeId, m_trades[k].sym, held ? "TEST: BE stop move refused (held until the restart)" :
+              "TEST: BE stop move forced to fail", m_trades[k].pos2);
         }
 #endif
       if(forced || !ModifyPosition(m_trades[k].pos2, newSl, tp))
@@ -1089,10 +1131,35 @@ public:
      {
       if(!NNFXOrdersAllowed(m_why))
          return;
-      ArrayResize(m_trades, ArraySize(in));
+      ArrayResize(m_trades, 0);
+      int closed = 0;
       for(int i = 0; i < ArraySize(in); i++)
-         m_trades[i] = in[i];
-      Note("INFO", "", "", "memory rebuilt: " + IntegerToString(ArraySize(in)) + " open trades imported");
+        {
+         // G1_review2_1 F2: a lone half 1 whose half 2 was never opened is an ABORT whose close had not gone through
+         // before the restart (A8's pending list is in memory only). It is closed now, as the ABORT intended (M5: never
+         // one half alone). Not under a fallback ID ("R..."): that pairing is a guess (same second), so only alarmed.
+         if(in[i].open1 && !in[i].open2 && in[i].pos2 == 0 && !in[i].tp1_done)
+           {
+            if(StringSubstr(in[i].id, 0, 1) != "R")
+              {
+               Note("EXIT", in[i].id, in[i].sym, "lone half 1, half 2 never opened (an ABORT not yet closed before the restart): closed (A8)",
+                    in[i].pos1);
+               if(ClosePosition(in[i].pos1))
+                  LogClose(in[i].id, 1, in[i].sym, in[i].dir, in[i].pos1, in[i].lots, "ABORT leftover closed after the restart (A8)");
+               else
+                  AddPendingClose(in[i].pos1, in[i].id, 1, true);
+               closed++;
+               continue;
+              }
+            Note("ALARM", in[i].id, in[i].sym, "lone half 1 under a fallback ID (pairing by time): left to its stop; check it by hand",
+                 in[i].pos1);
+           }
+         int n = ArraySize(m_trades);
+         ArrayResize(m_trades, n + 1);
+         m_trades[n] = in[i];
+        }
+      Note("INFO", "", "", "memory rebuilt: " + IntegerToString(ArraySize(m_trades)) + " open trades imported" +
+           (closed > 0 ? StringFormat("; %d lone half 1 closed (ABORT leftover)", closed) : ""));
      }
 
    // Phase 6c, each new candle: our memory against the broker. A mismatch is logged and the broker wins (SPEC).
@@ -1240,6 +1307,29 @@ public:
       if(MQLInfoInteger(MQL_TESTER) == 0)
          return;
       m_fill_offset = points;
+     }
+
+   // TEST BUILD ONLY (G1_review2_1 F1): every breakeven move of this trade is refused until this object is thrown
+   // away (the simulated restart makes a new one), so a restart lands between a refused move and its retry.
+   void              TestHoldBe(const string tradeId)
+     {
+      if(!NNFXOrdersAllowed(m_why))
+         return;
+      if(MQLInfoInteger(MQL_TESTER) == 0)
+         return;
+      m_hold_be_id = tradeId;
+     }
+
+   // TEST BUILD ONLY (G1_review2_1 F2): the next trade's half 2 is not sent (ABORT) and every close of its half 1 is
+   // refused until this object is thrown away (the simulated restart), so the rebuild meets a lone half 1.
+   void              TestHoldAbort(void)
+     {
+      if(!NNFXOrdersAllowed(m_why))
+         return;
+      if(MQLInfoInteger(MQL_TESTER) == 0)
+         return;
+      m_fail_next_half2 = true;
+      m_hold_abort = true;
      }
 #endif
   };

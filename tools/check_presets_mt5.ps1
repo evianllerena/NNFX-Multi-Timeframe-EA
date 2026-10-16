@@ -34,7 +34,7 @@ foreach ($p in @(@{ Tf = "M30"; Magic = "26030" }, @{ Tf = "H1"; Magic = "26060"
     $name = "EA_$($p.Tf)_$($p.Magic)_tester.csv"
     $tlog = "$Common\NNFX\trades\$name"; $dlog = "$Common\NNFX\decisions\$name"
     $ini = "$Out\run_$($p.Tf).ini"
-    @("[Tester]", "Expert=NNFX\NNFX_EA", "ExpertParameters=NNFX_$($p.Tf).set", "Symbol=EURUSD", "Period=$($p.Tf)", "Model=1",
+    @("[Tester]", "Expert=NNFX\NNFX_EA", "ExpertParameters=NNFX_$($p.Tf).set", "Symbol=EURUSD", "Period=$($p.Tf)", "Model=1", "Deposit=10000", "Leverage=1:100",
       "FromDate=$From", "ToDate=$To", "ForwardMode=0", "Optimization=0", "Visual=0", "Report=NNFX_EA_preset_$($p.Tf)",
       "ReplaceReport=1", "ShutdownTerminal=1") | Set-Content -LiteralPath $ini -Encoding ASCII
     $t0 = Get-Date
