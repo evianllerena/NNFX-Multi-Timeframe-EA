@@ -110,7 +110,7 @@ $name = "EA_$($Period)_$($magic)_tester.csv"
 $tradeLog = "$Common\NNFX\trades\$name"; $decLog = "$Common\NNFX\decisions\$name"
 $report = "NNFX_EA_$Tag"
 $ini = "$Out\run_NNFX_EA.ini"
-$lines = @("[Tester]", "Expert=NNFX\NNFX_EA", "Symbol=$Symbol", "Period=$Period", "Model=$Model",
+$lines = @("[Tester]", "Expert=NNFX\NNFX_EA", "Symbol=$Symbol", "Period=$Period", "Model=$Model", "Deposit=10000", "Leverage=1:100",
            "FromDate=$From", "ToDate=$To", "ForwardMode=0", "Optimization=0", "Visual=0",
            "Report=$report", "ReplaceReport=1", "ShutdownTerminal=1", "[TesterInputs]")
 foreach ($k in $inputs.Keys) { $lines += "$k=$($inputs[$k])" }
@@ -134,6 +134,18 @@ if ((Fresh $tradeLog $t0) -and (Fresh $decLog $t0)) {
     Step "3 tester run" "FAIL" "no fresh trade log and decision log ($mins min)"
 }
 Get-ChildItem "$MT5\$report*" -ErrorAction SilentlyContinue | Copy-Item -Destination $Out -Force
+# G1_phase7_1 F1: the tester keeps the last deposit and leverage used, so both are pinned in the ini above and read
+# back from the report here (set 3's runs inherited 1 000 000 from the G3 backtests and every check still passed)
+$rep = Get-ChildItem "$Out\$report*.htm*" -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($rep) {
+    $bytes = [System.IO.File]::ReadAllBytes($rep.FullName)
+    $html = if ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFF -and $bytes[1] -eq 0xFE) { [System.Text.Encoding]::Unicode.GetString($bytes) } else { [System.Text.Encoding]::UTF8.GetString($bytes) }
+    $plain = ($html -replace "<[^>]+>", " ") -replace "\s+", " "
+    $dep = [regex]::Match($plain, "Initial Deposit:\s*([\d ]+\.\d\d)"); $lev = [regex]::Match($plain, "Leverage:\s*(1:\d+)")
+    $depOk = $dep.Success -and (($dep.Groups[1].Value -replace " ", "") -eq "10000.00"); $levOk = $lev.Success -and $lev.Groups[1].Value -eq "1:100"
+    Step "3 deposit and leverage" $(if ($depOk -and $levOk) { "PASS" } else { "FAIL" }) ("report: Initial Deposit " +
+         $(if ($dep.Success) { $dep.Groups[1].Value } else { "not found" }) + ", Leverage " + $(if ($lev.Success) { $lev.Groups[1].Value } else { "not found" }) + " (pinned 10000, 1:100)")
+} else { Step "3 deposit and leverage" "FAIL" "no tester report to read them from" }
 $tlogs = "$env:APPDATA\MetaQuotes\Tester\D0E8209F77C8CF37AD8BF550E51FF075"
 Get-ChildItem $tlogs -Recurse -Filter "*.log" -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTime -ge $t0 } |
     ForEach-Object { Copy-Item $_.FullName ("$Out\tester_" + $_.Directory.Parent.Name + "_" + $_.Name) -Force }
