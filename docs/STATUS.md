@@ -42,23 +42,23 @@ Read-only EnvCheck on demo 62316800 (`docs/ENVIRONMENT.md`): hedging, EUR accoun
   confirm the clock-change rules assumed in `tests/fixtures/guard/guard_cases.txt`: OANDA TMS GMT+1 in winter on the
   EU rule, MetaQuotes-Demo GMT+2 in winter on the US rule. Until then they are settings, not facts.
 - **Review verdicts, oldest first** (each PR is a draft stacked on the one before; merge in this order once PASS):
-  `G1_review1_1` (#12), `G1_review2_1` (#13), `G1_phase7_1` + `G3_explore_1` (#14), `G2_phase8_1` (#15, the
-  Phase 8 plan and the section-C records), `G1_review3_1` (#16). `G1_phase6f_1` (#11) still needs the chart buttons
-  clicked by hand first.
-- **Decisions only the owner can take** (all proposals, nothing applied without you): the Phase 8 plan rows P8-1 to
-  P8-11 (`docs/PLAN_PHASE8.md`), above all **the live broker** (P8-1: OANDA TMS `.pro` proposed); P7-2
-  (`InpTesterDdPause`, tester only); DOC-C5 (dead-market rules left out of backtests); DOC-C6 (T5 as three variants);
-  DOC-C7 (keep or drop I-13 (b)'s "C1 and C2 agreeing"); the OD-5 margin buffer (`docs/RESULTS_EXPLORE_2026-10-14.md`).
-- **Phase 8 choices raised by `G2_phase8_1`** (defaults in `docs/PLAN_PHASE8.md`): where the forward period ends (P8-2:
-  2026.06.01, or keep 2026.10.01 and move the engineering runs in-sample); the detection target behind the sample size
-  (P8-3: 0.10R); the drawdown gate's horizon (P8-5: 12 months, or a fixed N trades; at 2% risk M30 and H1 would fail
-  12 months even with a +0.10R edge). Reviewer's notes, not added to the plan: record the first real-tick date per
-  `.pro` pair in the P8-1 EnvCheck; report R per year beside R per trade (P8-4).
-- **C4 (review 2026-10-13): the approval gap.** I-1, I-2, I-3, I-7, I-9 still "awaiting tick" and D5-1 to D5-5
-  "pending review", while the code built on them is merged since Phase 4/5. Either tick them in the living rulebook doc
-  (then the `docs/RULEBOOK.md` snapshot is refreshed) or record one blanket approval in DECISIONS.
-- **The snapshot sync list** `docs/SNAPSHOT_SYNC_2026-10-14.md` (C2, C3): edits for the living SPEC/RULEBOOK docs.
-- Choose the live broker (`docs/ENVIRONMENT.md`; MetaQuotes-Demo is not a retail broker): P8-1 above.
+  `G1_review1_1` (#12) **PASS, MERGE OK b4f0e8f** (the owner merges); after "apply review" (2026-10-16) the rest wait
+  on their second packets: `G1_review2_2` (#13), `G1_phase7_2` + `G3_explore_2` (#14), `G2_phase8_2` (#15),
+  `G1_review3_2` (#16), and `G1_owner1_1` (#17, the owner's decisions of 2026-10-14). `G1_phase6f_1` (#11) still
+  needs the chart buttons clicked by hand first.
+- **Decided by the owner 2026-10-14 ("all A", DECISIONS OWN-2):** live broker **OANDA TMS `.pro`**; the Phase 8 plan
+  approved as drafted (first run after the G2 verdict); P7-2 kept; the OD-5 5% margin buffer (built on branch
+  `owner-decisions-1`, PR #17, packet `G1_owner1_1`); blanket approval of I-1, I-2, I-3, I-7, I-9 and D5-1 to D5-5 (closes C4).
+- **Phase 8 rows changed after that approval by `G2_phase8_1`** (defaults in `docs/PLAN_PHASE8.md`, owner to confirm):
+  where the forward period ends (P8-2: 2026.06.01, or keep 2026.10.01 and move the engineering runs in-sample); the
+  detection target behind the sample size (P8-3: 0.10R, 430 forward trades per timeframe); the drawdown gate's horizon
+  (P8-5: 12 months, or a fixed N trades; at 2% risk M30 and H1 would fail 12 months even with a +0.10R edge).
+  Reviewer's notes, not added to the plan: record the first real-tick date per `.pro` pair in the P8-1 EnvCheck; report
+  R per year beside R per trade (P8-4).
+- **Still open for the owner:** DOC-C5 (dead-market rules left out of backtests), DOC-C6 (T5 as three variants), DOC-C7
+  (keep or drop I-13 (b)'s "C1 and C2 agreeing"); the chart buttons for 6f; the review verdicts.
+- **The living documents** (the owner's Claude Docs): tick I-1 to I-9 there and apply `docs/SNAPSHOT_SYNC_2026-10-14.md`
+  (C2, C3); then the `docs/` snapshots are refreshed from them.
 
 ## Done since the last review (moved here, C8)
 

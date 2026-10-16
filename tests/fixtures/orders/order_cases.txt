@@ -15,6 +15,7 @@
 # BA|name|dir|entry2|broker_sl|bid|ask|tick|expected      (A1: after TP1, 0 nothing / 1 move to BE / 2 close half 2)
 # PD|name|fails|seconds_since_last|expected due (1/0)   (A1/A8: retry every 5 s for 5 failures, then every 60 s)
 # OS|name|order_state|expected outcome                 (A5: ORDER_STATE_<name>; 1 filled, -1 never fills, 0 unresolved)
+# MB|name|margin_both_halves|free_margin|expected ok (1/0) (OD-5 + 5% buffer, owner OWN-2 (d))
 #
 # long: SL 1.10000 - 1.5 x 0.00200 = 1.09700; TP1 1.10000 + 0.00200 = 1.10200
 OP|long_basic|1|1.10000|0.00200|0.00001|1.5|1.0|-|1.09700|1.10200|-|1.10000
@@ -154,3 +155,14 @@ OS|placed|PLACED|0
 OS|request_add|REQUEST_ADD|0
 OS|request_modify|REQUEST_MODIFY|0
 OS|request_cancel|REQUEST_CANCEL|0
+#
+# OD-5 margin with the owner's 5% buffer (OWN-2 (d)): ok when margin x 1.05 <= free margin
+# 1000 x 1.05 = 1050 <= 1050: ok
+MB|exact_fit|1000|1050|1
+# 1050 > 1049.99: refused
+MB|just_short|1000|1049.99|0
+MB|plenty|1000|5000|1
+# 1000 <= 1020 passed the old rule (margin > free refused); 1050 > 1020: refused now
+MB|old_rule_ok_new_not|1000|1020|0
+MB|no_free_margin|1000|0|0
+MB|nothing_needed|0|0|1

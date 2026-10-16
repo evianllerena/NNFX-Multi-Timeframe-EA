@@ -1,8 +1,10 @@
 # Phase 8 plan amendments: the timeframe shootout (DRAFT for gate G2)
 
-Status: **draft, 2026-10-14, written under OWN-1; corrected 2026-10-16 after gate G2 (`G2_phase8_1`: F1 the numbers
-now come from this system's own trades, F2 the drawdown gate has a fixed horizon, F3 the forward window). Nothing here
-is approved.** Every row is a proposal with a default;
+Status: **approved by the owner 2026-10-14 ("all A", DECISIONS OWN-2 (b)) as drafted then; broker OANDA TMS `.pro`
+(OWN-2 (a)). Corrected 2026-10-16 after gate G2 (`G2_phase8_1`: F1 the numbers now come from this system's own trades,
+F2 the drawdown gate has a fixed horizon, F3 the forward window): the corrected rows P8-2, P8-3 and P8-5 differ from what
+was approved and go back to the owner; the G2 verdict on them (`G2_phase8_2`) is still needed before the first run.**
+Originally drafted under OWN-1. Every row is a proposal with a default;
 the owner decides, the reviewer checks it at gate G2 (`REVIEW_PROTOCOL.md`), and only then does the first shootout run
 happen. Rows marked **reopens** change a decision that is already approved (CLAUDE.md: say so when reopening).
 

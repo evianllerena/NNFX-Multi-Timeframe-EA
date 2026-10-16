@@ -78,6 +78,14 @@ def order_state_outcome(state: str) -> int:
     return 0
 
 
+MARGIN_BUFFER = 0.05
+
+
+def margin_ok(margin_both_halves: float, free_margin: float) -> bool:
+    """OD-5 with the owner's 5% buffer (OWN-2 (d)): the margin of both halves plus 5% must be free."""
+    return margin_both_halves * (1.0 + MARGIN_BUFFER) <= free_margin + 1e-9
+
+
 def _ticks(x: float, tick: float) -> float:
     return x / tick
 
