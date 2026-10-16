@@ -245,7 +245,7 @@ if ($PythonOnly) {
     } else {
         $t0 = Get-Date
         $ini = "$Out\run_NNFX_RepaintCheck.ini"
-        @("[Tester]", "Expert=NNFX\NNFX_RepaintCheck", "Symbol=EURUSD", "Period=H1", "Model=1",
+        @("[Tester]", "Expert=NNFX\NNFX_RepaintCheck", "Symbol=EURUSD", "Period=H1", "Model=1", "Deposit=10000", "Leverage=1:100",
           "FromDate=$TesterFrom", "ToDate=$TesterTo", "ForwardMode=0", "Optimization=0", "Visual=0",
           "Report=NNFX_RepaintCheck_tester", "ReplaceReport=1", "ShutdownTerminal=1") |
             Set-Content -LiteralPath $ini -Encoding ASCII
@@ -266,13 +266,13 @@ if ($PythonOnly) {
         $orderLog = "$Common\NNFX\trades\OrderTest_EURUSD_tester.csv"
         $t0 = Get-Date
         $ini = "$Out\run_NNFX_OrderTest.ini"
-        @("[Tester]", "Expert=NNFX\NNFX_OrderTest", "Symbol=EURUSD", "Period=H1", "Model=1",
+        @("[Tester]", "Expert=NNFX\NNFX_OrderTest", "Symbol=EURUSD", "Period=H1", "Model=1", "Deposit=10000", "Leverage=1:100",
           "FromDate=$TesterFrom", "ToDate=$TesterTo", "ForwardMode=0", "Optimization=0", "Visual=0",
           "Report=NNFX_OrderTest_tester", "ReplaceReport=1", "ShutdownTerminal=1",
           # EVERY input listed: the tester reuses an EA's last-used value for any input left out
           "[TesterInputs]", "InpRiskPct=2.0", "InpEveryBars=6", "InpMaxTrades=0", "InpMinLots=false", "InpMagic=26999",
           "InpStoplessTest=true", "InpLoseReplyOn=3", "InpAbortOn=7", "InpStopsRefuseOn=9", "InpMarginRefuseOn=11",
-          "InpModifyOn=13", "InpAdverseOn=15", "InpBeFailOn=17", "InpCloseFailOn=20", "InpPlacedOn=24", "InpStopWhenDone=false", "InpRestartAt=none", "InpRestartDeleteState=false",
+          "InpModifyOn=13", "InpAdverseOn=15", "InpBeFailOn=17", "InpCloseFailOn=20", "InpPlacedOn=24", "InpBeHoldOn=0", "InpAbortHoldOn=0", "InpStopWhenDone=false", "InpRestartAt=none", "InpRestartDeleteState=false",
           "InpRestartIgnoreComments=false", "InpCloseLeftovers=false",
           "InpGuard=false", "InpInstanceOn=true", "InpServerWinterOffset=2", "InpServerDst=US", "InpWeekendHours=0", "InpMaxSpread=0", "InpTesterMaster=-1", "InpTesterPauseAt=none",
           "InpMasterTestTpl=", "InpMasterTestSymbol=GBPUSD", "InpMasterOffAfter=5", "InpMasterOffFor=5") |
@@ -298,12 +298,12 @@ if ($PythonOnly) {
         # pause (reset by hand only) blocked every entry from the 3rd day (run 20261006_114114, kept in invalid). Checked in step 5.
         $t0 = Get-Date
         $ini = "$Out\run_NNFX_OrderTest_guard.ini"
-        @("[Tester]", "Expert=NNFX\NNFX_OrderTest", "Symbol=EURUSD", "Period=H1", "Model=1",
+        @("[Tester]", "Expert=NNFX\NNFX_OrderTest", "Symbol=EURUSD", "Period=H1", "Model=1", "Deposit=10000", "Leverage=1:100",
           "FromDate=$TesterFrom", "ToDate=$TesterTo", "ForwardMode=0", "Optimization=0", "Visual=0",
           "Report=NNFX_OrderTest_guard", "ReplaceReport=1", "ShutdownTerminal=1",
           "[TesterInputs]", "InpRiskPct=0.1", "InpEveryBars=1", "InpMaxTrades=0", "InpMinLots=false", "InpMagic=26995",
           "InpStoplessTest=false", "InpLoseReplyOn=0", "InpAbortOn=0", "InpStopsRefuseOn=0", "InpMarginRefuseOn=0",
-          "InpModifyOn=0", "InpAdverseOn=0", "InpBeFailOn=0", "InpCloseFailOn=0", "InpPlacedOn=0", "InpStopWhenDone=false", "InpRestartAt=none", "InpRestartDeleteState=false",
+          "InpModifyOn=0", "InpAdverseOn=0", "InpBeFailOn=0", "InpCloseFailOn=0", "InpPlacedOn=0", "InpBeHoldOn=0", "InpAbortHoldOn=0", "InpStopWhenDone=false", "InpRestartAt=none", "InpRestartDeleteState=false",
           "InpRestartIgnoreComments=false", "InpCloseLeftovers=false",
           "InpGuard=true", "InpInstanceOn=true", "InpServerWinterOffset=2", "InpServerDst=US", "InpWeekendHours=4",
           "InpMaxSpread=0", "InpTesterMaster=1", "InpTesterPauseAt=none",
@@ -330,12 +330,12 @@ if ($PythonOnly) {
         # 6d_drawdown_pause_20261006_114114) tripped from a closed loss with the account flat. Checked in step 5.
         $t0 = Get-Date
         $ini = "$Out\run_NNFX_OrderTest_pause.ini"
-        @("[Tester]", "Expert=NNFX\NNFX_OrderTest", "Symbol=EURUSD", "Period=H1", "Model=1",
+        @("[Tester]", "Expert=NNFX\NNFX_OrderTest", "Symbol=EURUSD", "Period=H1", "Model=1", "Deposit=10000", "Leverage=1:100",
           "FromDate=$TesterFrom", "ToDate=$TesterTo", "ForwardMode=0", "Optimization=0", "Visual=0",
           "Report=NNFX_OrderTest_pause", "ReplaceReport=1", "ShutdownTerminal=1",
           "[TesterInputs]", "InpRiskPct=0.1", "InpEveryBars=1", "InpMaxTrades=0", "InpMinLots=false", "InpMagic=26995",
           "InpStoplessTest=false", "InpLoseReplyOn=0", "InpAbortOn=0", "InpStopsRefuseOn=0", "InpMarginRefuseOn=0",
-          "InpModifyOn=0", "InpAdverseOn=0", "InpBeFailOn=0", "InpCloseFailOn=0", "InpPlacedOn=0", "InpStopWhenDone=false", "InpRestartAt=none", "InpRestartDeleteState=false",
+          "InpModifyOn=0", "InpAdverseOn=0", "InpBeFailOn=0", "InpCloseFailOn=0", "InpPlacedOn=0", "InpBeHoldOn=0", "InpAbortHoldOn=0", "InpStopWhenDone=false", "InpRestartAt=none", "InpRestartDeleteState=false",
           "InpRestartIgnoreComments=false", "InpCloseLeftovers=false",
           "InpGuard=true", "InpInstanceOn=true", "InpServerWinterOffset=2", "InpServerDst=US", "InpWeekendHours=4",
           "InpMaxSpread=0", "InpTesterMaster=1", "InpTesterPauseAt=2026.06.09 13:00",

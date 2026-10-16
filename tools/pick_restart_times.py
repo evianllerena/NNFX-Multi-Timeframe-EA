@@ -11,7 +11,15 @@ restart time is the time of the NEXT STATE row:
   R3  half 2 open with the trail on
   R4  flat (no open trade), continuation armed (waiting for a continuation)
 
-Prints one line per state: "R1 <restart time> <state line(s)>". Exit code 1 if a state never occurs.
+Two more for the restart cases of G1_review2_1 F1/F2, each run with a test hook on ONE trade (NNFX_OrderTest), so
+the run is identical to this one up to that trade:
+
+  R5  the R2 trade with InpBeHoldOn = its number: every breakeven move refused until the restart, at R2's time
+  R6  the first trade opened at or after --after, with InpAbortHoldOn = its number: half 2 fails (ABORT) and half 1's
+      close is refused until the restart, at the candle after its OPEN
+
+Prints one line per state: "R1 <restart time> <state line(s)>"; for R5/R6 "R5 <restart time> trade <id>".
+Exit code 1 if a state never occurs.
 Usage:  python tools/pick_restart_times.py BASE.csv [--after "2026.06.10 00:00"]
 """
 import argparse
@@ -61,6 +69,25 @@ def pick(path, after):
     return picked
 
 
+def pick_cases(path, after, picked):
+    """R5 and R6: {name: (restart time, trade id)}."""
+    out = {}
+    if "R2" in picked:
+        for x in picked["R2"][1]:
+            p = x.split("|")
+            if p[0] == "TRADE" and p[7] == "1" and p[14] == "1" and p[15] == "0":
+                out["R5"] = (picked["R2"][0], p[1])
+                break
+    with open(path, encoding="ascii", newline="") as f:
+        rows = list(csv.DictReader(f))
+    first = next((r for r in rows if r["event"] == "OPEN" and r["half"] == "1" and r["time"] >= after), None)
+    if first is not None:
+        nxt = next((r["time"] for r in rows if r["event"] == "STATE" and r["time"][:16] > first["time"][:16]), None)
+        if nxt:
+            out["R6"] = (nxt, first["trade_id"])
+    return out
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("base")
@@ -72,7 +99,13 @@ def main(argv=None):
             print("%s %s %s" % (r, picked[r][0], " / ".join(picked[r][1])))
         else:
             print("%s NONE" % r)
-    return 0 if len(picked) == 4 else 1
+    cases = pick_cases(a.base, a.after, picked)
+    for r in ("R5", "R6"):
+        if r in cases:
+            print("%s %s trade %s" % (r, cases[r][0], cases[r][1]))
+        else:
+            print("%s NONE" % r)
+    return 0 if len(picked) == 4 and len(cases) == 2 else 1
 
 
 if __name__ == "__main__":

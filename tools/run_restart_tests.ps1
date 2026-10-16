@@ -9,6 +9,9 @@ run_restart_tests.ps1 - Phase 6c restart test (a): SIMULATED restarts in the Str
   4. For each run: tools/compare_runs.py compare (identical to the run without a restart, every row and column,
      from the restart on) and tools/compare_runs.py rebuilds (the rebuilt state = the state before, field for field).
      REBUILD rows are counted first: the base run must have 0, each restart run exactly 1 ("InpRestartAt=none").
+  5. G1_review2_1 F1/F2: R5 (a breakeven move refused until the restart) and R6 (an ABORT whose half 1 close is
+     refused until the restart), checked by tools/check_restart_cases.py.
+Every ini pins Deposit=10000 and Leverage=1:100 (G1_phase7_1 F1: the tester keeps the last values used).
 
 Owner decision D6c-1: only the tested terminal (full path) blocks the run; others are listed and never touched;
 a terminal is only ever closed by the process id this script started.
@@ -55,7 +58,7 @@ Say ""
 # REBUILD rows are counted: the base must have 0, each restart run exactly 1.
 $defaults = [ordered]@{ InpRiskPct = "2.0"; InpEveryBars = "6"; InpMaxTrades = "0"; InpMinLots = "false"; InpMagic = "26999";
     InpStoplessTest = "false"; InpLoseReplyOn = "0"; InpAbortOn = "0"; InpStopsRefuseOn = "0"; InpMarginRefuseOn = "0";
-    InpModifyOn = "0"; InpAdverseOn = "0"; InpBeFailOn = "0"; InpCloseFailOn = "0"; InpPlacedOn = "0"; InpStopWhenDone = "false"; InpRestartAt = "none"; InpRestartDeleteState = "false";
+    InpModifyOn = "0"; InpAdverseOn = "0"; InpBeFailOn = "0"; InpCloseFailOn = "0"; InpPlacedOn = "0"; InpBeHoldOn = "0"; InpAbortHoldOn = "0"; InpStopWhenDone = "false"; InpRestartAt = "none"; InpRestartDeleteState = "false";
     InpRestartIgnoreComments = "false"; InpCloseLeftovers = "false";
     InpGuard = "false"; InpInstanceOn = "true"; InpServerWinterOffset = "2"; InpServerDst = "US"; InpWeekendHours = "0"; InpMaxSpread = "0"; InpTesterMaster = "-1"; InpTesterPauseAt = "none";
     InpMasterTestTpl = ""; InpMasterTestSymbol = "GBPUSD"; InpMasterOffAfter = "5"; InpMasterOffFor = "5" }
@@ -67,7 +70,7 @@ function Run-Tester([string]$name, [string[]]$inputs) {
     foreach ($k in $defaults.Keys) { $vals[$k] = $defaults[$k] }
     foreach ($kv in $inputs) { $i = $kv.IndexOf("="); $vals[$kv.Substring(0, $i)] = $kv.Substring($i + 1) }
     $lines = @($vals.Keys | ForEach-Object { "$_=$($vals[$_])" })
-    @("[Tester]", "Expert=NNFX\NNFX_OrderTest", "Symbol=EURUSD", "Period=H1", "Model=1", "FromDate=$From", "ToDate=$To",
+    @("[Tester]", "Expert=NNFX\NNFX_OrderTest", "Symbol=EURUSD", "Period=H1", "Model=1", "Deposit=10000", "Leverage=1:100", "FromDate=$From", "ToDate=$To",
       "ForwardMode=0", "Optimization=0", "Visual=0", "Report=NNFX_RestartTest_$name", "ReplaceReport=1", "ShutdownTerminal=1",
       "[TesterInputs]") + $lines | Set-Content -LiteralPath $ini -Encoding ASCII
     # Up to 3 tries. If the tested terminal is already open (not started by this script; run
@@ -103,10 +106,12 @@ Step "base run (no restart)" ($n -eq 0) "$n REBUILD rows (must be 0) - $b"
 if ($n -ne 0) { $Summary | Set-Content "$Out\SUMMARY.txt" -Encoding ASCII; exit 1 }
 $pick = Py @("$Repo\tools\pick_restart_times.py", $b)
 $pick.Text | Set-Content "$Out\pick_restart_times.txt" -Encoding ASCII
-$times = @{}
+$times = @{}; $trades = @{}
 foreach ($line in ($pick.Text -split "`r`n")) {
     $m = [regex]::Match($line, "^(R\d) (\d{4}\.\d\d\.\d\d \d\d:\d\d(:\d\d)?)")
     if ($m.Success) { $times[$m.Groups[1].Value] = $m.Groups[2].Value.Substring(0, 16) }
+    $m = [regex]::Match($line, "^(R\d) \S+ \S+ trade T(\d+)$")
+    if ($m.Success) { $trades[$m.Groups[1].Value] = [int]$m.Groups[2].Value }
 }
 Step "restart times picked" ($pick.Code -eq 0) (($times.Keys | Sort-Object | ForEach-Object { "$_ $($times[$_])" }) -join "; ")
 
@@ -141,6 +146,33 @@ foreach ($r in $runs) {
         $m = [regex]::Match($k.Text, "fallback IDs (T\d+ -> R\d+)")
         Step "$($r.Name) fallback ID used and logged" $m.Success $(if ($m.Success) { $m.Groups[1].Value } else { "no fallback ID mapping in the rebuild" })
     }
+}
+
+# G1_review2_1 F1/F2: the two restart cases, each with a test hook on ONE trade that lasts until the restart, so the
+# run differs from the base from that trade on and is checked by tools/check_restart_cases.py instead of compared.
+#   R5  every breakeven move of the R2 trade refused until the restart: the rebuild must set it (or close half 2)
+#   R6  the first trade ABORTs and its half 1's close is refused until the restart: the rebuild must close half 1
+$cases = @(
+    @{ Name = "R5_be_restored"; Pick = "R5"; Hook = "InpBeHoldOn"; Case = "be" },
+    @{ Name = "R6_abort_leftover"; Pick = "R6"; Hook = "InpAbortHoldOn"; Case = "abort" }
+)
+foreach ($r in $cases) {
+    $at = $times[$r.Pick]; $k = $trades[$r.Pick]
+    if (-not $at -or -not $k) { Step "$($r.Name) restart" $false "no restart time or trade picked ($($r.Pick))"; continue }
+    $id = "T{0:D4}" -f $k
+    $f = Run-Tester $r.Name @("InpRestartAt=$at", "$($r.Hook)=$k")
+    if (-not $f) { Step "$($r.Name) restart at $at" $false "no fresh trade log"; continue }
+    $n = Rebuild-Rows $f
+    Step "$($r.Name) restarted once" ($n -eq 1) "$n REBUILD rows (must be 1); $($r.Hook)=$k ($id), restart $at"
+    $c = Py @("$Repo\tools\check_restart_cases.py", $r.Case, $f, "--trade", $id)
+    $c.Text | Set-Content "$Out\$($r.Name).check.txt" -Encoding ASCII
+    $res = ([regex]::Matches($c.Text, "(?m)^RESULT.*$") | Select-Object -Last 1).Value
+    $inf = ([regex]::Matches($c.Text, "(?m)^INFO.*$") | Select-Object -First 1).Value
+    Step "$($r.Name) check_restart_cases $($r.Case)" ($c.Code -eq 0) ($res.Trim() + $(if ($inf) { " | " + $inf.Trim() }))
+    $kk = Py @("$Repo\tools\compare_runs.py", "rebuilds", $f)
+    $kk.Text | Set-Content "$Out\$($r.Name).rebuilds.txt" -Encoding ASCII
+    $res = ([regex]::Matches($kk.Text, "(?m)^RESULT.*$") | Select-Object -Last 1).Value
+    Step "$($r.Name) rebuilt = before" ($kk.Code -eq 0) $res.Trim()
 }
 Say ""
 Say $(if ($AllPass) { "OVERALL: PASS" } else { "OVERALL: NOT ALL PASSED (see the lines above)" })
