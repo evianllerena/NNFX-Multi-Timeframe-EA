@@ -2,7 +2,7 @@
 
 Where the project stands. Update this file in every PR.
 
-Last updated: 2026-10-14.
+Last updated: 2026-10-16.
 
 ## Phases
 
@@ -17,7 +17,7 @@ Last updated: 2026-10-14.
 | Review 2026-10-13 | Every claim checked against the code: `docs/REVIEW_OPUS_2026-10-14.md`. **First fix set** (A7 hedging only, B3 no pointless retries, A10 ATR 0 refused, A4 fill price initialised, N-1 trail setting reaches the order side) on branch `review-fixes-1` (into `phase-6f-ea`, draft PR #12): Python 201 tests OK, 4/4 Python planted bugs caught. On the owner PC 2026-10-14 (3feaaf7, MT5 build 6246): compiled 18 of 18 with 0 errors, 0 warnings, `run_phase5_checks.ps1` run `20261014_151945` `OVERALL: PASS` (SafetyTest 43/43, OrderMathTest 22/22); 4-month H1 tester run with `InpTrailOn=false` (`ea_trailoff_h1_4m_20261014_152457`) PASS, `check_trades.py --trail-off` PASS (no TRAILON/TRAIL, BE 22); 3 of 3 MT5 planted bugs caught (`planted_rf1_20261014_152606`). **Gate: packet `G1_review1_1`, waiting for the verdict.** Next fix sets proposed (not started): A1 + A8 (pending-action retries), A5, then A2 + A3 restart fixes with `recovery.py` in lockstep |
 | Review fixes set 2 | Branch `review-fixes-2` (base `review-fixes-1`), under OWN-1 (owner, 2026-10-14: steps 1-6 unattended; stacked branches, never merged by Claude). RV-A7b (hedging check after login), RV-A1 (breakeven retried; half 2 closed at market if the price has passed it), RV-A8 (closes price-checked and retried, failed ones pending). On 2738a0f: runner `20261014_161353` OVERALL PASS (OrderMathTest 41/41; both retry paths seen in the order run), restart test `restart_20261014_162207` PASS, 6f planted bugs 12 of 12, cold start on the demo PASS. **Gate: packet `G1_review2_1`.** |
 | 7 Bar-by-bar cross-check (Check 1b) | Branch `phase-7-crosscheck` (base `review-fixes-2`), under OWN-1. `tools/check_replay.py` replays the EA's logged inputs through the answer key: **0 mismatches** over 10 555 (4-month H1), 319 129 (M30), 160 613 (H1) and 40 203 (H4, 5 years) candles; 3 of 3 planted bugs caught. `tools/summarize_trades.py` (V8, V10, V11, V13). **First backtest look** (exploratory, 2019-2024.02, MetaQuotes data, 1 min OHLC): the reference indicator set has **no edge** (before costs -0.01 to -0.02R per trade on every timeframe; after costs -0.16R M30, -0.09R H1, -0.06R H4): `docs/RESULTS_EXPLORE_2026-10-14.md`. **Gates: `G1_phase7_1` (Phase 7) and `G3_explore_1` (the result).** |
-| 8 Timeframe shootout | **Plan amendments drafted** (`docs/PLAN_PHASE8.md`, P8-1 to P8-11, answering the review's section E: the live broker first, walk-forward windows, 200+ forward trades, expectancy with bootstrap intervals, the R1 gate as a probability, V15 portfolio risk, V16 gap stress). Nothing approved. **Gate: `G2_phase8_1`.** |
+| 8 Timeframe shootout | **Plan amendments drafted** (`docs/PLAN_PHASE8.md`, P8-1 to P8-11, answering the review's section E: the live broker first, walk-forward windows, 200+ forward trades, expectancy with bootstrap intervals, the R1 gate as a probability, V15 portfolio risk, V16 gap stress). Nothing approved. `G2_phase8_1`: CHANGES REQUESTED (F1 numbers not this system's, F2 no fixed horizon for the drawdown gate, F3 forward window used by engineering runs); corrected 2026-10-16 on "apply review": measured R s.d. 0.54-0.64R (`tools/gate_numbers.py`), P8-3 from a stated target (430 forward trades per timeframe), P8-5 over 12 months of trading, forward period ending 2026.06.01 by default. **Gate: `G2_phase8_2`.** |
 | 7 onward | See `docs/SPEC.md` |
 
 **Note (2026-10-04):** PR #4 was merged at `58e2994` on 2026-10-04 15:47 UTC, 4.5 minutes after review
@@ -48,6 +48,11 @@ Read-only EnvCheck on demo 62316800 (`docs/ENVIRONMENT.md`): hedging, EUR accoun
   P8-11 (`docs/PLAN_PHASE8.md`), above all **the live broker** (P8-1: OANDA TMS `.pro` proposed); P7-2
   (`InpTesterDdPause`, tester only); DOC-C5 (dead-market rules left out of backtests); DOC-C6 (T5 as three variants);
   DOC-C7 (keep or drop I-13 (b)'s "C1 and C2 agreeing"); the OD-5 margin buffer (`docs/RESULTS_EXPLORE_2026-10-14.md`).
+- **Phase 8 choices raised by `G2_phase8_1`** (defaults in `docs/PLAN_PHASE8.md`): where the forward period ends (P8-2:
+  2026.06.01, or keep 2026.10.01 and move the engineering runs in-sample); the detection target behind the sample size
+  (P8-3: 0.10R); the drawdown gate's horizon (P8-5: 12 months, or a fixed N trades; at 2% risk M30 and H1 would fail
+  12 months even with a +0.10R edge). Reviewer's notes, not added to the plan: record the first real-tick date per
+  `.pro` pair in the P8-1 EnvCheck; report R per year beside R per trade (P8-4).
 - **C4 (review 2026-10-13): the approval gap.** I-1, I-2, I-3, I-7, I-9 still "awaiting tick" and D5-1 to D5-5
   "pending review", while the code built on them is merged since Phase 4/5. Either tick them in the living rulebook doc
   (then the `docs/RULEBOOK.md` snapshot is refreshed) or record one blanket approval in DECISIONS.
